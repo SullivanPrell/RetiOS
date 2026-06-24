@@ -6,7 +6,9 @@ options:
   deploymentTarget:
     iOS: "17.0"
     macOS: "14.0"
-  xcodeVersion: "26.0"
+  # Generate a broadly-compatible project format (Xcode 16+). Xcode 26 opens it
+  # fine; this lets CI runners (which lag the newest Xcode) read the project too.
+  xcodeVersion: "16.0"
 
 # By default RetiOS consumes the four packages from their published GitHub
 # releases, so the app can be cloned and built on its own.

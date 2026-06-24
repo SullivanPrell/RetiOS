@@ -700,7 +700,11 @@ extension NetworkGraph {
     }
 
     private static func polarPoint(angle: Double, radius: CGFloat) -> CGPoint {
-        CGPoint(x: 0.5 + cos(angle) * radius, y: 0.5 + sin(angle) * radius)
+        // Keep the trig in `Double` throughout: mixing `cos(angle)` (Double) with
+        // a `CGFloat` operand makes `cos`/`sin` overload resolution ambiguous on
+        // newer toolchains. Convert the radius once, compute in Double.
+        let r = Double(radius)
+        return CGPoint(x: 0.5 + cos(angle) * r, y: 0.5 + sin(angle) * r)
     }
 }
 
