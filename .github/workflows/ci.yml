@@ -38,10 +38,18 @@ jobs:
       # destination rather than a named device (e.g. "iPhone 15") so the build
       # doesn't break when GitHub rolls the runner image and the specific device
       # disappears from the installed simulator list.
+      #
+      # Pin ARCHS=arm64: the bundled binary xcframeworks (CI2PD, codec2, opus)
+      # ship an arm64 iOS-simulator slice only (Apple-Silicon-only — the project
+      # targets Apple-Silicon Macs and modern devices). A generic simulator
+      # destination otherwise also builds x86_64, which can't link against those
+      # frameworks. GitHub's macOS runners are Apple Silicon, so arm64 is the
+      # native simulator arch anyway.
       - name: Build (iOS Simulator)
         run: |
           xcodebuild build \
             -project RetiOS.xcodeproj \
             -scheme RetiOS \
             -destination 'generic/platform=iOS Simulator' \
+            ARCHS=arm64 \
             CODE_SIGNING_ALLOWED=NO
