@@ -1,0 +1,583 @@
+import SwiftUI
+import ReticulumSwift
+
+// MARK: - InterfacesView
+
+struct InterfacesView: View {
+    @EnvironmentObject var stack: StackController
+    @State private var showAddSheet = false
+    @State private var showDirectorySheet = false
+    @State private var showYggdrasilSheet = false
+    @State private var showI2PSheet = false
+
+    var body: some View {
+        List {
+            activeSection
+            radioSection
+            overlayNetworksSection
+            addSection
+        }
+        .rnsScreenBackground()
+        .navigationTitle("Interfaces")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showAddSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add Interface")
+            }
+        }
+        .sheet(isPresented: $showAddSheet) {
+            AddInterfaceSheet(mode: .tcp)
+                .environmentObject(stack)
+        }
+        .sheet(isPresented: $showDirectorySheet) {
+            InterfaceDirectorySheet()
+                .environmentObject(stack)
+        }
+        .sheet(isPresented: $showYggdrasilSheet) {
+            AddInterfaceSheet(mode: .yggdrasil)
+                .environmentObject(stack)
+        }
+        .sheet(isPresented: $showI2PSheet) {
+            I2PConfigSheet()
+                .environmentObject(stack)
+        }
+    }
+
+    // MARK: Active interfaces
+
+    private var activeSection: some View {
+        Section {
+            if stack.isRunning, let transport = stack.transport {
+                ForEach(Array(transport.interfaces.enumerated()), id: \.offset) { _, iface in
+                    let isSaved = stack.savedInterfaces.contains(where: { $0.name == iface.name })
+                        || stack.savedI2PConfig?.name == iface.name
+                    InterfaceRow(interface: iface)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            if isSaved {
+                                Button(role: .destructive) {
+                                    stack.removeInterface(named: iface.name)
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
+                            }
+                        }
+                        .contextMenu {
+                            if isSaved {
+                                Button(role: .destructive) {
+                                    stack.removeInterface(named: iface.name)
+                                } label: {
+                                    Label("Remove Interface", systemImage: "trash")
+                                }
+                            }
+                        }
+                }
+            } else {
+                HStack {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Stack starting…")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Active")
+        } footer: {
+            Text("AutoInterface is always active. Added interfaces are restored automatically on next launch.")
+        }
+        .rnsRow()
+    }
+
+    // MARK: Radio hardware
+
+    private var radioSection: some View {
+        Section("Radio Hardware") {
+            NavigationLink(destination: RNodeView()) {
+                Label("RNode (LoRa / BLE)", systemImage: "dot.radiowaves.left.and.right")
+            }
+            NavigationLink(destination: BLEMeshView()) {
+                Label("BLE Mesh", systemImage: "personalhotspot")
+            }
+        }
+        .rnsRow()
+    }
+
+    // MARK: Overlay networks (I2P, Yggdrasil)
+
+    private var overlayNetworksSection: some View {
+        Section {
+            // I2P
+            Button {
+                showI2PSheet = true
+            } label: {
+                HStack {
+                    Label("I2P Network", systemImage: "lock.shield")
+                    Spacer()
+                    if stack.savedI2PConfig != nil {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.rnsSuccess)
+                            .font(.caption)
+                    } else {
+                        Text("Configure")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            // Yggdrasil
+            Button {
+                showYggdrasilSheet = true
+            } label: {
+                Label("Add Yggdrasil Peer…", systemImage: "globe.europe.africa")
+            }
+        } header: {
+            Text("Overlay Networks")
+        } footer: {
+            Text("I2P routes Reticulum over the anonymous I2P network. Yggdrasil is a mesh IPv6 overlay — connect to a peer using its Yggdrasil address.")
+        }
+        .rnsRow()
+    }
+
+    // MARK: Add / reference
+
+    private var addSection: some View {
+        Section {
+            Button {
+                showDirectorySheet = true
+            } label: {
+                Label("Quick Add from Public Directory…", systemImage: "list.bullet.rectangle.portrait")
+            }
+
+            Button {
+                showAddSheet = true
+            } label: {
+                Label("Add TCP / IPv6 Gateway…", systemImage: "network.badge.shield.half.filled")
+            }
+
+            NavigationLink(destination: InterfaceReferenceView()) {
+                Label("Interface types reference", systemImage: "book.pages")
+            }
+        } header: {
+            Text("Add Interface")
+        } footer: {
+            Text("The public directory lists community-run gateways at directory.rns.recipes — pick one to connect with one tap. IPv4 and IPv6 addresses are both supported.")
+        }
+        .rnsRow()
+    }
+}
+
+// MARK: - Interface row
+
+private struct InterfaceRow: View {
+    let interface: any Interface
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: iconName)
+                .frame(width: 28)
+                .foregroundStyle(Color.rnsAccent)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(interface.name)
+                    .font(.body)
+
+                Text(interfaceTypeName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Circle()
+                .fill(Color.rnsSuccess)
+                .frame(width: 8, height: 8)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var iconName: String {
+        let name = interface.name.lowercased()
+        if name.contains("auto") { return "wifi" }
+        if name.contains("ygg") || name.contains("yggdrasil") { return "globe.europe.africa" }
+        if name.contains("i2p") { return "lock.shield" }
+        if name.contains("tcp") { return "network" }
+        if name.contains("udp") { return "bolt.horizontal" }
+        if name.contains("rnode") || name.contains("ble") || name.contains("serial") {
+            return "antenna.radiowaves.left.and.right"
+        }
+        if name.contains("local") { return "bolt.ring.closed" }
+        return "circle.hexagongrid"
+    }
+
+    private var interfaceTypeName: String {
+        String(describing: type(of: interface))
+    }
+}
+
+// MARK: - Add interface sheet (TCP / Backbone / Yggdrasil)
+
+struct AddInterfaceSheet: View {
+    enum Mode {
+        case tcp, backbone, yggdrasil
+
+        var defaultName: String {
+            switch self {
+            case .tcp:        return "TCP Gateway"
+            case .backbone:   return "Backbone Gateway"
+            case .yggdrasil:  return "Yggdrasil Peer"
+            }
+        }
+
+        var defaultPort: String {
+            switch self {
+            case .tcp, .yggdrasil: return "4242"
+            case .backbone:        return "4242"
+            }
+        }
+
+        var hostPlaceholder: String {
+            switch self {
+            case .tcp:       return "hostname or IP (IPv4 or IPv6)"
+            case .backbone:  return "hostname or IP (IPv4 or IPv6)"
+            case .yggdrasil: return "200:xxxx:xxxx:xxxx::1"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .tcp:       return "Add TCP Gateway"
+            case .backbone:  return "Add Backbone Gateway"
+            case .yggdrasil: return "Add Yggdrasil Peer"
+            }
+        }
+
+        var sectionHeader: String {
+            switch self {
+            case .tcp:       return "TCP Gateway"
+            case .backbone:  return "Backbone Gateway"
+            case .yggdrasil: return "Yggdrasil Peer"
+            }
+        }
+
+        var footerText: String {
+            switch self {
+            case .tcp:
+                return "Connects RetiOS to a remote Reticulum node over TCP. Both IPv4 addresses and IPv6 addresses (with or without brackets) are accepted."
+            case .backbone:
+                return "BackboneInterface is optimised for high-bandwidth links (1 MB MTU)."
+            case .yggdrasil:
+                return "Enter the Yggdrasil IPv6 address of a peer node (starts with 200:). Reticulum routes normally over the Yggdrasil IPv6 mesh."
+            }
+        }
+
+        var savedKind: StackController.SavedInterfaceKind {
+            switch self {
+            case .tcp:       return .tcp
+            case .backbone:  return .backbone
+            case .yggdrasil: return .yggdrasil
+            }
+        }
+
+        var interfaceTypeLabel: String {
+            switch self {
+            case .tcp:       return "TCPClientInterface"
+            case .backbone:  return "BackboneInterface"
+            case .yggdrasil: return "TCPClientInterface (Yggdrasil)"
+            }
+        }
+    }
+
+    let mode: Mode
+
+    @EnvironmentObject var stack: StackController
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var host = ""
+    @State private var port: String
+    @State private var name: String
+    @State private var errorMessage: String?
+    @FocusState private var portFocused: Bool
+
+    init(mode: Mode) {
+        self.mode = mode
+        _name = State(initialValue: mode.defaultName)
+        _port = State(initialValue: mode.defaultPort)
+    }
+
+    private var canAdd: Bool {
+        !host.trimmingCharacters(in: .whitespaces).isEmpty && stack.isRunning
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("Type") { Text(mode.interfaceTypeLabel) }
+                    TextField("Name", text: $name)
+                    TextField("Host", text: $host, prompt: Text(mode.hostPlaceholder))
+                        .autocorrectionDisabled()
+                        .rnsNoAutocapitalization()
+                        #if os(iOS)
+                        .keyboardType(.URL)
+                        #endif
+                    TextField("Port", text: $port)
+                        #if os(iOS)
+                        .keyboardType(.numberPad)
+                        #endif
+                        .focused($portFocused)
+                } header: {
+                    Text(mode.sectionHeader)
+                } footer: {
+                    if !stack.isRunning {
+                        Text("Waiting for Reticulum stack to start…")
+                            .foregroundStyle(Color.rnsWarning)
+                    } else {
+                        Text(mode.footerText)
+                    }
+                }
+                .rnsRow()
+
+                if let err = errorMessage {
+                    Section {
+                        Label(err, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(Color.rnsError)
+                    }
+                    .rnsRow()
+                }
+            }
+            .rnsScreenBackground()
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle(mode.title)
+            .rnsInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") { addInterface() }
+                        .disabled(!canAdd)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { portFocused = false }
+                }
+            }
+        }
+    }
+
+    private func addInterface() {
+        // Strip square brackets from IPv6 literals and trim whitespace.
+        let rawHost = host.trimmingCharacters(in: .whitespaces)
+        let trimHost = StackController.normalizeHost(rawHost)
+        let trimName = name.trimmingCharacters(in: .whitespaces).isEmpty
+                       ? mode.defaultName
+                       : name.trimmingCharacters(in: .whitespaces)
+        guard let portNum = UInt16(port), portNum > 0 else {
+            errorMessage = "Port must be a number between 1 and 65535."
+            return
+        }
+        guard let transport = stack.transport else {
+            errorMessage = "Stack is not running yet."
+            return
+        }
+
+        let iface: any Interface
+        switch mode {
+        case .backbone:
+            iface = BackboneInterface(name: trimName, host: trimHost, port: portNum)
+        case .tcp, .yggdrasil:
+            iface = TCPClientInterface(name: trimName, host: trimHost, port: portNum)
+        }
+        transport.register(interface: iface)
+        do {
+            try iface.start()
+            stack.saveInterface(name: trimName, host: trimHost, port: portNum, kind: mode.savedKind)
+            dismiss()
+        } catch {
+            transport.halt(interfaceName: trimName)
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - I2P configuration sheet
+
+struct I2PConfigSheet: View {
+    @EnvironmentObject var stack: StackController
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name: String = ""
+    @State private var peersText: String = ""
+    @State private var connectable: Bool = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                configSection
+                peersSection
+
+                if let err = errorMessage {
+                    Section {
+                        Label(err, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(Color.rnsError)
+                    }
+                    .rnsRow()
+                }
+            }
+            .rnsScreenBackground()
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("I2P Network")
+            .rnsInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { saveConfig() }
+                }
+            }
+            .onAppear { loadExistingConfig() }
+        }
+    }
+
+    // MARK: Sections
+
+    private var configSection: some View {
+        Section {
+            TextField("Name", text: $name)
+            Toggle("Accept incoming connections (coming soon)", isOn: $connectable)
+                .disabled(true)
+        } header: {
+            Text("Interface")
+        } footer: {
+            Text("The embedded i2pd daemon starts automatically with Reticulum and provides an anonymous I2P tunnel. Add peer b32 addresses below to dial out — outbound connections are fully supported. Inbound accept is not yet implemented.")
+        }
+        .rnsRow()
+    }
+
+    private var peersSection: some View {
+        Section {
+            TextEditor(text: $peersText)
+                .font(.caption.monospaced())
+                .frame(minHeight: 120)
+                .autocorrectionDisabled()
+                .rnsNoAutocapitalization()
+        } header: {
+            Text("Peers (b32 addresses)")
+        } footer: {
+            Text("One b32 address per line, e.g. abc123xyz…qrs.b32.i2p")
+        }
+        .rnsRow()
+    }
+
+    // MARK: Actions
+
+    private func loadExistingConfig() {
+        guard let config = stack.savedI2PConfig else {
+            name = "I2P"
+            return
+        }
+        name = config.name
+        peersText = config.peers.joined(separator: "\n")
+        connectable = config.connectable
+    }
+
+    private func saveConfig() {
+        let trimName = name.trimmingCharacters(in: .whitespaces).isEmpty ? "I2P" : name.trimmingCharacters(in: .whitespaces)
+        let peers = peersText
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        let config = StackController.SavedI2PConfig(name: trimName, peers: peers, connectable: connectable)
+        stack.saveI2PConfig(config)
+        dismiss()
+    }
+}
+
+// MARK: - Interface reference
+
+private struct InterfaceReferenceView: View {
+    struct InterfaceType: Identifiable {
+        let id = UUID()
+        let name: String
+        let icon: String
+        let description: String
+        let swiftStatus: String
+    }
+
+    private let types: [InterfaceType] = [
+        .init(name: "AutoInterface", icon: "wifi",
+              description: "UDP multicast on the local LAN. Automatically discovers nearby Reticulum nodes. Works on the same subnet without any configuration.",
+              swiftStatus: "Complete"),
+        .init(name: "TCPClientInterface", icon: "network",
+              description: "Connects to a remote Reticulum node or gateway over TCP. Accepts IPv4 and IPv6 addresses. Use this to bridge to the internet mesh.",
+              swiftStatus: "Complete"),
+        .init(name: "TCPServerInterface", icon: "server.rack",
+              description: "Listens for inbound TCP connections. Lets other nodes connect to this device.",
+              swiftStatus: "Complete"),
+        .init(name: "UDPInterface", icon: "bolt.horizontal",
+              description: "Point-to-point or broadcast UDP over IPv4 or IPv6. Useful for custom radio links and tunnels.",
+              swiftStatus: "Complete"),
+        .init(name: "Yggdrasil (TCP/IPv6)", icon: "globe.europe.africa",
+              description: "Reticulum over Yggdrasil — a cryptographic mesh IPv6 network. Uses TCPClientInterface with the peer's Yggdrasil IPv6 address (200::/7 range). No special interface type needed.",
+              swiftStatus: "Complete"),
+        .init(name: "RNodeInterface", icon: "antenna.radiowaves.left.and.right",
+              description: "RNode LoRa hardware over BLE or USB serial. Physical radio mesh.",
+              swiftStatus: "In progress"),
+        .init(name: "I2PInterface", icon: "lock.shield",
+              description: "Routes traffic through the I2P anonymity network using an embedded i2pd daemon. Works on iOS and macOS — run build_ci2pd_ios.sh once to add the iOS xcframework slice.",
+              swiftStatus: "Complete"),
+        .init(name: "LocalInterface", icon: "bolt.ring.closed",
+              description: "Connects to an existing rnsd daemon running on the same machine (macOS / Linux).",
+              swiftStatus: "Complete"),
+    ]
+
+    var body: some View {
+        List(types) { t in
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Image(systemName: t.icon)
+                        .foregroundStyle(Color.rnsAccent)
+                        .frame(width: 24)
+                    Text(t.name)
+                        .font(.headline)
+                    Spacer()
+                    statusBadge(t.swiftStatus)
+                }
+                Text(t.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+            .rnsRow()
+        }
+        .rnsScreenBackground()
+        .navigationTitle("Interface Types")
+        .rnsInlineNavigationTitle()
+    }
+
+    private func statusBadge(_ status: String) -> some View {
+        Text(status)
+            .font(.caption2.bold())
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(statusColor(status).opacity(0.15))
+            .foregroundStyle(statusColor(status))
+            .clipShape(Capsule())
+    }
+
+    private func statusColor(_ s: String) -> Color {
+        switch s {
+        case "Complete":    return .rnsSuccess
+        case "In progress": return .rnsWarning
+        case "macOS only":  return .rnsAccent
+        default:            return .rnsTextMuted
+        }
+    }
+}

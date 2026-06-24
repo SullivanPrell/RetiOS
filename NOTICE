@@ -1,0 +1,16 @@
+RetiOS
+Copyright (c) 2026 RetiOS contributors
+
+RetiOS is a Reticulum client for Apple platforms. It builds on Swift ports of
+Mark Qvist's Reticulum ecosystem:
+
+  Reticulum — https://github.com/markqvist/Reticulum
+  LXMF       — https://github.com/markqvist/LXMF
+  LXST       — https://github.com/markqvist/LXST
+  NomadNet   — https://github.com/markqvist/NomadNet
+
+via the ReticulumSwift, LXMFSwift, LXSTSwift, and NomadNetSwift packages. Those
+packages bundle additional third-party components (i2pd, codec2, opus); see each
+package's NOTICE / THIRD-PARTY documentation for their licenses.
+
+RetiOS is distributed under the Reticulum License (see LICENSE).

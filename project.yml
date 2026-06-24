@@ -1,0 +1,125 @@
+# XcodeGen specification. Run `xcodegen generate` in this directory to
+# materialize `RetiOS.xcodeproj`.
+name: RetiOS
+options:
+  bundleIdPrefix: dev.sprell
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  xcodeVersion: "26.0"
+
+# By default RetiOS consumes the four packages from their published GitHub
+# releases, so the app can be cloned and built on its own.
+#
+# To develop the whole stack at once, check the four package repos out as
+# sibling directories and switch these entries to local paths, e.g.:
+#     ReticulumSwift:
+#       path: ../ReticulumSwift
+# then re-run `xcodegen generate`. (Or add them as local packages in Xcode via
+# File ▸ Add Package Dependencies… ▸ Add Local…, which overrides the remote ref.)
+packages:
+  ReticulumSwift:
+    url: https://github.com/SullivanPrell/ReticulumSwift.git
+    from: 1.0.0
+  LXMFSwift:
+    url: https://github.com/SullivanPrell/LXMFSwift.git
+    from: 1.0.0
+  LXSTSwift:
+    url: https://github.com/SullivanPrell/LXSTSwift.git
+    from: 1.0.0
+  NomadNetSwift:
+    url: https://github.com/SullivanPrell/NomadNetSwift.git
+    from: 1.0.0
+
+targets:
+  RetiOS:
+    type: application
+    # Multi-destination target (Xcode 16+ "Multiplatform App" style): one
+    # target compiles natively for iPhone, iPad, AND Mac — replacing the old
+    # `platform: iOS` setup, under which the only way to run on a Mac was
+    # Apple Silicon's "Designed for iPad" compatibility shim (the unmodified
+    # iOS binary in a resizable window — what the BLE mesh logs were actually
+    # exercising). The codebase already has real `#if os(macOS)` branches
+    # (`StackController`'s daemon-probe, `SettingsView`'s `NSPasteboard`
+    # clipboard helper, `RNSBrand`/`IdentityView`'s AppKit imports) that were
+    # previously dead code — `SDKROOT = iphoneos` meant `os(macOS)` could
+    # never be true at compile time. Declaring `macOS` here is what finally
+    # lets that code compile and run for real, as a genuine native Mac app
+    # (its own SDK, AppKit-hosted, proper window chrome) rather than an iPad
+    # app wearing a Mac's clothes.
+    supportedDestinations: [iOS, macOS]
+    deploymentTarget:
+      iOS: "17.0"
+      macOS: "14.0"
+    sources:
+      - path: RetiOS
+    info:
+      path: RetiOS/Info.plist
+      # NOTE: kept in sync with the live `Info.plist` BY HAND — `xcodegen
+      # generate` *regenerates* (overwrites, doesn't merge) the file at
+      # `path` from exactly these properties. Letting this drift from the
+      # real file — as it had, until this edit — means the next regenerate
+      # silently regresses every key added straight to the plist via Xcode's
+      # UI back to whatever's written here. Lost like this once already:
+      # the BLE-mesh-aware Bluetooth description, the location-usage string
+      # (Map tab), and the `bluetooth-central`/`bluetooth-peripheral`
+      # background modes BLE Mesh needs to keep meshing while backgrounded.
+      properties:
+        NSBluetoothAlwaysUsageDescription: "RetiOS uses Bluetooth to communicate with RNode LoRa hardware and to mesh directly with nearby devices over BLE."
+        NSMicrophoneUsageDescription: "RetiOS uses the microphone for voice calls over the mesh."
+        NSLocalNetworkUsageDescription: "RetiOS uses the local network to discover and communicate with nearby Reticulum nodes."
+        NSLocationWhenInUseUsageDescription: "RetiOS shows your position on the map and can include it when sharing location with the mesh."
+        NSBonjourServices:
+          - "_rnsd._tcp"
+          - "_rnsd._udp"
+        UIBackgroundModes:
+          - fetch
+          - network-authentication
+          - bluetooth-central
+          - bluetooth-peripheral
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.sprell.retios
+        # Set your own Apple Developer Team ID here (or select your team in
+        # Xcode ▸ Signing & Capabilities). Left blank for open-source builds.
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # Now that `macOS` is a first-class destination with its own native
+        # build, turn off the "run the iOS binary as-is on Apple Silicon"
+        # compatibility shim — leaving it on would offer two confusingly
+        # similar Mac destinations ("My Mac" and "My Mac (Designed for
+        # iPad)") and risk Xcode/the user picking the wrong one out of habit,
+        # silently undoing the whole point of this change.
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: "NO"
+        ENABLE_PREVIEWS: "YES"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - package: ReticulumSwift
+        product: ReticulumSwift
+      - package: LXMFSwift
+        product: LXMF
+      - package: LXSTSwift
+        product: LXST
+      - package: NomadNetSwift
+        product: NomadNet
+
+  RetiOSTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: RetiOSTests
+    settings:
+      base:
+        # Both are required for `xcodebuild test` to pass: without an explicit
+        # team + automatic signing the test bundle fails code signing, and
+        # without a generated Info.plist the bundle is rejected at load time.
+        GENERATE_INFOPLIST_FILE: "YES"
+        CODE_SIGN_STYLE: Automatic
+        # Set your own Apple Developer Team ID (or select it in Xcode).
+        DEVELOPMENT_TEAM: ""
+    dependencies:
+      - target: RetiOS
