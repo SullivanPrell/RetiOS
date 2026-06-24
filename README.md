@@ -1,5 +1,21 @@
 # RetiOS
 
+> **Reticulum is the work of [Mark Qvist](https://github.com/markqvist).** RetiOS is an
+> independent, community app built on Swift implementations of his protocols — **not an
+> official Reticulum project**. For Reticulum itself — the protocol specification and the
+> reference (Python) implementation — see
+> **[github.com/markqvist/Reticulum](https://github.com/markqvist/Reticulum)**.
+
+> **Credits & acknowledgements.** RetiOS's app structure and UX were **inspired by**
+> **[Meshtastic-Apple](https://github.com/meshtastic/Meshtastic-Apple)**, the
+> [Meshtastic](https://meshtastic.org) project's iOS/macOS app — thank you to its authors and
+> contributors for showing the way. Many feature ideas were drawn from
+> **[Reticulum MeshChat](https://github.com/liamcottle/reticulum-meshchat)** by
+> [Liam Cottle](https://github.com/liamcottle) and
+> **[MeshChatX](https://github.com/Quad4-Software/MeshChatX)** by
+> [Quad4-Software](https://github.com/Quad4-Software). Our thanks to all of these projects and
+> their authors.
+
 A native [Reticulum](https://reticulum.network) client for iPhone, iPad, and Mac
 — think "Meshtastic for Reticulum." Messaging, voice calls, NomadNet pages, and
 direct device-to-device mesh, all over an encrypted, server-less network.
@@ -75,3 +91,9 @@ are in:
 Released under the **Reticulum License** (no use in harm-capable systems; no use
 for AI/ML training datasets). See [LICENSE](LICENSE) and [NOTICE](NOTICE). RetiOS
 builds on Swift ports of Mark Qvist's Reticulum, LXMF, LXST, and NomadNet.
+
+**On prior art.** RetiOS's structure and UX were *inspired by* the GPL-3.0-licensed
+[Meshtastic-Apple](https://github.com/meshtastic/Meshtastic-Apple) app, but RetiOS is an
+independent implementation that does **not** incorporate its source code — so no GPL-3.0
+obligations attach. (Copyright protects expression, not ideas or layout conventions.) See
+[NOTICE](NOTICE) for full attribution.

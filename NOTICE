@@ -13,4 +13,14 @@ via the ReticulumSwift, LXMFSwift, LXSTSwift, and NomadNetSwift packages. Those
 packages bundle additional third-party components (i2pd, codec2, opus); see each
 package's NOTICE / THIRD-PARTY documentation for their licenses.
 
+Acknowledgements (inspiration only — no source code incorporated):
+
+  Meshtastic-Apple   — https://github.com/meshtastic/Meshtastic-Apple
+                       (GPL-3.0) — RetiOS's app structure/UX took inspiration from
+                       this project. No Meshtastic-Apple source is included, so no
+                       GPL-3.0 obligations attach.
+  Reticulum MeshChat — https://github.com/liamcottle/reticulum-meshchat (Liam Cottle)
+  MeshChatX          — https://github.com/Quad4-Software/MeshChatX (Quad4-Software)
+                       — feature and UX ideas.
+
 RetiOS is distributed under the Reticulum License (see LICENSE).
