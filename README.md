@@ -4,6 +4,7 @@ A native [Reticulum](https://reticulum.network) client for iPhone, iPad, and Mac
 — think "Meshtastic for Reticulum." Messaging, voice calls, NomadNet pages, and
 direct device-to-device mesh, all over an encrypted, server-less network.
 
+[![CI](https://github.com/SullivanPrell/RetiOS/actions/workflows/ci.yml/badge.svg)](https://github.com/SullivanPrell/RetiOS/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platforms-iOS%2017%2B%20%7C%20iPadOS%2017%2B%20%7C%20macOS%2014%2B-blue)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange)](https://swift.org)
 [![License](https://img.shields.io/badge/license-Reticulum-lightgrey)](LICENSE)
