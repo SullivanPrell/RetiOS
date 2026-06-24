@@ -19,11 +19,14 @@ jobs:
         run: xcodegen generate
 
       # Resolves the ReticulumSwift-stack packages from their published releases.
-      # Simulator builds don't require code signing.
+      # Simulator builds don't require code signing. Use a *generic* simulator
+      # destination rather than a named device (e.g. "iPhone 15") so the build
+      # doesn't break when GitHub rolls the runner image and the specific device
+      # disappears from the installed simulator list.
       - name: Build (iOS Simulator)
         run: |
           xcodebuild build \
             -project RetiOS.xcodeproj \
             -scheme RetiOS \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
