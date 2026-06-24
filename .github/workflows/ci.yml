@@ -12,6 +12,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # RetiOS uses iOS 26 SDK APIs (e.g. `tabBarMinimizeBehavior`), guarded at
+      # *runtime* with `if #available(iOS 26, *)`. `#available` doesn't relax the
+      # *compile-time* SDK requirement, so the app must be built with the Xcode
+      # that ships the iOS 26 SDK. The runner image carries it (iOS 26 simulator
+      # runtimes are present) but defaults `xcodebuild` to an older Xcode — so
+      # select the newest installed Xcode explicitly.
+      - name: Select newest Xcode
+        run: |
+          newest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          echo "Installed Xcodes:"; ls -d /Applications/Xcode_*.app 2>/dev/null || true
+          echo "Selecting: $newest"
+          sudo xcode-select -s "$newest/Contents/Developer"
+          xcodebuild -version
+          echo "iOS SDKs:"; xcodebuild -showsdks | grep -i ios || true
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
