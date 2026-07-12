@@ -430,7 +430,9 @@ final class StackController: ObservableObject {
 
     enum SendError: Error, LocalizedError {
         case unknownPeer
-        var errorDescription: String? { "No announce received from this peer yet — cannot send." }
+        var errorDescription: String? {
+            "This peer's keys aren't known yet. They've been requested from the network — try again in a moment."
+        }
     }
 
     // MARK: - Send
@@ -441,8 +443,15 @@ final class StackController: ObservableObject {
               context: ModelContext) throws {
         guard let router = lxmfRouter, let identity = identity else { return }
 
-        // Recall peer identity from the Transport announce store.
+        // Recall peer identity from the Transport announce store. If it isn't
+        // known yet, request a path so the identity can be resolved from the
+        // network (a shared-instance rnsd will answer with a path response),
+        // then fail this attempt — a retry after the response arrives succeeds.
+        // Mirrors NomadNet's Conversation.send(), which now calls
+        // RNS.Transport.request_path(...) on an unknown destination instead of
+        // silently giving up.
         guard let peerIdentity = Identity.recall(destinationHash: peerHash) else {
+            try? transport?.requestPath(for: peerHash)
             throw SendError.unknownPeer
         }
         let source = try Destination(identity: identity, direction: .in,

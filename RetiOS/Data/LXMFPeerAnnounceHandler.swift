@@ -23,6 +23,12 @@ import LXMF
 final class LXMFPeerAnnounceHandler: AnnounceHandler {
     public var aspectFilter: String? { "lxmf.delivery" }
 
+    /// Also receive path responses, so a peer whose path was requested (e.g. when
+    /// the user tries to message a not-yet-known peer) is recorded — with its
+    /// display name — as soon as the path response arrives, without waiting for a
+    /// fresh broadcast announce. Mirrors NomadNet's `receive_path_responses = True`.
+    public var receivePathResponses: Bool { true }
+
     private let context: ModelContext
 
     private let lock = NSLock()
