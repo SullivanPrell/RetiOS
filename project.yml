@@ -22,13 +22,13 @@ options:
 packages:
   ReticulumSwift:
     url: https://github.com/SullivanPrell/ReticulumSwift.git
-    from: 1.0.0
+    from: 1.1.0
   LXMFSwift:
     url: https://github.com/SullivanPrell/LXMFSwift.git
-    from: 1.0.0
+    from: 1.1.0
   LXSTSwift:
     url: https://github.com/SullivanPrell/LXSTSwift.git
-    from: 1.0.0
+    from: 1.1.0
   NomadNetSwift:
     url: https://github.com/SullivanPrell/NomadNetSwift.git
     from: 1.0.0
