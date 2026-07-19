@@ -17,10 +17,18 @@ struct InterfacesView: View {
             overlayNetworksSection
             addSection
         }
+        // Match SettingsView's grouped list treatment (this screen is pushed
+        // from Settings on iPhone) rather than inheriting the default style.
+        #if os(iOS)
+        .listStyle(.insetGrouped)
+        #else
+        .listStyle(.inset)
+        #endif
         .rnsScreenBackground()
         .navigationTitle("Interfaces")
+        .rnsInlineNavigationTitle()
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .rnsTrailing) {
                 Button {
                     showAddSheet = true
                 } label: {
@@ -460,8 +468,6 @@ struct I2PConfigSheet: View {
     private var configSection: some View {
         Section {
             TextField("Name", text: $name)
-            Toggle("Accept incoming connections (coming soon)", isOn: $connectable)
-                .disabled(true)
         } header: {
             Text("Interface")
         } footer: {
@@ -566,7 +572,7 @@ private struct InterfaceReferenceView: View {
                     Text(t.name)
                         .font(.headline)
                     Spacer()
-                    statusBadge(t.swiftStatus)
+                    RNSBadge(text: t.swiftStatus, color: statusColor(t.swiftStatus))
                 }
                 Text(t.description)
                     .font(.caption)
@@ -580,21 +586,10 @@ private struct InterfaceReferenceView: View {
         .rnsInlineNavigationTitle()
     }
 
-    private func statusBadge(_ status: String) -> some View {
-        Text(status)
-            .font(.caption2.bold())
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(statusColor(status).opacity(0.15))
-            .foregroundStyle(statusColor(status))
-            .clipShape(Capsule())
-    }
-
     private func statusColor(_ s: String) -> Color {
         switch s {
         case "Complete":    return .rnsSuccess
         case "In progress": return .rnsWarning
-        case "macOS only":  return .rnsAccent
         default:            return .rnsTextMuted
         }
     }

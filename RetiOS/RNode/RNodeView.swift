@@ -179,7 +179,7 @@ struct RNodeView: View {
 
     @ToolbarContentBuilder
     private var scanToolbar: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItem(placement: .rnsTrailing) {
             if case .scanning = scanner.state {
                 Button("Stop") { scanner.stopScanning() }
             } else if !scanner.state.isOnline {

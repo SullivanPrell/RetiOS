@@ -181,13 +181,7 @@ private struct DirectoryEntryRow: View {
     }
 
     private func badge(_ text: String) -> some View {
-        Text(text)
-            .font(.caption2.bold())
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color.rnsSurfaceRaised)
-            .foregroundStyle(Color.rnsTextMuted)
-            .clipShape(Capsule())
-            .lineLimit(1)
+        // Shared neutral pill (see RNSBadge in RNSBrand).
+        RNSBadge(text: text, color: .rnsTextMuted)
     }
 }

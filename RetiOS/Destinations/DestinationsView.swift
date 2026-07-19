@@ -104,23 +104,11 @@ struct DestinationsView: View {
     }
 
     private var peersEmptyState: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                Image(systemName: "person.2.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 56)
-                Text("No Peers Yet")
-                    .font(.title2.bold())
-                Text("Peers appear automatically as their LXMF announcements arrive across the mesh. Make sure the stack is running and at least one interface is active.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .rnsCanvasBackground()
+        RNSEmptyState(
+            title: "No Peers Yet",
+            systemImage: "person.2.fill",
+            description: "Peers appear automatically as their LXMF announcements arrive across the mesh. Make sure the stack is running and at least one interface is active."
+        )
     }
 }
 
@@ -130,20 +118,13 @@ private struct PeerRow: View {
     let peer: PeerEntity
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            // Name as primary label — fall back to "Unknown Peer" so the hash
-            // is not shown twice when no display name has been received.
-            Text(peer.displayName ?? "Unknown Peer")
-                .font(.headline)
-            Text(peer.destinationHash.truncatedHash)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            (Text(peer.lastSeen, style: .relative) + Text(" ago"))
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.vertical, 2)
+        // Shared identity block: name (or "Unknown Peer") + truncated hash +
+        // relative last-seen — same as the Messages ▸ Peers and call-peer rows.
+        PeerIdentityView(name: peer.displayName ?? "Unknown Peer",
+                         hash: peer.destinationHash,
+                         lastSeen: peer.lastSeen)
+            .padding(.vertical, 2)
+            .accessibilityElement(children: .combine)
     }
 }
 

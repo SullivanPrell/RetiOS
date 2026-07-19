@@ -26,7 +26,7 @@ struct CallsView: View {
             .navigationTitle("Calls")
             .rnsNavigationBar()
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .rnsTrailing) {
                     Button(action: { showNewCall = true }) {
                         Image(systemName: "phone.badge.plus")
                     }
@@ -95,9 +95,10 @@ struct CallsView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
-                Text(callerHash.hexString)
+                Text(callerHash.hexString.truncatedHash)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             HStack(spacing: 40) {
                 VStack(spacing: 8) {
@@ -105,7 +106,7 @@ struct CallsView: View {
                         Image(systemName: "phone.down.fill")
                             .font(.title)
                             .frame(width: 64, height: 64)
-                            .background(Color.red, in: Circle())
+                            .background(Color.rnsError, in: Circle())
                             .foregroundStyle(.white)
                     }
                     .accessibilityLabel("Decline call")
@@ -148,7 +149,7 @@ struct CallsView: View {
                     .font(.title3)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.red)
+            .tint(Color.rnsError)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -166,9 +167,10 @@ struct CallsView: View {
             VStack(spacing: 4) {
                 Text("Connected")
                     .font(.title2.bold())
-                Text(hash.hexString)
+                Text(hash.hexString.truncatedHash)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 Text(since, style: .timer)
                     .foregroundStyle(.secondary)
             }
@@ -184,7 +186,7 @@ struct CallsView: View {
                             // on ANY background in both Light and Dark. (Grouped-tertiary
                             // matched the grouped call screen exactly in Light, making the
                             // circle invisible; plain `Color(.systemGray5)` is UIKit-only.)
-                            .background(calls.isMuted ? AnyShapeStyle(.orange)
+                            .background(calls.isMuted ? AnyShapeStyle(Color.rnsWarning)
                                                       : AnyShapeStyle(.quaternary),
                                         in: Circle())
                             .foregroundStyle(calls.isMuted ? .white : .primary)
@@ -200,7 +202,7 @@ struct CallsView: View {
                         Image(systemName: "phone.down.fill")
                             .font(.title)
                             .frame(width: 64, height: 64)
-                            .background(Color.red, in: Circle())
+                            .background(Color.rnsError, in: Circle())
                             .foregroundStyle(.white)
                     }
                     .accessibilityLabel("End call")
@@ -365,14 +367,7 @@ private struct LXSTPeerRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(peer.destinationHash.truncatedHash)
-                    .font(.body.weight(.medium))
-                    .lineLimit(1)
-                (Text(peer.lastSeen, style: .relative) + Text(" ago"))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+            PeerIdentityView(name: nil, hash: peer.destinationHash, lastSeen: peer.lastSeen)
             Spacer()
             Button {
                 onCall(peer.destinationHash)
@@ -382,9 +377,10 @@ private struct LXSTPeerRow: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
             .tint(.rnsSuccess)
-            .accessibilityLabel("Call \(peer.destinationHash.truncatedHash)")
+            .accessibilityLabel("Call peer")
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
 

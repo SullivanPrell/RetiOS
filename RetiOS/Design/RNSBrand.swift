@@ -359,6 +359,75 @@ struct RNSEmptyState: View {
     }
 }
 
+// MARK: - Status badge (shared pill)
+
+/// A small colored status pill — the shared version of the several hand-rolled
+/// capsule badges that had diverged on padding, corner shape, and color model.
+/// `color` drives both the text and a faint tinted background.
+struct RNSBadge: View {
+    let text: String
+    var color: Color = .rnsAccent
+    var monospaced: Bool = false
+
+    var body: some View {
+        Text(text)
+            .font(monospaced ? .caption2.monospaced().weight(.bold)
+                             : .caption2.weight(.bold))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.18), in: Capsule())
+            .foregroundStyle(color)
+            .lineLimit(1)
+    }
+}
+
+// MARK: - Peer identity block (shared row content)
+
+/// The shared name + hash + last-seen block used by every peer row (Messages
+/// Peers, Destinations, LXST call peers). Unifies three hand-rolled rows that
+/// had diverged on the name font (`.headline` vs `.body.weight(.medium)`). When
+/// `name` is nil the truncated hash becomes the primary label (no duplicate
+/// hash line).
+struct PeerIdentityView: View {
+    let name: String?
+    let hash: String
+    var lastSeen: Date? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(name ?? hash.truncatedHash)
+                .font(.body.weight(.medium))
+                .lineLimit(1)
+            if name != nil {
+                Text(hash.truncatedHash)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            if let lastSeen {
+                Text(lastSeen, style: .relative)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+}
+
+// MARK: - Clipboard
+
+/// Cross-platform "copy this string to the pasteboard" — the single place the
+/// UIPasteboard / NSPasteboard split is handled, replacing the copies that had
+/// been inlined per-view.
+func rnsCopyToPasteboard(_ string: String) {
+    #if os(iOS)
+    UIPasteboard.general.string = string
+    #elseif os(macOS)
+    let pb = NSPasteboard.general
+    pb.clearContents()
+    pb.setString(string, forType: .string)
+    #endif
+}
+
 // MARK: - Hash display helper
 
 extension String {

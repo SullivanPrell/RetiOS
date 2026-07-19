@@ -77,7 +77,7 @@ struct SettingsView: View {
             LabeledContent("Stack") {
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(stack.isRunning ? Color.green : Color.orange)
+                        .fill(stack.isRunning ? Color.rnsSuccess : Color.rnsWarning)
                         .frame(width: 8, height: 8)
                     Text(stack.isRunning ? "Running" : "Idle")
                         .foregroundStyle(.secondary)
@@ -249,7 +249,7 @@ private struct AddressActionRow: View {
 
             // Copy button — briefly shows a checkmark on success.
             Button {
-                copyToClipboard(fullHex)
+                rnsCopyToPasteboard(fullHex)
                 showCopied = true
                 Task {
                     try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -280,14 +280,4 @@ private struct AddressActionRow: View {
     }
 }
 
-// MARK: - Clipboard helper
-
-private func copyToClipboard(_ text: String) {
-    #if os(iOS)
-    UIPasteboard.general.string = text
-    #elseif os(macOS)
-    let pb = NSPasteboard.general
-    pb.clearContents()
-    pb.setString(text, forType: .string)
-    #endif
-}
+// Clipboard is handled by the shared `rnsCopyToPasteboard(_:)` in RNSBrand.

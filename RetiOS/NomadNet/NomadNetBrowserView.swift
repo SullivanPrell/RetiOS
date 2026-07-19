@@ -78,7 +78,7 @@ struct NomadNetBrowserContent: View {
                 if let error = nomadNet.errorMessage, hasPage {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.rnsWarning)
                         .padding(.horizontal, 12)
                         .padding(.top, 8)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -91,18 +91,14 @@ struct NomadNetBrowserContent: View {
             }
         } else if let error = nomadNet.errorMessage {
             // Full-screen error only on initial load failure (no page to show).
-            VStack(spacing: 16) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 40))
-                    .foregroundStyle(.orange)
+            ContentUnavailableView {
+                Label("Page Unavailable", systemImage: "exclamationmark.triangle")
+            } description: {
                 Text(error)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+            } actions: {
                 Button("Retry") { nomadNet.reload() }
                     .buttonStyle(.bordered)
             }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             emptyState
         }

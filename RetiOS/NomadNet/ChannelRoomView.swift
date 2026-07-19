@@ -199,7 +199,7 @@ struct ChannelRoomView: View {
         case .connected:    return .rnsSuccess
         case .connecting:   return .rnsWarning
         case .disconnected: return .secondary
-        case .failed:       return .red
+        case .failed:       return .rnsError
         }
     }
 

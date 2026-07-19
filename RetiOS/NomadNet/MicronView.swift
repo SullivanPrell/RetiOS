@@ -144,14 +144,21 @@ private struct MicronSpanView: View {
             styledText(str, style: style)
         case .link(let link):
             Button(action: { onLinkTapped?(link) }) {
-                styledText(link.label.isEmpty ? link.url : link.label, style: link.style)
-                    .foregroundColor(.blue)
-                    .underline()
+                linkLabel(for: link)
             }
             .buttonStyle(.plain)
         case .field(let field):
             MicronFieldView(field: field, formValues: $formValues)
         }
+    }
+
+    /// Link label: underlined, using the markup's own color when it specifies
+    /// one, otherwise the app accent (the default tappable-link color).
+    /// Previously a hardcoded `.blue` overrode any markup-specified link color.
+    private func linkLabel(for link: MicronLink) -> Text {
+        let text = styledText(link.label.isEmpty ? link.url : link.label, style: link.style)
+            .underline()
+        return link.style.fgColor == .default ? text.foregroundColor(.rnsAccent) : text
     }
 
     private func styledText(_ content: String, style: MicronStyle) -> Text {
@@ -301,7 +308,7 @@ private struct MicronPartialView: View {
         Button(action: { onLinkTapped?(link) }) {
             Label(partial.url, systemImage: "arrow.right.square")
                 .font(.caption.monospaced())
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.rnsAccent)
         }
         .buttonStyle(.plain)
     }

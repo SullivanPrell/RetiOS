@@ -114,13 +114,9 @@ private struct LogEntryRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Text(entry.level.abbreviation)
-                .font(.system(.caption2, design: .monospaced).weight(.bold))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 3)
-                .background(entry.level.levelColor.opacity(0.18))
-                .foregroundStyle(entry.level.levelColor)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+            RNSBadge(text: entry.level.abbreviation,
+                     color: entry.level.levelColor,
+                     monospaced: true)
                 .accessibilityLabel(entry.level.displayName)
 
             VStack(alignment: .leading, spacing: 2) {

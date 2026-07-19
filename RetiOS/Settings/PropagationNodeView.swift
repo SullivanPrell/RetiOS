@@ -19,7 +19,6 @@ struct PropagationNodeView: View {
             if stack.propagationNodeHash != nil {
                 syncSection
             }
-            infoSection
             if let current = stack.propagationNodeHash {
                 currentSection(hash: current)
             }
@@ -51,9 +50,7 @@ struct PropagationNodeView: View {
     private var inputSection: some View {
         Section {
             TextField("32-character hex hash", text: $hashInput)
-                .autocorrectionDisabled()
-                .rnsNoAutocapitalization()
-                .font(.body.monospaced())
+                .rnsHashFieldStyle()
                 .onChange(of: hashInput) { _, new in
                     hashInput = String(new.filter { $0.isHexDigit }.prefix(32))
                     saved = false
@@ -72,7 +69,7 @@ struct PropagationNodeView: View {
                           systemImage: saved ? "checkmark.circle.fill" : "square.and.arrow.down")
                 }
                 .disabled(hashInput.count != 32 || !stack.isRunning)
-                .tint(saved ? .green : .rnsAccent)
+                .tint(saved ? Color.rnsSuccess : .rnsAccent)
 
                 if stack.propagationNodeHash != nil {
                     Spacer()
@@ -83,6 +80,8 @@ struct PropagationNodeView: View {
             }
         } header: {
             Text("Destination Hash")
+        } footer: {
+            Text("An LXMF propagation node stores and forwards messages on behalf of offline recipients. Enter the 32-character destination hash of any publicly reachable propagation server to enable store-and-forward delivery.")
         }
         .rnsRow()
     }
@@ -142,15 +141,6 @@ struct PropagationNodeView: View {
             Text("Messages")
         } footer: {
             Text("Retrieves messages other nodes left for you while you were offline.")
-        }
-        .rnsRow()
-    }
-
-    private var infoSection: some View {
-        Section {
-            Text("An LXMF propagation node stores and forwards messages on behalf of offline recipients. Enter the 32-character destination hash of any publicly reachable propagation server to enable store-and-forward delivery.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
         .rnsRow()
     }

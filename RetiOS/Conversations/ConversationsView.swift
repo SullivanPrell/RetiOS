@@ -44,7 +44,7 @@ struct ConversationsView: View {
             .navigationTitle("Messages")
             .rnsNavigationBar()
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .rnsTrailing) {
                     if section == .contacts {
                         Button { showAddContact = true } label: {
                             Image(systemName: "person.badge.plus")
@@ -251,19 +251,9 @@ private struct LXMFPeerRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                // Name as primary — fall back to "Unknown Peer" rather than echoing the hash.
-                Text(peer.displayName ?? "Unknown Peer")
-                    .font(.body.weight(.medium))
-                // Hash always shown as secondary identifier.
-                Text(peer.destinationHash.truncatedHash)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                (Text(peer.lastSeen, style: .relative) + Text(" ago"))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+            PeerIdentityView(name: peer.displayName ?? "Unknown Peer",
+                             hash: peer.destinationHash,
+                             lastSeen: peer.lastSeen)
             Spacer()
             if peer.isContact {
                 Image(systemName: "person.crop.circle.badge.checkmark")

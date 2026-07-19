@@ -243,9 +243,7 @@ private struct NetworkToolsView: View {
     private var pingSection: some View {
         Section {
             TextField("Destination hash (32 hex chars)", text: $pingTarget)
-                .autocorrectionDisabled()
-                .rnsNoAutocapitalization()
-                .font(.caption.monospaced())
+                .rnsHashFieldStyle()
                 .onChange(of: pingTarget) { _, new in
                     pingTarget = String(new.filter { $0.isHexDigit }.prefix(32))
                     pingResult = nil

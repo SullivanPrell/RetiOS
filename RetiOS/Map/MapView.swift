@@ -53,6 +53,9 @@ struct MapView: View {
             }
             .rnsCanvasBackground()
             .navigationTitle("Map")
+            // Inline title: a large title floating over a full-bleed map reads
+            // awkwardly (cf. Apple Maps, which keeps its title compact).
+            .rnsInlineNavigationTitle()
             .toolbar { toolbarContent }
             .safeAreaInset(edge: .bottom) { sourceBar }
             .onAppear { locationManager.requestAuthorizationIfNeeded() }
