@@ -4,6 +4,8 @@ import CoreLocation
 import ReticulumSwift
 #if os(iOS)
 import UIKit
+#elseif os(macOS)
+import AppKit
 #endif
 
 // MARK: - MapView
@@ -141,6 +143,11 @@ struct MapView: View {
         #if os(iOS)
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
+        #elseif os(macOS)
+        // Route to the Location Services privacy pane so the "Open Settings"
+        // button isn't a dead no-op on the Mac.
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices") else { return }
+        NSWorkspace.shared.open(url)
         #endif
     }
 

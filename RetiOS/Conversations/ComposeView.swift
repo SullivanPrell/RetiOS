@@ -42,7 +42,10 @@ struct ComposeView: View {
                         .rnsHashFieldStyle()
                         .focused($hashFocused)
                         .onChange(of: peerHashInput) { _, new in
-                            peerHashInput = String(new.filter { $0.isHexDigit }.prefix(32))
+                            // Lowercase so a typed/pasted uppercase hash still
+                            // matches stored (lowercase) peer hashes — otherwise
+                            // `selectedPeerName` and the row checkmark silently fail.
+                            peerHashInput = String(new.filter { $0.isHexDigit }.prefix(32)).lowercased()
                         }
                     if let name = selectedPeerName {
                         Label(name, systemImage: "person.crop.circle.badge.checkmark")

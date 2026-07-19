@@ -121,11 +121,14 @@ private struct ComposeBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            // NOTE: no `.onSubmit` here. This is a multiline (`axis: .vertical`)
+            // field, so Return inserts a newline and `.onSubmit` never fires on
+            // iOS — attaching it only misleads. Sending is via the button (and,
+            // on macOS, the ⌘Return keyboard shortcut on that button).
             TextField("Message", text: $draft, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...5)
                 .focused($isFocused)
-                .onSubmit(submit)
 
             Button(action: submit) {
                 Image(systemName: "arrow.up.circle.fill")

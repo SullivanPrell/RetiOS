@@ -15,7 +15,9 @@ struct LogsView: View {
     }
 
     private var exportText: String {
-        logStore.entries.map(\.formatted).joined(separator: "\n")
+        // Export what's visible — respects an active search filter rather than
+        // silently sharing the full, unfiltered log.
+        filtered.map(\.formatted).joined(separator: "\n")
     }
 
     var body: some View {
@@ -28,7 +30,9 @@ struct LogsView: View {
             }
             .listStyle(.plain)
             .rnsScreenBackground()
-            .onChange(of: logStore.entries.count) { _, _ in
+            // Track the filtered list, not the raw entry count, so auto-scroll
+            // follows the last *visible* row while a search filter is active.
+            .onChange(of: filtered.count) { _, _ in
                 guard autoScroll, let last = filtered.last else { return }
                 proxy.scrollTo(last.id, anchor: .bottom)
             }

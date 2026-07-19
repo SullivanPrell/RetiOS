@@ -59,6 +59,9 @@ struct NomadNetBrowserContent: View {
         .padding(.vertical, 8)
         .background(Color.rnsSurface)
         .onReceive(nomadNet.$currentURL.compactMap { $0 }) { url in
+            // Don't clobber text the user is actively editing in the URL bar;
+            // only sync the field to the loaded page when it isn't focused.
+            guard !urlBarFocused else { return }
             urlInput = url.toString()
         }
     }

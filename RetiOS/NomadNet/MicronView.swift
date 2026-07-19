@@ -109,11 +109,15 @@ private struct MicronSpansView: View {
     var onLinkTapped: ((MicronLink) -> Void)?
 
     var body: some View {
+        // NOTE: no trailing `Spacer` here. A `Spacer` would force the HStack to
+        // always fill the available width with content pinned leading, which
+        // silently defeated the `.frame(alignment:)` below — Micron `.center`
+        // and `.right` lines always rendered left. Letting the HStack size to
+        // its intrinsic width lets the frame alignment actually place the line.
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             ForEach(Array(spans.enumerated()), id: \.offset) { _, span in
                 MicronSpanView(span: span, formValues: $formValues, onLinkTapped: onLinkTapped)
             }
-            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: swiftAlignment)
     }
@@ -237,9 +241,10 @@ private struct MicronFieldView: View {
     private var placeholder: String { field.label.isEmpty ? field.name : field.label }
 
     /// Translate the `width` column-count to a SwiftUI point width.
-    /// Assumes monospaced character ≈ 8 pt wide; clamp to [64, 320].
+    /// Assumes monospaced character ≈ 8 pt wide; clamp to [64, 320] so a very
+    /// wide `width` can't overflow / clip its container.
     private var fieldWidth: CGFloat {
-        CGFloat(max(8, field.width)) * 8
+        min(320, CGFloat(max(8, field.width)) * 8)
     }
 
     private var textBinding: Binding<String> {

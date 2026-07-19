@@ -60,7 +60,9 @@ private struct PathTableView: View {
                 }
                 .listStyle(.plain)
                 .rnsScreenBackground()
-                .overlay(alignment: .bottom) {
+                // safeAreaInset (not overlay) so the last row isn't hidden
+                // behind the translucent count bar.
+                .safeAreaInset(edge: .bottom) {
                     Text("\(paths.count) path\(paths.count == 1 ? "" : "s")")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -159,7 +161,9 @@ private struct AnnouncesView: View {
                 }
                 .listStyle(.plain)
                 .rnsScreenBackground()
-                .overlay(alignment: .bottom) {
+                // safeAreaInset (not overlay) so the last row isn't hidden
+                // behind the translucent count bar.
+                .safeAreaInset(edge: .bottom) {
                     countBar
                 }
             }
@@ -197,6 +201,15 @@ private struct NetworkToolsView: View {
     @State private var pingTarget = ""
     @State private var pingResult: String?
     @State private var isPinging = false
+    @State private var nodeInfo: NodeInfo?
+
+    private struct NodeInfo {
+        let paths: Int
+        let identities: Int
+        let interfaces: Int
+    }
+
+    private let infoRefreshInterval: TimeInterval = 3
 
     var body: some View {
         Form {
@@ -204,6 +217,27 @@ private struct NetworkToolsView: View {
             infoSection
         }
         .rnsScreenBackground()
+        // Node Info counts were read once at render and never updated. Poll on
+        // the same cadence as the Paths/Announces tabs so the figures stay live.
+        .task {
+            refreshNodeInfo()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(infoRefreshInterval))
+                refreshNodeInfo()
+            }
+        }
+    }
+
+    private func refreshNodeInfo() {
+        guard let transport = stack.transport else {
+            nodeInfo = nil
+            return
+        }
+        nodeInfo = NodeInfo(
+            paths: transport.getPathTable().count,
+            identities: transport.knownIdentities.count,
+            interfaces: transport.interfaces.count
+        )
     }
 
     private var pingSection: some View {
@@ -242,17 +276,17 @@ private struct NetworkToolsView: View {
 
     private var infoSection: some View {
         Section("Node Info") {
-            if let transport = stack.transport {
+            if let info = nodeInfo {
                 LabeledContent("Paths known") {
-                    Text("\(transport.getPathTable().count)")
+                    Text("\(info.paths)")
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("Identities known") {
-                    Text("\(transport.knownIdentities.count)")
+                    Text("\(info.identities)")
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("Interfaces") {
-                    Text("\(transport.interfaces.count)")
+                    Text("\(info.interfaces)")
                         .foregroundStyle(.secondary)
                 }
             } else {

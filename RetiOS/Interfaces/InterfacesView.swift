@@ -52,7 +52,11 @@ struct InterfacesView: View {
     private var activeSection: some View {
         Section {
             if stack.isRunning, let transport = stack.transport {
-                ForEach(Array(transport.interfaces.enumerated()), id: \.offset) { _, iface in
+                // Key rows by the interface's unique name, not array offset.
+                // Offset-keyed rows mis-associate identity when an interface is
+                // added/removed (offsets shift), corrupting remove animations
+                // and swipe/context-menu state.
+                ForEach(transport.interfaces, id: \.name) { iface in
                     let isSaved = stack.savedInterfaces.contains(where: { $0.name == iface.name })
                         || stack.savedI2PConfig?.name == iface.name
                     InterfaceRow(interface: iface)
@@ -192,9 +196,12 @@ private struct InterfaceRow: View {
 
             Spacer()
 
+            // Reflect the interface's real online state instead of a hardcoded
+            // green dot — a down/failed interface must not read as "active".
             Circle()
-                .fill(Color.rnsSuccess)
+                .fill(interface.isOnline ? Color.rnsSuccess : Color.rnsTextMuted)
                 .frame(width: 8, height: 8)
+                .accessibilityLabel(interface.isOnline ? "Online" : "Offline")
         }
         .padding(.vertical, 2)
     }
@@ -493,6 +500,14 @@ struct I2PConfigSheet: View {
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
+
+        // Validate the b32 peer addresses. This wires up the error Section that
+        // was previously dead code — malformed lines used to save silently.
+        if let bad = peers.first(where: { !$0.lowercased().hasSuffix(".i2p") }) {
+            errorMessage = "“\(bad)” is not a valid I2P address — addresses must end in .b32.i2p"
+            return
+        }
+        errorMessage = nil
 
         let config = StackController.SavedI2PConfig(name: trimName, peers: peers, connectable: connectable)
         stack.saveI2PConfig(config)

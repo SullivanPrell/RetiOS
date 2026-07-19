@@ -54,6 +54,13 @@ struct DestinationsView: View {
                     }
                     .rnsScreenBackground()
                     .searchable(text: $searchText, prompt: "Name or hash")
+                    // Standard no-results state instead of a blank list when the
+                    // query matches no peer.
+                    .overlay {
+                        if filtered.isEmpty && !searchText.isEmpty {
+                            ContentUnavailableView.search(text: searchText)
+                        }
+                    }
                 }
             }
             .navigationTitle("Peers")
