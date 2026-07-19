@@ -364,10 +364,18 @@ struct RNSEmptyState: View {
 /// A small colored status pill — the shared version of the several hand-rolled
 /// capsule badges that had diverged on padding, corner shape, and color model.
 /// `color` drives both the text and a faint tinted background.
+///
+/// The tinted-background model (`color.opacity(0.18)`) only works when `color`
+/// is a *saturated* color. For neutral metadata badges the caller should pass
+/// `neutral: true`, which uses an opaque `rnsSurfaceRaised` fill with legible
+/// secondary text: deriving the fill from a translucent label color (e.g.
+/// `tertiaryLabel`) instead multiplies down to ~5% alpha, so the pill vanishes
+/// and the text drops below the contrast floor (Labels / Color HIG).
 struct RNSBadge: View {
     let text: String
     var color: Color = .rnsAccent
     var monospaced: Bool = false
+    var neutral: Bool = false
 
     var body: some View {
         Text(text)
@@ -375,8 +383,8 @@ struct RNSBadge: View {
                              : .caption2.weight(.bold))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(color.opacity(0.18), in: Capsule())
-            .foregroundStyle(color)
+            .background(neutral ? Color.rnsSurfaceRaised : color.opacity(0.18), in: Capsule())
+            .foregroundStyle(neutral ? Color.rnsTextSecondary : color)
             .lineLimit(1)
     }
 }

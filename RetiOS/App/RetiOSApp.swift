@@ -124,6 +124,16 @@ struct RetiOSApp: App {
                 n.requestNewCall += 1
             }
             .keyboardShortcut("n", modifiers: [.command, .shift])
+
+            // The Add-Contact-by-hash sheet is otherwise reachable only from the
+            // Messages toolbar; a menu command is required since the toolbar can
+            // be hidden/customized on macOS.
+            Button("New Contact") {
+                let n = NotificationManager.shared
+                n.navigateTo = .messages
+                n.requestAddContact += 1
+            }
+            .keyboardShortcut("n", modifiers: [.command, .control])
         }
 
         CommandMenu("Reticulum") {

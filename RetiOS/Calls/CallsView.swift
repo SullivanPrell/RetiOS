@@ -141,9 +141,10 @@ struct CallsView: View {
                 .scaleEffect(1.5)
             Text("Calling…")
                 .font(.title2)
-            Text(hash.hexString)
+            Text(hash.hexString.truncatedHash)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
             Button(role: .destructive, action: { calls.endCall() }) {
                 Label("Cancel", systemImage: "phone.down.fill")
                     .font(.title3)

@@ -124,6 +124,12 @@ struct ChannelRoomView: View {
                 .rnsNoAutocapitalization()
                 .textFieldStyle(.roundedBorder)
                 .font(.body.monospaced())
+                // Single-line field: Return joins (matches the native submit
+                // convention on both platforms). joinRoom() already no-ops on empty.
+                .onSubmit { joinRoom() }
+                #if os(iOS)
+                .submitLabel(.join)
+                #endif
             Button("Join") { joinRoom() }
                 .buttonStyle(.borderedProminent)
                 .tint(.rnsAccent)
@@ -160,6 +166,9 @@ struct ChannelRoomView: View {
                     .foregroundStyle(composeDraft.trimmingCharacters(in: .whitespaces).isEmpty
                                      ? Color.secondary : Color.rnsAccent)
             }
+            // Ensure the 44x44pt minimum hit region around the 28pt glyph.
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .disabled(composeDraft.trimmingCharacters(in: .whitespaces).isEmpty)
             .keyboardShortcut(.return, modifiers: .command)
             .accessibilityLabel("Send message")

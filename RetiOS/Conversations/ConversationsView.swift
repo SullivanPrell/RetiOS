@@ -77,6 +77,12 @@ struct ConversationsView: View {
             }
             // Menu-bar "File ▸ New Message" (⌘N).
             .onChange(of: notifs.requestCompose) { _, _ in showCompose = true }
+            // Menu-bar "File ▸ New Contact" (⌃⌘N) — switch to the Contacts
+            // section and open the add-by-hash sheet.
+            .onChange(of: notifs.requestAddContact) { _, _ in
+                section = .contacts
+                showAddContact = true
+            }
         }
     }
 }
@@ -312,6 +318,17 @@ private struct ContactsContent: View {
                         try? context.save()
                     } label: {
                         Label("Remove", systemImage: "person.crop.circle.badge.minus")
+                    }
+                }
+                // Right-click / long-press equivalent of the swipe action, so the
+                // Remove action is discoverable on macOS (where swiping is hidden)
+                // — matching the two sibling lists in this same Messages tab.
+                .contextMenu {
+                    Button(role: .destructive) {
+                        contact.isContact = false
+                        try? context.save()
+                    } label: {
+                        Label("Remove Contact", systemImage: "person.crop.circle.badge.minus")
                     }
                 }
                 .rnsRow()

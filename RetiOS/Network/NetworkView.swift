@@ -126,6 +126,15 @@ private struct PathRow: View {
             }
         }
         .padding(.vertical, 2)
+        // The hash is shown truncated; let people copy the full value (e.g. to
+        // paste into the Ping field). Copying the full hash, not the ellipsis form.
+        .contextMenu {
+            Button {
+                rnsCopyToPasteboard(hash)
+            } label: {
+                Label("Copy Hash", systemImage: "doc.on.doc")
+            }
+        }
     }
 }
 
@@ -156,6 +165,13 @@ private struct AnnouncesView: View {
                             Spacer()
                         }
                         .padding(.vertical, 1)
+                        .contextMenu {
+                            Button {
+                                rnsCopyToPasteboard(entry)
+                            } label: {
+                                Label("Copy Hash", systemImage: "doc.on.doc")
+                            }
+                        }
                         .rnsRow()
                     }
                 }
@@ -263,6 +279,7 @@ private struct NetworkToolsView: View {
                 Text(result)
                     .font(.caption.monospaced())
                     .foregroundStyle(result.hasPrefix("✓") ? Color.rnsSuccess : Color.rnsError)
+                    .textSelection(.enabled)
             }
         } header: {
             Text("Path Ping")

@@ -62,7 +62,10 @@ struct InterfaceDirectorySheet: View {
             .refreshable { await load(force: true) }
             .overlay {
                 if entries.isEmpty && loadError == nil {
-                    ProgressView("Loading directory…")
+                    // Unlabeled spinner: the HIG advises against vague labels like
+                    // "Loading…" (and against labeling a spinner at all on macOS).
+                    // The "Public Directory" nav title already supplies context.
+                    ProgressView()
                 } else if let err = loadError, entries.isEmpty {
                     ContentUnavailableView {
                         Label("Couldn't Load Directory", systemImage: "wifi.exclamationmark")
@@ -181,7 +184,9 @@ private struct DirectoryEntryRow: View {
     }
 
     private func badge(_ text: String) -> some View {
-        // Shared neutral pill (see RNSBadge in RNSBrand).
-        RNSBadge(text: text, color: .rnsTextMuted)
+        // Neutral metadata pill — opaque surface fill + secondary text. (Passing
+        // a translucent label color as the tint would render the pill at ~5%
+        // alpha and drop the text below the contrast floor.)
+        RNSBadge(text: text, neutral: true)
     }
 }

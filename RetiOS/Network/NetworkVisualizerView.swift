@@ -80,9 +80,12 @@ struct NetworkVisualizerView: View {
                         .animation(.spring(response: 0.55, dampingFraction: 0.8), value: node.normPosition)
                         // The bubbles were tap-gesture-only and invisible to
                         // VoiceOver — expose each as a labelled, selectable button.
+                        // The label carries the full identifier only when selected
+                        // (mirroring the sighted NodeDetailBar), and the .isSelected
+                        // trait announces the state change on re-focus.
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(accessibilityLabel(for: node))
-                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel(accessibilityLabel(for: node, selected: selectedNodeID == node.id))
+                        .accessibilityAddTraits(selectedNodeID == node.id ? [.isButton, .isSelected] : .isButton)
                         .accessibilityAction {
                             withAnimation(.snappy(duration: 0.2)) {
                                 selectedNodeID = (selectedNodeID == node.id) ? nil : node.id
@@ -113,17 +116,25 @@ struct NetworkVisualizerView: View {
     }
 
     /// VoiceOver description for a graph node (the bubbles are otherwise
-    /// tap-gesture-only and unlabelled).
-    private func accessibilityLabel(for node: NetworkGraph.Node) -> String {
+    /// tap-gesture-only and unlabelled). When `selected`, the full identifier is
+    /// appended so VoiceOver users get the same detail the NodeDetailBar shows
+    /// sighted users (the bubble's own label is truncated).
+    private func accessibilityLabel(for node: NetworkGraph.Node, selected: Bool) -> String {
+        let base: String
         switch node.kind {
         case .me:
-            return "This node, \(node.label)"
+            base = "This node, \(node.label)"
         case .interface(let type):
             let reachable = graph.edges.filter { $0.from == node.id }.count
-            return "\(type.label) interface \(node.label), \(reachable) reachable"
+            base = "\(type.label) interface \(node.label), \(reachable) reachable"
         case .destination(let type, let hops, let active):
-            return "\(type.label) destination \(node.label), \(hops) hop\(hops == 1 ? "" : "s")\(active ? ", active link" : "")"
+            base = "\(type.label) destination \(node.label), \(hops) hop\(hops == 1 ? "" : "s")\(active ? ", active link" : "")"
         }
+        // Only destinations carry a distinct full identifier worth reading out.
+        if selected, case .destination = node.kind {
+            return base + ", full hash \(node.fullID)"
+        }
+        return base
     }
 
     // MARK: Zoom & pan
@@ -289,7 +300,12 @@ struct NetworkVisualizerView: View {
         return VStack(alignment: .leading, spacing: 5) {
             ForEach(ConnectionType.allCases.filter(usedTypes.contains), id: \.self) { type in
                 HStack(spacing: 6) {
-                    Circle().fill(type.color).frame(width: 8, height: 8)
+                    // The same per-type glyph the bubbles use, so the legend keys
+                    // on shape (not just color) to match them.
+                    Image(systemName: type.glyph)
+                        .font(.system(size: 9))
+                        .foregroundStyle(type.color)
+                        .frame(width: 12, alignment: .center)
                     Text(type.label).font(.caption2).foregroundStyle(Color.rnsTextSecondary)
                 }
             }
@@ -407,9 +423,11 @@ private struct NodeBubble: View {
 
     private var iconName: String {
         switch node.kind {
-        case .me:           return "antenna.radiowaves.left.and.right"
-        case .interface:    return "point.3.connected.trianglepath.dotted"
-        case .destination:  return "circle.fill"
+        case .me:                          return "antenna.radiowaves.left.and.right"
+        // Per-type glyph, so connection type is legible without relying on the
+        // bubble's fill color; kind stays encoded by diameter and ring position.
+        case .interface(let type):         return type.glyph
+        case .destination(let type, _, _): return type.glyph
         }
     }
 }
@@ -798,6 +816,24 @@ enum ConnectionType: CaseIterable, Hashable {
         case .i2p:      return "I2P"
         case .serial:   return "Serial / KISS"
         case .other:    return "Other"
+        }
+    }
+
+    /// A distinct SF Symbol per connection type, so type is distinguishable in
+    /// the graph without relying on hue alone (several of the type colors are
+    /// near-identical blues/purples/greens). Used on node bubbles and in the
+    /// legend; node *kind* stays encoded by bubble size and ring position.
+    var glyph: String {
+        switch self {
+        case .tcp:      return "network"
+        case .udp:      return "dot.radiowaves.left.and.right"
+        case .auto:     return "wifi"
+        case .backbone: return "point.3.filled.connected.trianglepath.dotted"
+        case .local:    return "house.fill"
+        case .lora:     return "antenna.radiowaves.left.and.right"
+        case .i2p:      return "lock.shield"
+        case .serial:   return "cable.connector"
+        case .other:    return "questionmark.circle"
         }
     }
 }

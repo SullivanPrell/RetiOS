@@ -51,6 +51,8 @@ final class NotificationManager: NSObject, ObservableObject {
 
     /// Open the New Message composer.
     @Published var requestCompose = 0
+    /// Open the Add Contact (by destination hash) sheet.
+    @Published var requestAddContact = 0
     /// Open the New Call sheet.
     @Published var requestNewCall = 0
     /// Send an LXMF announce now.

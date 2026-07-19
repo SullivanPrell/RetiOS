@@ -26,6 +26,9 @@ struct NomadNetBrowserContent: View {
             Button(action: { nomadNet.goBack() }) {
                 Image(systemName: "chevron.left")
             }
+            // Body-sized chevrons are only ~17pt — pad the hit region to 44x44pt.
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel("Back")
             .disabled(!nomadNet.canGoBack)
             .keyboardShortcut("[", modifiers: .command)
@@ -33,6 +36,8 @@ struct NomadNetBrowserContent: View {
             Button(action: { nomadNet.goForward() }) {
                 Image(systemName: "chevron.right")
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel("Forward")
             .disabled(!nomadNet.canGoForward)
             .keyboardShortcut("]", modifiers: .command)
@@ -44,6 +49,13 @@ struct NomadNetBrowserContent: View {
                 .font(.caption.monospaced())
                 .focused($urlBarFocused)
                 .onSubmit { navigate() }
+                #if os(iOS)
+                // Match the address content and label Return as the load action.
+                // (Not folded into rnsHashFieldStyle — that helper forces a body
+                // font that would enlarge this deliberately compact caption bar.)
+                .keyboardType(.asciiCapable)
+                .submitLabel(.go)
+                #endif
 
             if nomadNet.isLoading {
                 ProgressView()

@@ -135,6 +135,10 @@ private struct ComposeBar: View {
                     .font(.title2)
                     .foregroundStyle(canSend ? Color.rnsAccent : Color.secondary)
             }
+            // The glyph is only ~22pt; give the button the 44x44pt minimum hit
+            // region (contentShape so the whole frame is tappable, not the glyph).
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .disabled(!canSend)
             .keyboardShortcut(.return, modifiers: .command)
             .accessibilityLabel("Send message")

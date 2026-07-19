@@ -517,10 +517,13 @@ struct I2PConfigSheet: View {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
 
-        // Validate the b32 peer addresses. This wires up the error Section that
-        // was previously dead code — malformed lines used to save silently.
+        // Validate the peer addresses. This wires up the error Section that was
+        // previously dead code — malformed lines used to save silently. The
+        // message states the rule the check actually enforces (a `.i2p` suffix,
+        // which covers `.b32.i2p`); base64 destinations are dialed via a separate
+        // path and aren't entered here.
         if let bad = peers.first(where: { !$0.lowercased().hasSuffix(".i2p") }) {
-            errorMessage = "“\(bad)” is not a valid I2P address — addresses must end in .b32.i2p"
+            errorMessage = "“\(bad)” is not a valid I2P address — addresses must end in .i2p (such as a .b32.i2p address)"
             return
         }
         errorMessage = nil
