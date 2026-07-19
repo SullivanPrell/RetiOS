@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SullivanPrell/LXSTSwift.git",
       "state" : {
-        "revision" : "81e4f602f568fed6a7aafbf397805c43d3d1a955",
-        "version" : "1.1.3"
+        "revision" : "1a6d49eeff93671fcf1aaecaac5724f415bde6aa",
+        "version" : "1.1.4"
       }
     },
     {
