@@ -5,6 +5,7 @@ struct LogsView: View {
     @EnvironmentObject var logStore: RNSLogStore
     @State private var searchText = ""
     @State private var autoScroll = true
+    @State private var showClearConfirm = false
 
     private var filtered: [RNSLogEntry] {
         guard !searchText.isEmpty else { return logStore.entries }
@@ -63,7 +64,7 @@ struct LogsView: View {
                 .accessibilityLabel(autoScroll ? "Auto-scroll on" : "Auto-scroll off")
 
                 Button(role: .destructive) {
-                    logStore.clear()
+                    showClearConfirm = true
                 } label: {
                     Image(systemName: "trash")
                 }
@@ -78,6 +79,16 @@ struct LogsView: View {
                 }
                 .accessibilityLabel("Export logs")
             }
+        }
+        .confirmationDialog(
+            "Clear All Logs",
+            isPresented: $showClearConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Clear Logs", role: .destructive) { logStore.clear() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently clears the captured RNS log for this session.")
         }
         .overlay {
             if filtered.isEmpty {

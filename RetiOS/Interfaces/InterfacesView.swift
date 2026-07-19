@@ -60,7 +60,10 @@ struct InterfacesView: View {
                     let isSaved = stack.savedInterfaces.contains(where: { $0.name == iface.name })
                         || stack.savedI2PConfig?.name == iface.name
                     InterfaceRow(interface: iface)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        // allowsFullSwipe:false so a full swipe can't silently
+                        // tear down an interface; the revealed button (and the
+                        // context menu) require a deliberate tap.
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if isSaved {
                                 Button(role: .destructive) {
                                     stack.removeInterface(named: iface.name)

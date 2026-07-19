@@ -11,6 +11,7 @@ struct PropagationNodeView: View {
     @State private var hashInput = ""
     @State private var saved = false
     @State private var validationError: String?
+    @State private var showClearConfirm = false
 
     var body: some View {
         Form {
@@ -26,6 +27,20 @@ struct PropagationNodeView: View {
         .rnsScreenBackground()
         .navigationTitle("Propagation Node")
         .rnsInlineNavigationTitle()
+        .confirmationDialog(
+            "Clear Propagation Node",
+            isPresented: $showClearConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Clear", role: .destructive) {
+                stack.setPropagationNode(nil)
+                hashInput = ""
+                saved = false
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Messages will no longer be stored and forwarded for you while you're offline.")
+        }
         .onAppear {
             hashInput = stack.propagationNodeHash ?? ""
         }
@@ -62,9 +77,7 @@ struct PropagationNodeView: View {
                 if stack.propagationNodeHash != nil {
                     Spacer()
                     Button("Clear", role: .destructive) {
-                        stack.setPropagationNode(nil)
-                        hashInput = ""
-                        saved = false
+                        showClearConfirm = true
                     }
                 }
             }

@@ -8,6 +8,7 @@ struct DestinationsView: View {
     @Query(sort: \PeerEntity.lastSeen, order: .reverse) private var peers: [PeerEntity]
     @State private var searchText = ""
     @State private var lxstError: String?
+    @State private var peerPendingDeletion: PeerEntity?
 
     private var filtered: [PeerEntity] {
         guard !searchText.isEmpty else { return peers }
@@ -28,7 +29,9 @@ struct DestinationsView: View {
                         NavigationLink(destination: MessageThreadView(peerHash: peer.destinationHash)) {
                             PeerRow(peer: peer)
                         }
-                        .swipeActions(edge: .leading) {
+                        // allowsFullSwipe:false so an over-swipe can't auto-start
+                        // a call — the user must tap the revealed Call button.
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
                             Button {
                                 if let hashData = Data(hexString: peer.destinationHash) {
                                     if calls.hasLXSTCallPath(for: hashData) {
@@ -42,10 +45,12 @@ struct DestinationsView: View {
                             }
                             .tint(Color.rnsSuccess)
                         }
-                        .swipeActions(edge: .trailing) {
+                        // allowsFullSwipe:false + a confirmation: removing a peer
+                        // is destructive (drops any nickname/contact status), so
+                        // it shouldn't happen on an accidental full swipe.
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) {
-                                context.delete(peer)
-                                try? context.save()
+                                peerPendingDeletion = peer
                             } label: {
                                 Label("Remove", systemImage: "trash")
                             }
@@ -76,6 +81,24 @@ struct DestinationsView: View {
                 Button("OK", role: .cancel) { lxstError = nil }
             } message: {
                 Text(lxstError ?? "")
+            }
+            .confirmationDialog(
+                "Remove Peer",
+                isPresented: Binding(
+                    get: { peerPendingDeletion != nil },
+                    set: { if !$0 { peerPendingDeletion = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: peerPendingDeletion
+            ) { peer in
+                Button("Remove Peer", role: .destructive) {
+                    context.delete(peer)
+                    try? context.save()
+                    peerPendingDeletion = nil
+                }
+                Button("Cancel", role: .cancel) { peerPendingDeletion = nil }
+            } message: { peer in
+                Text("“\(peer.label)” will be removed along with any nickname you set. They'll reappear if they announce again.")
             }
         }
     }
