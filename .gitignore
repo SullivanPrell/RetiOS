@@ -1,6 +1,7 @@
 .DS_Store
 .build/
 build/
+.spm/
 .swiftpm/
 DerivedData/
 RetiOS.xcodeproj/
