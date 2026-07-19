@@ -1,0 +1,42 @@
+{
+  "originHash" : "69c7e67052fc7e4dd20829abac1f8c6234388dec7aeb43a1f05f6d15abfe5dac",
+  "pins" : [
+    {
+      "identity" : "lxmfswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SullivanPrell/LXMFSwift.git",
+      "state" : {
+        "revision" : "35731676bd56ac55120a08393e2aa6dd4c8b8944",
+        "version" : "1.1.0"
+      }
+    },
+    {
+      "identity" : "lxstswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SullivanPrell/LXSTSwift.git",
+      "state" : {
+        "revision" : "910b1d17b57b519d12e963dbe598c0583cfa71e8",
+        "version" : "1.1.0"
+      }
+    },
+    {
+      "identity" : "nomadnetswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SullivanPrell/NomadNetSwift.git",
+      "state" : {
+        "revision" : "72957d6770766d150e1b67159bcd03a33bf08f23",
+        "version" : "1.1.0"
+      }
+    },
+    {
+      "identity" : "reticulumswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SullivanPrell/ReticulumSwift.git",
+      "state" : {
+        "revision" : "b67c9a35530d708cf6435a5c966d285394902a41",
+        "version" : "1.2.0"
+      }
+    }
+  ],
+  "version" : 3
+}

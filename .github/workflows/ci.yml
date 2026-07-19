@@ -32,9 +32,10 @@ jobs:
 
       # Single source of truth: this is the exact script contributors run locally
       # via `make ci`, so a green build here is reproducible on any dev machine
-      # (and vice-versa). It regenerates the project, resolves the ReticulumSwift
-      # stack to the newest in-range versions (this fresh runner has no cache, so
-      # it always tracks the latest published releases), and builds the iOS
-      # Simulator target pinned to arm64. See scripts/ci.sh for the rationale.
+      # (and vice-versa). It regenerates the project, installs the committed
+      # lockfile (Package.resolved) so the ReticulumSwift stack builds at the
+      # EXACT pinned versions rather than "latest", and builds the iOS Simulator
+      # target pinned to arm64. Bump the pin deliberately with `make update`.
+      # See scripts/ci.sh for the rationale.
       - name: Build (iOS Simulator)
         run: ./scripts/ci.sh

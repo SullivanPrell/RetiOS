@@ -13,30 +13,40 @@ SwiftUI experience on top. Protocol bugs usually belong in a package repo.
 brew install xcodegen
 git clone https://github.com/SullivanPrell/RetiOS.git
 cd RetiOS
-xcodegen generate && open RetiOS.xcodeproj
+make generate && open RetiOS.xcodeproj
 ```
 
 `RetiOS.xcodeproj` is generated and gitignored — never commit it. Edit
-`project.yml` (sources, Info.plist keys, settings) and regenerate.
+`project.yml` (sources, Info.plist keys, settings) and run `make generate` (a
+bare `xcodegen generate` also works, but `make generate` additionally installs
+the pinned dependency lockfile — see below).
 
-## Reproducing CI locally
+## Reproducible builds & the package lockfile
 
-CI and `make ci` run the **same script** (`scripts/ci.sh`), so a green run
-locally means a green run on CI:
+Dependency versions are **pinned** in a committed lockfile, `Package.resolved`
+(at the repo root, since the generated `RetiOS.xcodeproj` is gitignored). CI and
+every dev machine build the *exact* same ReticulumSwift-stack versions — no
+silent drift to "latest". `make generate` installs the lockfile into the
+generated project, and CI and `make ci` run the same `scripts/ci.sh`, which
+enforces it (`-onlyUsePackageVersionsFromResolvedFile`), so a green `make ci`
+means a green CI:
 
 ```sh
-make ci        # regenerate, resolve the stack to the LATEST in-range versions, build (iOS Simulator)
-make ci-fast   # same build, reusing already-resolved packages (fast; may lag CI's versions)
+make ci        # reproducible build against the pinned lockfile (iOS Simulator) — run before pushing
 ```
 
-Run `make ci` before pushing. It matters because the CI runner is cacheless and
-always resolves the ReticulumSwift stack to the newest versions allowed by the
-`from:` pins in `project.yml`, whereas a normal local build silently reuses
-whatever SwiftPM already cached — which can pin you to an older version and pass
-locally while failing on CI (e.g. when a package ships a new API). `make ci`
-forces that same latest-version resolve into an isolated `.spm/` cache, printing
-exactly which versions it used. Binary xcframeworks are reused between runs, so
-it's fast unless a package actually bumps.
+To move to newer package versions, do it **deliberately**:
+
+```sh
+make update    # resolve the stack to the latest in-range versions, verify the build, rewrite Package.resolved
+```
+
+`make update` prints exactly which versions changed; review the diff and commit
+`Package.resolved`. This is the only thing that changes what RetiOS builds
+against, so a dependency bump is always a reviewable commit rather than a
+surprise. (Resolution is isolated to a gitignored `.spm/` cache; binary
+xcframeworks are reused between runs, so updates are fast unless a package
+actually changed.)
 
 ## Working on a package and the app together
 

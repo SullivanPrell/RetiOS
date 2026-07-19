@@ -2,55 +2,44 @@
 #
 # Reproduce the GitHub Actions CI build (.github/workflows/ci.yml) locally.
 #
-# This script is the single source of truth for the build: CI calls it too, so a
+# This script is the single source of truth for the build: CI runs it too, so a
 # green run here means a green run on CI.
 #
-# WHY THIS EXISTS
-# ---------------
-# CI runs on a fresh, cacheless runner, so it always regenerates the Xcode
-# project from project.yml and resolves the Swift packages to the NEWEST
-# versions allowed by the `from:` constraints (e.g. ReticulumSwift 1.2.0). A
-# normal local build silently reuses whatever SwiftPM already cached, which can
-# pin you to an OLDER version and diverge from CI — the exact drift that turned a
-# locally-green branch red on CI when ReticulumSwift 1.2.0 shipped a new enum
-# case. This script forces the same fresh, latest-version resolve.
+# REPRODUCIBLE BY DESIGN
+# ----------------------
+# The build uses the EXACT package versions pinned in the committed lockfile
+# (./Package.resolved), installed into the generated project by scripts/generate.sh
+# and enforced with -onlyUsePackageVersionsFromResolvedFile. CI and every dev
+# machine therefore build byte-for-byte the same dependency versions, regardless
+# of what newer releases exist. To deliberately move to newer versions, run
+# `make update` (scripts/update-packages.sh), which rewrites Package.resolved.
 #
 # USAGE
-#   scripts/ci.sh            # regenerate, resolve to the LATEST in-range packages, build (default)
-#   FRESH=0 scripts/ci.sh    # reuse already-resolved packages (fast iteration; may lag CI)
+#   scripts/ci.sh            # regenerate, install the pinned lockfile, build (iOS Simulator)
 #   scripts/ci.sh -quiet     # extra args are forwarded to the final `xcodebuild build`
 #
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-FRESH="${FRESH:-1}"                # 1 (default) = re-fetch latest in-range packages, like CI
 SPM_DIR="${SPM_DIR:-.spm}"         # project-local package clone dir, isolated from Xcode's global cache
 RESOLVED="RetiOS.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
 
 step() { printf '\n\033[1;36m▸ %s\033[0m\n' "$*"; }
 
-step "xcodegen generate  (regenerate RetiOS.xcodeproj from project.yml, like CI)"
-xcodegen generate
+step "generate project + install the pinned lockfile (scripts/generate.sh)"
+scripts/generate.sh
 
-if [[ "$FRESH" == "1" ]]; then
-  step "forcing a fresh resolve to the latest in-range packages"
-  # Re-clone the git mirrors/checkouts (tiny — a few MB) so SwiftPM sees the
-  # newest published tags, and drop the resolved pins so it re-resolves. The
-  # downloaded binary xcframeworks in $SPM_DIR/artifacts are KEPT: SwiftPM reuses
-  # them by checksum when a package version is unchanged, and only re-downloads
-  # them when a package actually bumps — so the common "nothing changed" run
-  # stays fast while still tracking the latest versions exactly like CI.
-  rm -rf "$SPM_DIR/repositories" "$SPM_DIR/checkouts" "$SPM_DIR/workspace-state.json"
-  rm -f "$RESOLVED"
-fi
-
-step "resolving package dependencies"
+step "resolve packages to the committed lockfile (reproducible; fails on drift)"
+# -onlyUsePackageVersionsFromResolvedFile: use only the versions in
+# Package.resolved and error rather than silently upgrading — so a stale or
+# inconsistent lockfile is a loud failure, not a surprise version bump.
 xcodebuild -resolvePackageDependencies \
+  -onlyUsePackageVersionsFromResolvedFile \
   -project RetiOS.xcodeproj -scheme RetiOS \
   -clonedSourcePackagesDirPath "$SPM_DIR"
 
 if [[ -f "$RESOLVED" ]] && command -v python3 >/dev/null 2>&1; then
-  step "resolved package versions (this is what the build — and CI — will use)"
+  step "package versions this build uses (pinned)"
   python3 - "$RESOLVED" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
