@@ -35,6 +35,10 @@ struct IdentityView: View {
                 .focused($nameFocused)
                 .autocorrectionDisabled()
                 .onSubmit { commitName() }
+                // `.keyboard` placement is iOS-only (it targets the software
+                // keyboard's accessory bar); on macOS it would misfile into the
+                // Touch Bar. Guard so the Mac build stays clean.
+                #if os(iOS)
                 .toolbar {
                     ToolbarItemGroup(placement: .keyboard) {
                         Spacer()
@@ -42,6 +46,7 @@ struct IdentityView: View {
                             .bold()
                     }
                 }
+                #endif
 
             if nameIsDirty {
                 Button(action: commitName) {

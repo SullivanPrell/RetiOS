@@ -28,12 +28,14 @@ struct NomadNetBrowserContent: View {
             }
             .accessibilityLabel("Back")
             .disabled(!nomadNet.canGoBack)
+            .keyboardShortcut("[", modifiers: .command)
 
             Button(action: { nomadNet.goForward() }) {
                 Image(systemName: "chevron.right")
             }
             .accessibilityLabel("Forward")
             .disabled(!nomadNet.canGoForward)
+            .keyboardShortcut("]", modifiers: .command)
 
             TextField("hash:path  e.g. abc123…:/page/index.mu", text: $urlInput)
                 .textFieldStyle(.roundedBorder)

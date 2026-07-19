@@ -256,8 +256,18 @@ private struct CallsRecentsContent: View {
             )
         } else {
             List(calls.callHistory) { record in
-                CallRecordRow(record: record)
-                    .rnsRow()
+                // Tap a recent to call back (matches the Phone app). Recents are
+                // only shown while idle, so starting a call here is always safe.
+                Button {
+                    if !record.peerHash.isEmpty, let data = Data(hexString: record.peerHash) {
+                        calls.startCall(to: data)
+                    }
+                } label: {
+                    CallRecordRow(record: record)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Call back")
+                .rnsRow()
             }
             .listStyle(.plain)
             .rnsScreenBackground()

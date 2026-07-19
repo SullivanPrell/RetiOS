@@ -155,6 +155,9 @@ struct InterfacesView: View {
             Text("I2P routes Reticulum over the anonymous I2P network. Yggdrasil is a mesh IPv6 overlay — connect to a peer using its Yggdrasil address.")
         }
         .rnsRow()
+        // These rows present sheets; render them like the adjacent navigation
+        // rows (primary text) rather than full-blue Button labels.
+        .buttonStyle(.plain)
     }
 
     // MARK: Add / reference
@@ -182,6 +185,7 @@ struct InterfacesView: View {
             Text("The public directory lists community-run gateways at directory.rns.recipes — pick one to connect with one tap. IPv4 and IPv6 addresses are both supported.")
         }
         .rnsRow()
+        .buttonStyle(.plain)
     }
 }
 
@@ -379,10 +383,13 @@ struct AddInterfaceSheet: View {
                     Button("Add") { addInterface() }
                         .disabled(!canAdd)
                 }
+                // iOS-only keyboard-accessory "Done"; see IdentityView note.
+                #if os(iOS)
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Done") { portFocused = false }
                 }
+                #endif
             }
         }
     }

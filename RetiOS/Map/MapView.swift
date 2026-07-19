@@ -40,6 +40,9 @@ struct MapView: View {
                     UserAnnotation()
                 }
                 .mapControls {
+                    // Native user-location control — manages follow/heading
+                    // tracking state itself, unlike a hand-rolled center button.
+                    MapUserLocationButton()
                     MapCompass()
                     MapScaleView()
                 }
@@ -79,17 +82,8 @@ struct MapView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .rnsTrailing) {
-            Button {
-                if let coordinate = locationManager.location?.coordinate {
-                    center(on: coordinate)
-                }
-            } label: {
-                Image(systemName: "location.fill")
-            }
-            .accessibilityLabel("Center on my location")
-            .disabled(locationManager.location == nil)
-        }
+        // Centering on the user's location is handled by the native
+        // MapUserLocationButton in `.mapControls`, so no custom toolbar button.
         ToolbarItem(placement: .rnsTrailing) {
             Button {
                 showOfflineInfo = true

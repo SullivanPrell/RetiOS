@@ -129,10 +129,12 @@ struct NetworkVisualizerView: View {
     // MARK: Zoom & pan
 
     private var zoomGesture: some Gesture {
-        MagnificationGesture()
-            .onChanged { value in zoom = clampZoom(steadyZoom * value) }
+        // MagnifyGesture (iOS 17 / macOS 14) replaces the deprecated
+        // MagnificationGesture; its value is `.magnification`.
+        MagnifyGesture()
+            .onChanged { value in zoom = clampZoom(steadyZoom * value.magnification) }
             .onEnded { value in
-                steadyZoom = clampZoom(steadyZoom * value)
+                steadyZoom = clampZoom(steadyZoom * value.magnification)
                 zoom = steadyZoom
             }
     }
@@ -166,22 +168,23 @@ struct NetworkVisualizerView: View {
 
     private var zoomControls: some View {
         VStack(spacing: 0) {
+            // 44×44 hit targets (HIG minimum) even though the glyphs stay small.
             Button { adjustZoom(by: 1.35) } label: {
-                Image(systemName: "plus").frame(width: 28, height: 28)
+                Image(systemName: "plus").frame(width: 44, height: 44)
             }
             .accessibilityLabel("Zoom in")
-            Divider().frame(width: 28)
+            Divider().frame(width: 44)
             Button { adjustZoom(by: 1 / 1.35) } label: {
-                Image(systemName: "minus").frame(width: 28, height: 28)
+                Image(systemName: "minus").frame(width: 44, height: 44)
             }
             .accessibilityLabel("Zoom out")
-            Divider().frame(width: 28)
+            Divider().frame(width: 44)
             Button { resetView() } label: {
-                Image(systemName: "viewfinder").frame(width: 28, height: 28)
+                Image(systemName: "viewfinder").frame(width: 44, height: 44)
             }
             .accessibilityLabel("Reset view")
         }
-        .font(.system(size: 13, weight: .semibold))
+        .font(.system(size: 15, weight: .semibold))
         .foregroundStyle(Color.rnsTextSecondary)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
         .buttonStyle(.plain)

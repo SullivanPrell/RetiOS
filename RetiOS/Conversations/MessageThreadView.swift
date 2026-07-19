@@ -136,6 +136,7 @@ private struct ComposeBar: View {
                     .foregroundStyle(canSend ? Color.rnsAccent : Color.secondary)
             }
             .disabled(!canSend)
+            .keyboardShortcut(.return, modifiers: .command)
             .accessibilityLabel("Send message")
         }
         .padding(.horizontal)

@@ -137,6 +137,15 @@ private struct ConversationListContent: View {
                         Label("Delete", systemImage: "trash")
                     }
                 }
+                // Right-click / long-press equivalent of the swipe action —
+                // the discoverable path on macOS, where swiping is hidden.
+                .contextMenu {
+                    Button(role: .destructive) {
+                        deleteConversation(peerHash: item.peerHash)
+                    } label: {
+                        Label("Delete Conversation", systemImage: "trash")
+                    }
+                }
                 .rnsRow()
             }
             .listStyle(.plain)
@@ -237,6 +246,15 @@ private struct LXMFPeersContent: View {
                               systemImage: peer.isContact ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
                     }
                     .tint(peer.isContact ? Color.rnsWarning : Color.rnsAccent)
+                }
+                .contextMenu {
+                    Button {
+                        peer.isContact.toggle()
+                        try? context.save()
+                    } label: {
+                        Label(peer.isContact ? "Remove Contact" : "Add Contact",
+                              systemImage: peer.isContact ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
+                    }
                 }
                 .rnsRow()
             }

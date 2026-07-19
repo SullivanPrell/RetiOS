@@ -161,6 +161,7 @@ struct ChannelRoomView: View {
                                      ? Color.secondary : Color.rnsAccent)
             }
             .disabled(composeDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+            .keyboardShortcut(.return, modifiers: .command)
             .accessibilityLabel("Send message")
         }
         .padding(.horizontal, 12)
