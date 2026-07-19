@@ -88,6 +88,7 @@ extension Reticulum.LogLevel {
         case .info:     return "Info"
         case .verbose:  return "Verbose"
         case .debug:    return "Debug"
+        case .pathing:  return "Pathing"
         case .extreme:  return "Extreme"
         }
     }
@@ -102,6 +103,7 @@ extension Reticulum.LogLevel {
         case .info:     return "INF"
         case .verbose:  return "VRB"
         case .debug:    return "DBG"
+        case .pathing:  return "PTH"
         case .extreme:  return "XTR"
         }
     }
@@ -113,7 +115,7 @@ extension Reticulum.LogLevel {
         case .notice:                  return .rnsTextPrimary
         case .info:                    return .rnsInfo
         case .verbose:                 return .rnsTextSecondary
-        case .debug, .extreme:         return .rnsTextMuted
+        case .debug, .pathing, .extreme: return .rnsTextMuted
         }
     }
 }
