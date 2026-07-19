@@ -56,6 +56,7 @@ struct BLEMeshView: View {
                 Toggle("", isOn: meshEnabledBinding)
                     .labelsHidden()
                     .disabled(toggleDisabled)
+                    .accessibilityLabel("BLE Mesh")
             }
             .padding(.vertical, 2)
 

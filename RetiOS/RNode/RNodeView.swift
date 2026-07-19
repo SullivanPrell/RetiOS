@@ -249,5 +249,9 @@ private struct DeviceRow: View {
             }
         }
         .frame(width: 18)
+        // The bars are purely visual — expose signal strength to VoiceOver.
+        .accessibilityElement()
+        .accessibilityLabel("Signal strength")
+        .accessibilityValue("\(bars) of 3 bars, \(rssi) dBm")
     }
 }

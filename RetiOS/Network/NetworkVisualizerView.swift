@@ -60,8 +60,12 @@ struct NetworkVisualizerView: View {
     private var graphCanvas: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
+                // Rings and edges are purely decorative scaffolding — hide them
+                // from VoiceOver so it lands on the nodes themselves.
                 ringsLayer(size: geo.size)
+                    .accessibilityHidden(true)
                 edgesLayer(size: geo.size)
+                    .accessibilityHidden(true)
 
                 ForEach(graph.nodes) { node in
                     NodeBubble(node: node, isSelected: selectedNodeID == node.id, pulse: pulse)
@@ -74,6 +78,16 @@ struct NetworkVisualizerView: View {
                         }
                         .transition(.scale(scale: 0.4).combined(with: .opacity))
                         .animation(.spring(response: 0.55, dampingFraction: 0.8), value: node.normPosition)
+                        // The bubbles were tap-gesture-only and invisible to
+                        // VoiceOver — expose each as a labelled, selectable button.
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(accessibilityLabel(for: node))
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction {
+                            withAnimation(.snappy(duration: 0.2)) {
+                                selectedNodeID = (selectedNodeID == node.id) ? nil : node.id
+                            }
+                        }
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -93,7 +107,23 @@ struct NetworkVisualizerView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Network graph: \(graph.nodes.count) node\(graph.nodes.count == 1 ? "" : "s"), \(graph.edges.count) connection\(graph.edges.count == 1 ? "" : "s")")
         .animation(.snappy, value: selectedNodeID)
+    }
+
+    /// VoiceOver description for a graph node (the bubbles are otherwise
+    /// tap-gesture-only and unlabelled).
+    private func accessibilityLabel(for node: NetworkGraph.Node) -> String {
+        switch node.kind {
+        case .me:
+            return "This node, \(node.label)"
+        case .interface(let type):
+            let reachable = graph.edges.filter { $0.from == node.id }.count
+            return "\(type.label) interface \(node.label), \(reachable) reachable"
+        case .destination(let type, let hops, let active):
+            return "\(type.label) destination \(node.label), \(hops) hop\(hops == 1 ? "" : "s")\(active ? ", active link" : "")"
+        }
     }
 
     // MARK: Zoom & pan
