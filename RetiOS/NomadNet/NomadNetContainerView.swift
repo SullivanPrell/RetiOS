@@ -105,19 +105,10 @@ private struct NomadNodeRow: View {
             .buttonStyle(.plain)
             .accessibilityLabel(node.isFavorite ? "Remove from favorites" : "Add to favorites")
 
-            VStack(alignment: .leading, spacing: 3) {
-                // Name is the primary label; fall back to "Unknown Node" so the hash
-                // is not shown twice when no display name has been received.
-                Text(node.displayName ?? "Unknown Node")
-                    .font(.body.weight(.medium))
-                Text(node.destinationHash.truncatedHash)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                (Text(node.lastSeen, style: .relative) + Text(" ago"))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+            // Shared identity block — same as the LXMF/LXST peer rows.
+            PeerIdentityView(name: node.displayName ?? "Unknown Node",
+                             hash: node.destinationHash,
+                             lastSeen: node.lastSeen)
             Spacer()
             Button("Browse") { onBrowse(node.destinationHash) }
                 .buttonStyle(.bordered)

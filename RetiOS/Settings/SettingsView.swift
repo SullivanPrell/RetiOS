@@ -1,10 +1,5 @@
 import SwiftUI
 import ReticulumSwift
-#if os(iOS)
-import UIKit
-#elseif os(macOS)
-import AppKit
-#endif
 
 struct SettingsView: View {
     @EnvironmentObject var stack: StackController
