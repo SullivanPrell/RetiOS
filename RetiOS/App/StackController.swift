@@ -286,7 +286,7 @@ final class StackController: ObservableObject {
         let ifaceName = savedI2PConfig?.name ?? "I2P"
         savedI2PConfig = nil
         UserDefaults.standard.removeObject(forKey: Self.savedI2PConfigKey)
-        transport?.halt(interfaceName: ifaceName)
+        deregisterLiveInterface(named: ifaceName)
     }
 
     private func loadSavedI2PConfig() {
@@ -304,12 +304,31 @@ final class StackController: ObservableObject {
         }
     }
 
-    /// Remove a user-added interface: halts it for the current session and
-    /// removes it from persistence so it is not restored next launch.
+    /// Remove a user-added interface: fully tears it down for the current session
+    /// and removes it from persistence so it is not restored next launch.
     func removeInterface(named name: String) {
         savedInterfaces.removeAll { $0.name == name }
         persistSavedInterfaces()
-        transport?.halt(interfaceName: name)
+        deregisterLiveInterface(named: name)
+    }
+
+    /// Stop a live interface *and* remove it from `transport.interfaces`.
+    ///
+    /// This replaced a bare `transport.halt(interfaceName:)`, which — by design,
+    /// mirroring Python's `halt_interface` — only stops the interface but leaves
+    /// it *registered*. The Interfaces screen lists the live `transport.interfaces`,
+    /// so a halted-but-still-registered interface never left the list and its
+    /// "Remove" action (gated on `isSaved`, which we've just cleared) also
+    /// vanished: that was the "interface delete does nothing" bug, identical on
+    /// iOS and macOS because this is shared code. `Transport` is not an
+    /// `ObservableObject`, so mutating `interfaces` won't refresh SwiftUI on its
+    /// own — hence the explicit `objectWillChange`.
+    private func deregisterLiveInterface(named name: String) {
+        guard let transport,
+              let iface = transport.interfaces.first(where: { $0.name == name }) else { return }
+        objectWillChange.send()
+        iface.stop()
+        transport.deregister(interface: iface)
     }
 
     private func loadSavedInterfaces() {

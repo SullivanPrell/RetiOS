@@ -330,11 +330,22 @@ struct RNSSectionPicker<T: Hashable>: View {
 ///
 /// On macOS, ContentUnavailableView renders as a fixed-size rounded card that
 /// floats in whatever space is offered — giving an awkward centered-card-on-
-/// empty-canvas look. RNSEmptyState fills the space and centers the content.
+/// empty-canvas look. Worse, because that card does *not* expand to fill, a
+/// bare `ContentUnavailableView` placed below fixed chrome in a `VStack` (e.g.
+/// a URL bar) lets the whole stack shrink to its intrinsic height and get
+/// vertically centered by an outer `.frame(maxHeight: .infinity)` — dragging
+/// that chrome into the middle of the pane. RNSEmptyState fills the space and
+/// centers only its own content, so any sibling chrome stays put.
+///
+/// Pass `actionTitle` + `action` to add a trailing button (e.g. "Retry" on an
+/// error state); omit both for a plain empty state. Both platforms render the
+/// button — on iOS via ContentUnavailableView's `actions` builder.
 struct RNSEmptyState: View {
     let title: String
     let systemImage: String
     let description: String
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
 
     var body: some View {
         #if os(macOS)
@@ -350,11 +361,27 @@ struct RNSEmptyState: View {
                 .foregroundStyle(Color.rnsTextSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 340)
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.bordered)
+                    .padding(.top, 4)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .rnsCanvasBackground()
         #else
-        ContentUnavailableView(title, systemImage: systemImage, description: Text(description))
+        if let actionTitle, let action {
+            ContentUnavailableView {
+                Label(title, systemImage: systemImage)
+            } description: {
+                Text(description)
+            } actions: {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.bordered)
+            }
+        } else {
+            ContentUnavailableView(title, systemImage: systemImage, description: Text(description))
+        }
         #endif
     }
 }

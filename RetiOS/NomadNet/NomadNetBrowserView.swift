@@ -105,14 +105,15 @@ struct NomadNetBrowserContent: View {
             }
         } else if let error = nomadNet.errorMessage {
             // Full-screen error only on initial load failure (no page to show).
-            ContentUnavailableView {
-                Label("Page Unavailable", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error)
-            } actions: {
-                Button("Retry") { nomadNet.reload() }
-                    .buttonStyle(.bordered)
-            }
+            // Uses RNSEmptyState (not a bare ContentUnavailableView) so it fills
+            // the pane on macOS — otherwise the fixed-size card lets this whole
+            // VStack center vertically and drags the URL bar into the middle.
+            RNSEmptyState(
+                title: "Page Unavailable",
+                systemImage: "exclamationmark.triangle",
+                description: error,
+                actionTitle: "Retry"
+            ) { nomadNet.reload() }
         } else {
             emptyState
         }
