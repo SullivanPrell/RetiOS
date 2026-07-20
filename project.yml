@@ -22,16 +22,16 @@ options:
 packages:
   ReticulumSwift:
     url: https://github.com/SullivanPrell/ReticulumSwift.git
-    from: 1.3.3
+    from: 1.3.4
   LXMFSwift:
     url: https://github.com/SullivanPrell/LXMFSwift.git
-    from: 1.1.3
+    from: 1.1.4
   LXSTSwift:
     url: https://github.com/SullivanPrell/LXSTSwift.git
     from: 1.1.4
   NomadNetSwift:
     url: https://github.com/SullivanPrell/NomadNetSwift.git
-    from: 1.1.1
+    from: 1.1.2
 
 targets:
   RetiOS:
@@ -70,8 +70,8 @@ targets:
         # App version. Kept in sync with RetiOS/Info.plist and the git tag
         # (vX.Y.Z). xcodegen otherwise regenerates these to its 1.0 / 1
         # defaults, silently reverting the version on the next `generate`.
-        CFBundleShortVersionString: "0.2.1"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "0.2.2"
+        CFBundleVersion: "4"
         NSBluetoothAlwaysUsageDescription: "RetiOS uses Bluetooth to communicate with RNode LoRa hardware and to mesh directly with nearby devices over BLE."
         NSMicrophoneUsageDescription: "RetiOS uses the microphone for voice calls over the mesh."
         NSLocalNetworkUsageDescription: "RetiOS uses the local network to discover and communicate with nearby Reticulum nodes."
