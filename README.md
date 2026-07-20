@@ -84,7 +84,12 @@ are in:
 - [docs/SETUP.md](docs/SETUP.md) — Apple Developer setup, certificates, TestFlight, App Store
 - [docs/TESTING.md](docs/TESTING.md) — simulators, devices, the Apple-suite test matrix
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — controllers, tabs, and stack bring-up
+- [docs/MESHCORE_BUILD.md](docs/MESHCORE_BUILD.md) — the two build targets (`RetiOS` vs `RetiOS-MeshCore`) and the GPL-3.0 MeshCore boundary
 - [CONTRIBUTING.md](CONTRIBUTING.md) — dev workflow and conventions
+
+There are **two app schemes**: `RetiOS` (the clean, App Store build) and
+`RetiOS-MeshCore` (adds LoRa-over-MeshCore support). The latter links a GPL-3.0
+package — see the License note below and [docs/MESHCORE_BUILD.md](docs/MESHCORE_BUILD.md).
 
 ## License
 
@@ -97,3 +102,9 @@ builds on Swift ports of Mark Qvist's Reticulum, LXMF, LXST, and NomadNet.
 independent implementation that does **not** incorporate its source code — so no GPL-3.0
 obligations attach. (Copyright protects expression, not ideas or layout conventions.) See
 [NOTICE](NOTICE) for full attribution.
+
+**The optional MeshCore build is GPL-3.0.** The `RetiOS-MeshCore` scheme links
+[RNSOverMeshCore](https://github.com/SullivanPrell/RNSOverMeshCore) (GPL-3.0), which makes
+*that* build a combined GPL-3.0 work — distribute it **outside the App Store**, with its
+source offered to recipients. The default `RetiOS` scheme excludes it and is unaffected.
+Details in [docs/MESHCORE_BUILD.md](docs/MESHCORE_BUILD.md).

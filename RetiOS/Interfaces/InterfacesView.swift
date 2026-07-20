@@ -113,9 +113,11 @@ struct InterfacesView: View {
             NavigationLink(destination: RNodeView()) {
                 Label("RNode (LoRa / BLE)", systemImage: "dot.radiowaves.left.and.right")
             }
+            #if MESHCORE
             NavigationLink(destination: MeshCoreView()) {
                 Label("MeshCore (LoRa / BLE)", systemImage: "antenna.radiowaves.left.and.right")
             }
+            #endif
             NavigationLink(destination: BLEMeshView()) {
                 Label("BLE Mesh", systemImage: "personalhotspot")
             }

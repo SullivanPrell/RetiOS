@@ -1,5 +1,16 @@
 # XcodeGen specification. Run `xcodegen generate` in this directory to
 # materialize `RetiOS.xcodeproj`.
+#
+# TWO APP TARGETS (GPL license boundary):
+#   • RetiOS           — the clean, App Store build. Does NOT link the GPL-3.0
+#                        RNSOverMeshCore package and EXCLUDES RetiOS/MeshCore/**.
+#                        Stays permissively licensed and App Store-distributable.
+#   • RetiOS-MeshCore  — the GPL build. Adds the RNSOverMeshCore package + the
+#                        RetiOS/MeshCore/** sources and defines the MESHCORE Swift
+#                        flag. Linking GPL-3.0 code makes THIS build a combined
+#                        GPL-3.0 work, so it must be distributed OUTSIDE the App
+#                        Store (with a source offer). See docs/MESHCORE_BUILD.md.
+# The two targets share everything else via the `RetiOSApp` template below.
 name: RetiOS
 options:
   bundleIdPrefix: dev.sprell
@@ -10,24 +21,24 @@ options:
   # fine; this lets CI runners (which lag the newest Xcode) read the project too.
   xcodeVersion: "16.0"
 
-# By default RetiOS consumes the four packages from their published GitHub
+# By default RetiOS consumes the four core packages from their published GitHub
 # releases, so the app can be cloned and built on its own.
 #
-# To develop the whole stack at once, check the four package repos out as
-# sibling directories and switch these entries to local paths, e.g.:
+# To develop the whole stack at once, check the package repos out as sibling
+# directories and switch these entries to local paths, e.g.:
 #     ReticulumSwift:
 #       path: ../ReticulumSwift
 # then re-run `xcodegen generate`. (Or add them as local packages in Xcode via
 # File ▸ Add Package Dependencies… ▸ Add Local…, which overrides the remote ref.)
 packages:
   # ReticulumSwift is referenced by LOCAL PATH (not the GitHub release) so that
-  # RNSOverMeshCore below — which itself depends on ReticulumSwift by local path
-  # (../swift_devel/ReticulumSwift) — and this app resolve the *same* on-disk
-  # ReticulumSwift. SwiftPM refuses one package identity resolved from two
-  # sources (remote URL + local path), so the addon forces this to be local.
-  # This local checkout is the same 1.3.4 revision the remote `from: 1.3.4`
-  # pinned, and a root local-path dependency overrides LXMF/LXST/NomadNet's
-  # transitive ReticulumSwift references too, keeping the whole graph consistent.
+  # RNSOverMeshCore below — which itself depends on ReticulumSwift — and this app
+  # resolve the *same* on-disk ReticulumSwift. This local checkout is the same
+  # 1.3.4 revision the remote `from: 1.3.4` pinned, and a root local-path
+  # dependency overrides LXMF/LXST/NomadNet's transitive ReticulumSwift references
+  # too, keeping the whole graph consistent. (RNSOverMeshCore's own manifest now
+  # defaults to the *remote* ReticulumSwift release; this root path override wins
+  # graph-wide, so there is no "one identity, two sources" conflict.)
   ReticulumSwift:
     path: ../ReticulumSwift
   LXMFSwift:
@@ -39,50 +50,42 @@ packages:
   NomadNetSwift:
     url: https://github.com/SullivanPrell/NomadNetSwift.git
     from: 1.1.2
-  # RNS-over-MeshCore interface addon. NOTE: this package is licensed GPL-3.0
-  # (it ports the GPL-3.0 comms-engineer/RNS_Over_Meshcore). Linking it makes
-  # *distributed* RetiOS builds a combined work subject to GPL-3.0. Kept as a
-  # local path package (sibling of swift_devel/).
+  # RNS-over-MeshCore interface addon. LICENSED GPL-3.0 (it ports the GPL-3.0
+  # comms-engineer/RNS_Over_Meshcore). This package is declared here for the whole
+  # workspace, but it is LINKED ONLY by the `RetiOS-MeshCore` target below — the
+  # clean `RetiOS` target does not depend on it, so the App Store binary contains
+  # no GPL code. Kept as a local path package (sibling of swift_devel/).
   RNSOverMeshCore:
     path: ../../rns-swift-meshcore-interface
 
-targets:
-  RetiOS:
+# Shared definition for both app builds. Everything common lives here; the two
+# concrete targets below differ only in bundle id, the MeshCore sources, the
+# RNSOverMeshCore dependency, and the MESHCORE compile flag.
+targetTemplates:
+  RetiOSApp:
     type: application
-    # Multi-destination target (Xcode 16+ "Multiplatform App" style): one
-    # target compiles natively for iPhone, iPad, AND Mac — replacing the old
-    # `platform: iOS` setup, under which the only way to run on a Mac was
-    # Apple Silicon's "Designed for iPad" compatibility shim (the unmodified
-    # iOS binary in a resizable window — what the BLE mesh logs were actually
-    # exercising). The codebase already has real `#if os(macOS)` branches
-    # (`StackController`'s daemon-probe, `SettingsView`'s `NSPasteboard`
-    # clipboard helper, `RNSBrand`/`IdentityView`'s AppKit imports) that were
-    # previously dead code — `SDKROOT = iphoneos` meant `os(macOS)` could
-    # never be true at compile time. Declaring `macOS` here is what finally
-    # lets that code compile and run for real, as a genuine native Mac app
-    # (its own SDK, AppKit-hosted, proper window chrome) rather than an iPad
-    # app wearing a Mac's clothes.
+    # Multi-destination target (Xcode 16+ "Multiplatform App" style): one target
+    # compiles natively for iPhone, iPad, AND Mac. The codebase has real
+    # `#if os(macOS)` branches (StackController's daemon-probe, SettingsView's
+    # NSPasteboard helper, RNSBrand/IdentityView's AppKit imports); declaring
+    # macOS here is what lets that code compile and run as a genuine native Mac
+    # app rather than an iPad app in a resizable window.
     supportedDestinations: [iOS, macOS]
     deploymentTarget:
       iOS: "17.0"
       macOS: "14.0"
-    sources:
-      - path: RetiOS
     info:
       path: RetiOS/Info.plist
       # NOTE: kept in sync with the live `Info.plist` BY HAND — `xcodegen
-      # generate` *regenerates* (overwrites, doesn't merge) the file at
-      # `path` from exactly these properties. Letting this drift from the
-      # real file — as it had, until this edit — means the next regenerate
-      # silently regresses every key added straight to the plist via Xcode's
-      # UI back to whatever's written here. Lost like this once already:
-      # the BLE-mesh-aware Bluetooth description, the location-usage string
-      # (Map tab), and the `bluetooth-central`/`bluetooth-peripheral`
-      # background modes BLE Mesh needs to keep meshing while backgrounded.
+      # generate` *regenerates* (overwrites, doesn't merge) the file at `path`
+      # from exactly these properties. Letting this drift from the real file
+      # means the next regenerate silently regresses every key added straight to
+      # the plist via Xcode's UI. Both app targets share this one Info.plist;
+      # per-target identity (bundle id, product name) comes from build settings,
+      # not the plist, so a single shared file is safe.
       properties:
-        # App version. Kept in sync with RetiOS/Info.plist and the git tag
-        # (vX.Y.Z). xcodegen otherwise regenerates these to its 1.0 / 1
-        # defaults, silently reverting the version on the next `generate`.
+        # App version. Kept in sync with the git tag (vX.Y.Z). xcodegen otherwise
+        # regenerates these to its 1.0 / 1 defaults on the next `generate`.
         CFBundleShortVersionString: "0.2.2"
         CFBundleVersion: "4"
         NSBluetoothAlwaysUsageDescription: "RetiOS uses Bluetooth to communicate with RNode LoRa hardware and to mesh directly with nearby devices over BLE."
@@ -100,19 +103,14 @@ targets:
         UILaunchScreen: {}
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.sprell.retios
         # Set your own Apple Developer Team ID here (or select your team in
         # Xcode ▸ Signing & Capabilities). Left blank for open-source builds.
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1,2"
-        # Now that `macOS` is a first-class destination with its own native
-        # build, turn off the "run the iOS binary as-is on Apple Silicon"
-        # compatibility shim — leaving it on would offer two confusingly
-        # similar Mac destinations ("My Mac" and "My Mac (Designed for
-        # iPad)") and risk Xcode/the user picking the wrong one out of habit,
-        # silently undoing the whole point of this change.
+        # macOS is a first-class destination with its own native build, so turn
+        # off the "run the iOS binary as-is on Apple Silicon" compatibility shim.
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: "NO"
         ENABLE_PREVIEWS: "YES"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -126,9 +124,41 @@ targets:
         product: LXST
       - package: NomadNetSwift
         product: NomadNet
+
+targets:
+  # ── Clean / App Store build ───────────────────────────────────────────────
+  # No GPL code: excludes RetiOS/MeshCore/** and does not depend on
+  # RNSOverMeshCore. MESHCORE is undefined, so the #if MESHCORE branches in
+  # StackController/InterfacesView compile out.
+  RetiOS:
+    templates: [RetiOSApp]
+    sources:
+      - path: RetiOS
+        excludes:
+          - "MeshCore"
+          - "MeshCore/**"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.sprell.retios
+
+  # ── GPL / MeshCore build (distribute OUTSIDE the App Store) ────────────────
+  # Adds the RetiOS/MeshCore/** sources + the GPL-3.0 RNSOverMeshCore package and
+  # defines the MESHCORE flag via OTHER_SWIFT_FLAGS (`-D MESHCORE` is additive and
+  # does not collide with XcodeGen's per-config DEBUG preset the way overriding
+  # SWIFT_ACTIVE_COMPILATION_CONDITIONS would).
+  RetiOS-MeshCore:
+    templates: [RetiOSApp]
+    sources:
+      - path: RetiOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.sprell.retios.meshcore
+        OTHER_SWIFT_FLAGS: "$(inherited) -D MESHCORE"
+    dependencies:
       - package: RNSOverMeshCore
         product: RNSOverMeshCore
 
+  # Unit tests run against the clean target.
   RetiOSTests:
     type: bundle.unit-test
     platform: iOS

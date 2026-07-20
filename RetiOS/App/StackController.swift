@@ -64,6 +64,11 @@ final class StackController: ObservableObject {
         }
     }
 
+    // GPL BOUNDARY: MeshCore support links the GPL-3.0 RNSOverMeshCore package and
+    // is compiled only into the `RetiOS-MeshCore` target (which defines MESHCORE).
+    // The clean `RetiOS` (App Store) target excludes it entirely. See project.yml
+    // and docs/MESHCORE_BUILD.md.
+    #if MESHCORE
     /// Configuration for a MeshCore (RNS-over-MeshCore) interface that survives app
     /// restarts. Persists the channel settings (so the form is pre-filled) and the
     /// last companion device UUID; the BLE connection itself is re-established via
@@ -89,17 +94,22 @@ final class StackController: ObservableObject {
             self.deviceUUID = deviceUUID
         }
     }
+    #endif
 
     /// All user-added interfaces that will be restored on next launch.
     @Published private(set) var savedInterfaces: [SavedInterface] = []
     /// Saved I2P configuration (one I2PInterface, multiple peers).
     @Published private(set) var savedI2PConfig: SavedI2PConfig?
+    #if MESHCORE
     /// Saved MeshCore configuration (channel settings + last companion device).
     @Published private(set) var savedMeshCoreConfig: SavedMeshCoreConfig?
+    #endif
 
     private static let savedInterfacesKey  = "savedTCPInterfaces"
     private static let savedI2PConfigKey   = "savedI2PConfig"
+    #if MESHCORE
     private static let savedMeshCoreKey    = "savedMeshCoreConfig"
+    #endif
     private static let propagationNodeKey  = "propagationNodeHash"
 
     // MARK: - Stack state
@@ -202,10 +212,12 @@ final class StackController: ObservableObject {
             }
             #endif
 
+            #if MESHCORE
             // Load the saved MeshCore channel config so the scanner form is
             // pre-filled. The BLE companion link is re-established interactively via
             // the MeshCore scanner (auto-reconnect on launch is a follow-up).
             loadSavedMeshCoreConfig()
+            #endif
 
             let id = try stack.loadOrCreateIdentity()
 
@@ -329,6 +341,7 @@ final class StackController: ObservableObject {
         savedI2PConfig = config
     }
 
+    #if MESHCORE
     // MARK: - MeshCore interface persistence
 
     /// Save (or replace) the MeshCore channel configuration. The live interface is
@@ -353,6 +366,7 @@ final class StackController: ObservableObject {
               let config = try? JSONDecoder().decode(SavedMeshCoreConfig.self, from: data) else { return }
         savedMeshCoreConfig = config
     }
+    #endif
 
     enum StackError: LocalizedError {
         case notRunning

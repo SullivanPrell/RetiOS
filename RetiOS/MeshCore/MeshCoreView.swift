@@ -18,6 +18,7 @@ struct MeshCoreView: View {
                 configSection
                 scanSection
             }
+            licenseSection
         }
         .rnsScreenBackground()
         .navigationTitle("MeshCore (BLE)")
@@ -145,6 +146,27 @@ struct MeshCoreView: View {
                         .font(.caption.monospaced()).foregroundStyle(.secondary)
                 }
             }
+        }
+        .rnsRow()
+    }
+
+    // MARK: - License notice (GPL-3.0)
+
+    /// GPL-3.0 notice + written offer of source. MeshCore support links the
+    /// GPL-3.0 `RNSOverMeshCore` package, which makes this build of RetiOS a
+    /// combined GPL-3.0 work — surfacing the notice and a source link here keeps
+    /// the app compliant. This view is compiled only into the `RetiOS-MeshCore`
+    /// build (see docs/MESHCORE_BUILD.md).
+    private var licenseSection: some View {
+        Section {
+            Link(destination: URL(string: "https://github.com/SullivanPrell/RNSOverMeshCore")!) {
+                Label("RNSOverMeshCore source (GPL-3.0)", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+            .tint(.rnsAccent)
+        } header: {
+            Text("License")
+        } footer: {
+            Text("MeshCore support uses RNSOverMeshCore, licensed GPL-3.0-or-later. This build of RetiOS is therefore a combined GPL-3.0 work; its complete source is available at the link above and in the RetiOS repository.")
         }
         .rnsRow()
     }
