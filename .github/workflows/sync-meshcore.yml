@@ -1,0 +1,70 @@
+name: Sync main → meshcore-interface
+
+# Keeps the long-lived, GPL-licensed `meshcore-interface` branch continuously
+# integrated with `main`. On every push to main (i.e. every merge), open (or
+# reuse) a PR that merges main into meshcore-interface and land it as a MERGE
+# COMMIT. Clean merges auto-land; conflicts leave the PR open for manual
+# resolution. This job NEVER pushes to or deletes main.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: sync-meshcore-interface
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Open / land sync PR (main → meshcore-interface)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BASE=meshcore-interface
+          HEAD=main
+
+          if ! git ls-remote --exit-code --heads origin "$BASE" >/dev/null 2>&1; then
+            echo "::notice::Branch '$BASE' does not exist; nothing to sync."
+            exit 0
+          fi
+
+          git fetch --quiet origin "$BASE" "$HEAD"
+
+          if git merge-base --is-ancestor "origin/$HEAD" "origin/$BASE"; then
+            echo "::notice::'$BASE' already contains '$HEAD'; nothing to sync."
+            exit 0
+          fi
+
+          PR=$(gh pr list --base "$BASE" --head "$HEAD" --state open \
+                 --json number --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then
+            URL=$(gh pr create --base "$BASE" --head "$HEAD" \
+                    --title "Sync: main → meshcore-interface" \
+                    --body "Automated sync of \`main\` into the long-lived, GPL-licensed \`meshcore-interface\` branch. A clean merge auto-lands as a merge commit; a conflict leaves this PR open for manual resolution. See docs/MESHCORE_BUILD.md.")
+            PR="${URL##*/}"
+            echo "Opened sync PR #$PR"
+          else
+            echo "Reusing open sync PR #$PR"
+          fi
+
+          if gh pr merge "$PR" --merge --delete-branch=false 2>err.log; then
+            echo "::notice::Sync PR #$PR merged into $BASE."
+          elif gh pr merge "$PR" --merge --auto --delete-branch=false 2>>err.log; then
+            echo "::notice::Sync PR #$PR set to auto-merge when checks pass."
+          else
+            echo "::warning::Could not auto-merge sync PR #$PR (likely a conflict). It will stay open for manual resolution."
+            sed 's/^/  gh: /' err.log || true
+          fi
