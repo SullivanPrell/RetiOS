@@ -20,9 +20,16 @@ options:
 # then re-run `xcodegen generate`. (Or add them as local packages in Xcode via
 # File ▸ Add Package Dependencies… ▸ Add Local…, which overrides the remote ref.)
 packages:
+  # ReticulumSwift is referenced by LOCAL PATH (not the GitHub release) so that
+  # RNSOverMeshCore below — which itself depends on ReticulumSwift by local path
+  # (../swift_devel/ReticulumSwift) — and this app resolve the *same* on-disk
+  # ReticulumSwift. SwiftPM refuses one package identity resolved from two
+  # sources (remote URL + local path), so the addon forces this to be local.
+  # This local checkout is the same 1.3.4 revision the remote `from: 1.3.4`
+  # pinned, and a root local-path dependency overrides LXMF/LXST/NomadNet's
+  # transitive ReticulumSwift references too, keeping the whole graph consistent.
   ReticulumSwift:
-    url: https://github.com/SullivanPrell/ReticulumSwift.git
-    from: 1.3.4
+    path: ../ReticulumSwift
   LXMFSwift:
     url: https://github.com/SullivanPrell/LXMFSwift.git
     from: 1.1.4
@@ -32,6 +39,12 @@ packages:
   NomadNetSwift:
     url: https://github.com/SullivanPrell/NomadNetSwift.git
     from: 1.1.2
+  # RNS-over-MeshCore interface addon. NOTE: this package is licensed GPL-3.0
+  # (it ports the GPL-3.0 comms-engineer/RNS_Over_Meshcore). Linking it makes
+  # *distributed* RetiOS builds a combined work subject to GPL-3.0. Kept as a
+  # local path package (sibling of swift_devel/).
+  RNSOverMeshCore:
+    path: ../../rns-swift-meshcore-interface
 
 targets:
   RetiOS:
@@ -113,6 +126,8 @@ targets:
         product: LXST
       - package: NomadNetSwift
         product: NomadNet
+      - package: RNSOverMeshCore
+        product: RNSOverMeshCore
 
   RetiOSTests:
     type: bundle.unit-test

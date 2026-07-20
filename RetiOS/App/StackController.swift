@@ -64,14 +64,43 @@ final class StackController: ObservableObject {
         }
     }
 
+    /// Configuration for a MeshCore (RNS-over-MeshCore) interface that survives app
+    /// restarts. Persists the channel settings (so the form is pre-filled) and the
+    /// last companion device UUID; the BLE connection itself is re-established via
+    /// the MeshCore scanner (companion links are not auto-reconnected on launch yet).
+    struct SavedMeshCoreConfig: Codable {
+        var name: String
+        var channelName: String
+        var channelSecretHex: String
+        var channelIndex: Int
+        var accessPoint: Bool
+        var canRoute: Bool
+        var deviceUUID: String?
+
+        init(name: String = "MeshCore", channelName: String = "RNSTunnel",
+             channelSecretHex: String = "", channelIndex: Int = 0,
+             accessPoint: Bool = true, canRoute: Bool = true, deviceUUID: String? = nil) {
+            self.name = name
+            self.channelName = channelName
+            self.channelSecretHex = channelSecretHex
+            self.channelIndex = channelIndex
+            self.accessPoint = accessPoint
+            self.canRoute = canRoute
+            self.deviceUUID = deviceUUID
+        }
+    }
+
     /// All user-added interfaces that will be restored on next launch.
     @Published private(set) var savedInterfaces: [SavedInterface] = []
     /// Saved I2P configuration (one I2PInterface, multiple peers).
     @Published private(set) var savedI2PConfig: SavedI2PConfig?
+    /// Saved MeshCore configuration (channel settings + last companion device).
+    @Published private(set) var savedMeshCoreConfig: SavedMeshCoreConfig?
 
-    private static let savedInterfacesKey = "savedTCPInterfaces"
-    private static let savedI2PConfigKey  = "savedI2PConfig"
-    private static let propagationNodeKey = "propagationNodeHash"
+    private static let savedInterfacesKey  = "savedTCPInterfaces"
+    private static let savedI2PConfigKey   = "savedI2PConfig"
+    private static let savedMeshCoreKey    = "savedMeshCoreConfig"
+    private static let propagationNodeKey  = "propagationNodeHash"
 
     // MARK: - Stack state
 
@@ -172,6 +201,11 @@ final class StackController: ObservableObject {
                 Reticulum.log("StackController: restored I2P interface '\(i2pConfig.name)' with \(i2pConfig.peers.count) peer(s)", level: .notice)
             }
             #endif
+
+            // Load the saved MeshCore channel config so the scanner form is
+            // pre-filled. The BLE companion link is re-established interactively via
+            // the MeshCore scanner (auto-reconnect on launch is a follow-up).
+            loadSavedMeshCoreConfig()
 
             let id = try stack.loadOrCreateIdentity()
 
@@ -293,6 +327,31 @@ final class StackController: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: Self.savedI2PConfigKey),
               let config = try? JSONDecoder().decode(SavedI2PConfig.self, from: data) else { return }
         savedI2PConfig = config
+    }
+
+    // MARK: - MeshCore interface persistence
+
+    /// Save (or replace) the MeshCore channel configuration. The live interface is
+    /// created/registered by the MeshCore scanner over BLE, not here.
+    func saveMeshCoreConfig(_ config: SavedMeshCoreConfig) {
+        savedMeshCoreConfig = config
+        if let data = try? JSONEncoder().encode(config) {
+            UserDefaults.standard.set(data, forKey: Self.savedMeshCoreKey)
+        }
+    }
+
+    /// Forget the persisted MeshCore config and tear down the live interface (if any).
+    func removeMeshCoreConfig() {
+        let ifaceName = savedMeshCoreConfig?.name ?? "MeshCore"
+        savedMeshCoreConfig = nil
+        UserDefaults.standard.removeObject(forKey: Self.savedMeshCoreKey)
+        deregisterLiveInterface(named: ifaceName)
+    }
+
+    private func loadSavedMeshCoreConfig() {
+        guard let data = UserDefaults.standard.data(forKey: Self.savedMeshCoreKey),
+              let config = try? JSONDecoder().decode(SavedMeshCoreConfig.self, from: data) else { return }
+        savedMeshCoreConfig = config
     }
 
     enum StackError: LocalizedError {
