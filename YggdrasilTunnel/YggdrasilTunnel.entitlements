@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Run as a Packet Tunnel Provider (the Yggdrasil engine's system tun). -->
+	<key>com.apple.developer.networking.networkextension</key>
+	<array>
+		<string>packet-tunnel-provider</string>
+	</array>
+	<key>com.apple.developer.networking.vpn.api</key>
+	<array>
+		<string>allow-vpn</string>
+	</array>
+	<!-- LAN peer discovery over IPv6 multicast (Yggdrasil MulticastInterfaces,
+	     "en.*"/"bridge.*"). iOS 14+ gates multicast behind this entitlement, which
+	     REQUIRES a separate approval from Apple:
+	       https://developer.apple.com/contact/request/networking-multicast
+	     Until your provisioning profile includes it, a *signed* build will fail
+	     code signing — remove this key (and its app twin) if you don't have it
+	     yet; internet peers (tls://…) still work without it. See YGGDRASIL.md. -->
+	<key>com.apple.developer.networking.multicast</key>
+	<true/>
+	<!-- Shared with the containing app so the app can drive the tunnel and read
+	     status. Replace the group id if you change bundle IDs. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.dev.sprell.retios</string>
+	</array>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+</dict>
+</plist>
