@@ -64,14 +64,43 @@ final class StackController: ObservableObject {
         }
     }
 
+    /// Editable Yggdrasil node preferences that survive app restarts. The node's
+    /// private key + full engine config live in the VPN profile (secure, not
+    /// UserDefaults); this record only carries the UI-editable settings and the
+    /// on/off flag. See `YggdrasilConfig` / `YggdrasilVPNManager`.
+    struct SavedYggdrasilConfig: Codable {
+        /// Whether the Yggdrasil node (system VPN packet tunnel) should run.
+        var enabled: Bool
+        /// Peer URIs to dial, e.g. "tls://host:port", "quic://host:port".
+        var peers: [String]
+        /// Optional node name advertised over the mesh.
+        var nodeName: String
+        /// LAN peer discovery over IPv6 multicast (needs the multicast entitlement).
+        var multicastEnabled: Bool
+
+        init(enabled: Bool = false, peers: [String] = [],
+             nodeName: String = "", multicastEnabled: Bool = false) {
+            self.enabled = enabled
+            self.peers = peers
+            self.nodeName = nodeName
+            self.multicastEnabled = multicastEnabled
+        }
+    }
+
     /// All user-added interfaces that will be restored on next launch.
     @Published private(set) var savedInterfaces: [SavedInterface] = []
     /// Saved I2P configuration (one I2PInterface, multiple peers).
     @Published private(set) var savedI2PConfig: SavedI2PConfig?
+    /// Saved Yggdrasil node preferences (system-VPN packet tunnel).
+    @Published private(set) var savedYggdrasilConfig: SavedYggdrasilConfig?
+    /// Drives the Yggdrasil packet-tunnel extension and exposes live node status.
+    /// Observe this directly for address / peer updates.
+    let yggdrasilVPN = YggdrasilVPNManager()
 
-    private static let savedInterfacesKey = "savedTCPInterfaces"
-    private static let savedI2PConfigKey  = "savedI2PConfig"
-    private static let propagationNodeKey = "propagationNodeHash"
+    private static let savedInterfacesKey     = "savedTCPInterfaces"
+    private static let savedI2PConfigKey       = "savedI2PConfig"
+    private static let savedYggdrasilConfigKey = "savedYggdrasilConfig"
+    private static let propagationNodeKey      = "propagationNodeHash"
 
     // MARK: - Stack state
 
@@ -170,6 +199,22 @@ final class StackController: ObservableObject {
                 stack.transport.register(interface: i2pIface)
                 try? i2pIface.start()
                 Reticulum.log("StackController: restored I2P interface '\(i2pConfig.name)' with \(i2pConfig.peers.count) peer(s)", level: .notice)
+            }
+            #endif
+
+            // Restore the Yggdrasil node (system-VPN packet tunnel). The engine
+            // runs in the YggdrasilTunnel extension; here we discover any existing
+            // VPN profile and (re)start it if the user left it enabled. Once the
+            // tunnel is up the device carries a real Yggdrasil IPv6, and Reticulum
+            // rides over it via ordinary TCP/Backbone interfaces pointed at
+            // Yggdrasil addresses (the "Add Yggdrasil Peer" flow) — wire-compatible
+            // with Python RNS-over-Yggdrasil nodes.
+            #if os(macOS) || os(iOS)
+            loadSavedYggdrasilConfig()
+            await yggdrasilVPN.refreshManager()
+            if let ygg = savedYggdrasilConfig, ygg.enabled {
+                await startYggdrasilNode()
+                Reticulum.log("StackController: (re)started Yggdrasil node with \(ygg.peers.count) peer(s)", level: .notice)
             }
             #endif
 
@@ -293,6 +338,73 @@ final class StackController: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: Self.savedI2PConfigKey),
               let config = try? JSONDecoder().decode(SavedI2PConfig.self, from: data) else { return }
         savedI2PConfig = config
+    }
+
+    // MARK: - Yggdrasil node persistence
+
+    /// Save the Yggdrasil node preferences and (re)start or stop the tunnel to
+    /// match. Starting reuses the node's existing key from the VPN profile if one
+    /// exists, so the node keeps its identity/address across edits and restarts.
+    func saveYggdrasilConfig(_ config: SavedYggdrasilConfig) async {
+        savedYggdrasilConfig = config
+        if let data = try? JSONEncoder().encode(config) {
+            UserDefaults.standard.set(data, forKey: Self.savedYggdrasilConfigKey)
+        }
+        if config.enabled {
+            await startYggdrasilNode()
+        } else {
+            yggdrasilVPN.stopTunnel()
+        }
+    }
+
+    /// Remove the persisted Yggdrasil preferences and delete the VPN profile
+    /// (which also discards the node key).
+    func removeYggdrasilConfig() async {
+        savedYggdrasilConfig = nil
+        UserDefaults.standard.removeObject(forKey: Self.savedYggdrasilConfigKey)
+        await yggdrasilVPN.removeTunnel()
+    }
+
+    private func loadSavedYggdrasilConfig() {
+        guard let data = UserDefaults.standard.data(forKey: Self.savedYggdrasilConfigKey),
+              let config = try? JSONDecoder().decode(SavedYggdrasilConfig.self, from: data) else { return }
+        savedYggdrasilConfig = config
+    }
+
+    /// Build the engine config from the saved preferences (preserving the
+    /// existing node key when a profile already exists) and start the tunnel.
+    private func startYggdrasilNode() async {
+        let saved = savedYggdrasilConfig ?? SavedYggdrasilConfig()
+
+        // Make sure we've actually queried NetworkExtension before deciding
+        // whether a profile (and thus a persisted node key) already exists.
+        if !yggdrasilVPN.didLoadManagers {
+            await yggdrasilVPN.refreshManager()
+        }
+
+        let config: YggdrasilConfig
+        if let existing = yggdrasilVPN.loadSavedConfig() {
+            // A profile exists and its config is readable — reuse it so the node
+            // keeps its identity / IPv6 address across restarts.
+            config = existing
+        } else if yggdrasilVPN.didLoadManagers && !yggdrasilVPN.isConfigured {
+            // We successfully queried NE and there is genuinely no profile: this
+            // is a true first run, so mint a fresh key.
+            config = YggdrasilConfig(multicastEnabled: saved.multicastEnabled)
+        } else {
+            // Either NE couldn't be queried, or a profile exists but its config
+            // is unreadable. Do NOT generate a new key — that would silently
+            // change the node's identity/address and break peers keyed to it.
+            // Fail closed and surface the error instead.
+            let detail = yggdrasilVPN.lastError.map { " (\($0))" } ?? ""
+            Reticulum.log("StackController: Yggdrasil profile unreadable — not regenerating node key\(detail)", level: .error)
+            return
+        }
+
+        config.peers = saved.peers
+        config.nodeName = saved.nodeName.isEmpty ? nil : saved.nodeName
+        config.setMulticastEnabled(saved.multicastEnabled)
+        await yggdrasilVPN.startTunnel(with: config)
     }
 
     enum StackError: LocalizedError {

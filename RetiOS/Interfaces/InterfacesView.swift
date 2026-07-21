@@ -8,6 +8,7 @@ struct InterfacesView: View {
     @State private var showAddSheet = false
     @State private var showDirectorySheet = false
     @State private var showYggdrasilSheet = false
+    @State private var showYggdrasilNodeSheet = false
     @State private var showI2PSheet = false
 
     var body: some View {
@@ -47,6 +48,10 @@ struct InterfacesView: View {
         }
         .sheet(isPresented: $showYggdrasilSheet) {
             AddInterfaceSheet(mode: .yggdrasil)
+                .environmentObject(stack)
+        }
+        .sheet(isPresented: $showYggdrasilNodeSheet) {
+            YggdrasilNodeSheet(vpn: stack.yggdrasilVPN)
                 .environmentObject(stack)
         }
         .sheet(isPresented: $showI2PSheet) {
@@ -143,16 +148,38 @@ struct InterfacesView: View {
                 }
             }
 
-            // Yggdrasil
+            // Yggdrasil — run an embedded node (system VPN packet tunnel).
+            Button {
+                showYggdrasilNodeSheet = true
+            } label: {
+                HStack {
+                    Label("Yggdrasil Node", systemImage: "globe.europe.africa")
+                    Spacer()
+                    switch stack.yggdrasilVPN.status {
+                    case .connected:
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.rnsSuccess)
+                            .font(.caption)
+                    case .connecting, .reasserting:
+                        ProgressView().controlSize(.small)
+                    default:
+                        Text(stack.savedYggdrasilConfig?.enabled == true ? "Enabled" : "Configure")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            // Yggdrasil — dial a specific peer over its IPv6 address.
             Button {
                 showYggdrasilSheet = true
             } label: {
-                Label("Add Yggdrasil Peer…", systemImage: "globe.europe.africa")
+                Label("Add Yggdrasil Peer…", systemImage: "point.3.connected.trianglepath.dotted")
             }
         } header: {
             Text("Overlay Networks")
         } footer: {
-            Text("I2P routes Reticulum over the anonymous I2P network. Yggdrasil is a mesh IPv6 overlay — connect to a peer using its Yggdrasil address.")
+            Text("I2P routes Reticulum over the anonymous I2P network. Run a Yggdrasil Node to give this device its own Yggdrasil IPv6 (a cryptographic mesh overlay); Reticulum then rides over it, interoperable with Python RNS-over-Yggdrasil. Or add a single Yggdrasil peer by its IPv6 address.")
         }
         .rnsRow()
         // These rows present sheets; render them like the adjacent navigation
@@ -534,6 +561,215 @@ struct I2PConfigSheet: View {
     }
 }
 
+// MARK: - Yggdrasil node sheet
+
+/// Configure and control the embedded Yggdrasil node (a system-VPN packet
+/// tunnel). Enabling it gives the device a real Yggdrasil IPv6 address; Reticulum
+/// then rides over it, interoperable with Python RNS-over-Yggdrasil nodes.
+struct YggdrasilNodeSheet: View {
+    @EnvironmentObject var stack: StackController
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var vpn: YggdrasilVPNManager
+
+    @State private var enabled = false
+    @State private var nodeName = ""
+    @State private var peersText = ""
+    @State private var multicastEnabled = false
+    @State private var errorMessage: String?
+    @State private var isBusy = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if vpn.isConfigured || stack.savedYggdrasilConfig != nil {
+                    statusSection
+                }
+                enableSection
+                peersSection
+                advancedSection
+
+                if hasNoReachability {
+                    Section {
+                        Label("This node has no peers and LAN discovery is off, so it can't reach the mesh. Add at least one peer URI above.",
+                              systemImage: "exclamationmark.triangle")
+                            .font(.caption)
+                            .foregroundStyle(Color.rnsWarning)
+                    }
+                    .rnsRow()
+                }
+
+                if let err = errorMessage ?? vpn.lastError {
+                    Section {
+                        Label(err, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(Color.rnsError)
+                    }
+                    .rnsRow()
+                }
+            }
+            .rnsScreenBackground()
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("Yggdrasil Node")
+            .rnsInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Apply") { save() }.disabled(isBusy)
+                }
+            }
+            .onAppear { load() }
+            .task { await vpn.refreshManager() }
+        }
+    }
+
+    // MARK: Sections
+
+    private var statusSection: some View {
+        Section {
+            LabeledContent("Status") {
+                HStack(spacing: 6) {
+                    Circle().fill(statusColor).frame(width: 8, height: 8)
+                    Text(vpn.status.rawValue.capitalized)
+                }
+            }
+            if let addr = vpn.nodeAddress {
+                LabeledContent("IPv6 address") {
+                    Text(addr).font(.caption.monospaced()).textSelection(.enabled)
+                }
+            }
+            if let subnet = vpn.nodeSubnet {
+                LabeledContent("Subnet") {
+                    Text(subnet).font(.caption.monospaced()).textSelection(.enabled)
+                }
+            }
+            if !vpn.peers.isEmpty {
+                LabeledContent("Peers") {
+                    Text("\(vpn.peers.filter { $0.up }.count) up / \(vpn.peers.count)")
+                }
+            }
+            if vpn.status == .connected {
+                Button("Retry peers now") { vpn.retryPeers() }
+                    .font(.caption)
+            }
+        } header: {
+            Text("Status")
+        }
+        .rnsRow()
+    }
+
+    private var enableSection: some View {
+        Section {
+            Toggle("Run Yggdrasil node", isOn: $enabled)
+            TextField("Node name (optional)", text: $nodeName)
+                .autocorrectionDisabled()
+        } header: {
+            Text("Node")
+        } footer: {
+            Text("Runs the Yggdrasil engine in a network extension and adds a system VPN carrying only the Yggdrasil range (0200::/7) — your normal traffic is untouched. Requires a Network Extension + App Group enabled Apple Developer team (see YGGDRASIL.md).")
+        }
+        .rnsRow()
+    }
+
+    private var peersSection: some View {
+        Section {
+            TextEditor(text: $peersText)
+                .font(.caption.monospaced())
+                .frame(minHeight: 100)
+                .autocorrectionDisabled()
+                .rnsNoAutocapitalization()
+        } header: {
+            Text("Peers")
+        } footer: {
+            Text("One peer URI per line, e.g. tls://host:port or quic://host:port. Find public peers at publicpeers.neilalexander.dev.")
+        }
+        .rnsRow()
+    }
+
+    private var advancedSection: some View {
+        Section {
+            Toggle("LAN peer discovery (multicast)", isOn: $multicastEnabled)
+            if stack.savedYggdrasilConfig != nil {
+                Button(role: .destructive) { removeNode() } label: {
+                    Text("Remove Yggdrasil node")
+                }
+            }
+        } header: {
+            Text("Advanced")
+        } footer: {
+            Text("Multicast discovers other Yggdrasil nodes on the local network. It needs the Multicast Networking entitlement (a separate Apple approval) — leave off unless you have it. See YGGDRASIL.md.")
+        }
+        .rnsRow()
+    }
+
+    // MARK: Derived
+
+    private var statusColor: Color {
+        switch vpn.status {
+        case .connected: return .rnsSuccess
+        case .connecting, .reasserting: return .rnsWarning
+        default: return .rnsTextMuted
+        }
+    }
+
+    /// Enabling a node with no peers and no LAN discovery yields a valid address
+    /// that can reach no one — warn before that surprises the user.
+    private var hasNoReachability: Bool {
+        enabled
+            && !multicastEnabled
+            && peersText.components(separatedBy: .newlines)
+                .allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
+    // MARK: Actions
+
+    private func load() {
+        if let saved = stack.savedYggdrasilConfig {
+            enabled = saved.enabled
+            nodeName = saved.nodeName
+            peersText = saved.peers.joined(separator: "\n")
+            multicastEnabled = saved.multicastEnabled
+        }
+    }
+
+    private func save() {
+        let peers = peersText
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        if let bad = peers.first(where: { !$0.contains("://") }) {
+            errorMessage = "“\(bad)” is not a valid peer URI — use a scheme like tls://host:port."
+            return
+        }
+        errorMessage = nil
+
+        let config = StackController.SavedYggdrasilConfig(
+            enabled: enabled,
+            peers: peers,
+            nodeName: nodeName.trimmingCharacters(in: .whitespaces),
+            multicastEnabled: multicastEnabled
+        )
+        isBusy = true
+        Task {
+            await stack.saveYggdrasilConfig(config)
+            isBusy = false
+        }
+    }
+
+    private func removeNode() {
+        isBusy = true
+        Task {
+            await stack.removeYggdrasilConfig()
+            isBusy = false
+            enabled = false
+            peersText = ""
+            nodeName = ""
+            multicastEnabled = false
+        }
+    }
+}
+
 // MARK: - Interface reference
 
 private struct InterfaceReferenceView: View {
@@ -559,7 +795,7 @@ private struct InterfaceReferenceView: View {
               description: "Point-to-point or broadcast UDP over IPv4 or IPv6. Useful for custom radio links and tunnels.",
               swiftStatus: "Complete"),
         .init(name: "Yggdrasil (TCP/IPv6)", icon: "globe.europe.africa",
-              description: "Reticulum over Yggdrasil — a cryptographic mesh IPv6 network. Uses TCPClientInterface with the peer's Yggdrasil IPv6 address (200::/7 range). No special interface type needed.",
+              description: "Reticulum over Yggdrasil — a cryptographic mesh IPv6 network. Run an embedded Yggdrasil Node (Overlay Networks) to give this device its own Yggdrasil IPv6 via a system VPN, then reach peers with ordinary TCP/Backbone over their 0200::/7 addresses. Wire-compatible with Python RNS-over-Yggdrasil.",
               swiftStatus: "Complete"),
         .init(name: "RNodeInterface", icon: "antenna.radiowaves.left.and.right",
               description: "RNode LoRa hardware over BLE or USB serial. Physical radio mesh.",

@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.2</string>
+	<string>0.3.0</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>6</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>RetiOS uses Bluetooth to communicate with RNode LoRa hardware and to mesh directly with nearby devices over BLE.</string>
 	<key>NSBonjourServices</key>
@@ -26,7 +26,7 @@
 		<string>_rnsd._udp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>RetiOS uses the local network to discover and communicate with nearby Reticulum nodes.</string>
+	<string>RetiOS uses the local network — including IPv6 multicast — to discover and communicate with nearby Reticulum and Yggdrasil mesh nodes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>RetiOS shows your position on the map and can include it when sharing location with the mesh.</string>
 	<key>NSMicrophoneUsageDescription</key>

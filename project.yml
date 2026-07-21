@@ -70,11 +70,11 @@ targets:
         # App version. Kept in sync with RetiOS/Info.plist and the git tag
         # (vX.Y.Z). xcodegen otherwise regenerates these to its 1.0 / 1
         # defaults, silently reverting the version on the next `generate`.
-        CFBundleShortVersionString: "0.2.3"
-        CFBundleVersion: "5"
+        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "6"
         NSBluetoothAlwaysUsageDescription: "RetiOS uses Bluetooth to communicate with RNode LoRa hardware and to mesh directly with nearby devices over BLE."
         NSMicrophoneUsageDescription: "RetiOS uses the microphone for voice calls over the mesh."
-        NSLocalNetworkUsageDescription: "RetiOS uses the local network to discover and communicate with nearby Reticulum nodes."
+        NSLocalNetworkUsageDescription: "RetiOS uses the local network — including IPv6 multicast — to discover and communicate with nearby Reticulum and Yggdrasil mesh nodes."
         NSLocationWhenInUseUsageDescription: "RetiOS shows your position on the map and can include it when sharing location with the mesh."
         NSBonjourServices:
           - "_rnsd._tcp"
@@ -92,6 +92,11 @@ targets:
         # Xcode ▸ Signing & Capabilities). Left blank for open-source builds.
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: Automatic
+        # App Group + Network Extension (personal VPN) entitlements so the app
+        # can drive the YggdrasilTunnel packet-tunnel extension. Requires a team
+        # with the Network Extensions + App Groups capabilities; harmless (unused)
+        # when the Yggdrasil node is left disabled. See YGGDRASIL.md.
+        CODE_SIGN_ENTITLEMENTS: RetiOS/RetiOS.entitlements
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1,2"
         # Now that `macOS` is a first-class destination with its own native
@@ -113,6 +118,56 @@ targets:
         product: LXST
       - package: NomadNetSwift
         product: NomadNet
+      # The Yggdrasil engine (gomobile-built). The app links it for config/keygen
+      # (MobileGenerateConfigJSON); the extension runs the node. Rebuild with
+      # scripts/build-yggdrasil-xcframework.sh.
+      - framework: Frameworks/Yggdrasil.xcframework
+        embed: true
+        codeSignOnCopy: true
+      # Embed the packet-tunnel network extension into the app.
+      - target: YggdrasilTunnel
+        embed: true
+
+  # Yggdrasil packet-tunnel network extension — runs the embedded yggdrasil-go
+  # engine and gives the device a real Yggdrasil IPv6 (split-tunnel 0200::/7).
+  YggdrasilTunnel:
+    type: app-extension
+    supportedDestinations: [iOS, macOS]
+    deploymentTarget:
+      iOS: "17.0"
+      macOS: "14.0"
+    sources:
+      - path: YggdrasilTunnel
+        # Info.plist and entitlements are wired via build settings below, not
+        # compiled/copied as sources.
+        excludes:
+          - "Info.plist"
+          - "YggdrasilTunnel.entitlements"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.sprell.retios.YggdrasilTunnel
+        PRODUCT_NAME: YggdrasilTunnel
+        # Hand-written Info.plist (carries the NSExtension packet-tunnel dict).
+        # Referenced via INFOPLIST_FILE — NOT `info:` — so `xcodegen generate`
+        # does not regenerate/overwrite it (which would drop NSExtension).
+        INFOPLIST_FILE: YggdrasilTunnel/Info.plist
+        CODE_SIGN_ENTITLEMENTS: YggdrasilTunnel/YggdrasilTunnel.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: YggdrasilTunnel/YggdrasilTunnel-Bridging-Header.h
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.9"
+        MARKETING_VERSION: "0.3.0"
+        CURRENT_PROJECT_VERSION: "6"
+        # The extension is an app extension bundled in the app; keep its own copy
+        # of the engine framework so it always loads (see comment on embed below).
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/Frameworks"
+          - "@executable_path/../../Frameworks"
+    dependencies:
+      - framework: Frameworks/Yggdrasil.xcframework
+        embed: true
+        codeSignOnCopy: true
 
   RetiOSTests:
     type: bundle.unit-test
