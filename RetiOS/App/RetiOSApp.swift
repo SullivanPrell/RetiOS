@@ -5,7 +5,9 @@ import ReticulumSwift
 @main
 struct RetiOSApp: App {
     // RNSLogStore is created first so it installs the log handler before bringUp().
-    @StateObject private var logStore  = RNSLogStore()
+    // @Observable model → owned with @State and shared via .environment (NOT
+    // @StateObject/.environmentObject, which are the ObservableObject spelling).
+    @State private var logStore = RNSLogStore()
     @StateObject private var stack     = StackController()
     @StateObject private var calls     = CallsController()
     @StateObject private var nomadNet  = NomadNetController()
@@ -27,7 +29,7 @@ struct RetiOSApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environmentObject(logStore)
+                .environment(logStore)
                 .environmentObject(stack)
                 .environmentObject(calls)
                 .environmentObject(nomadNet)
@@ -92,7 +94,7 @@ struct RetiOSApp: App {
             NavigationStack { SettingsView() }
                 .environmentObject(stack)
                 .environmentObject(calls)
-                .environmentObject(logStore)
+                .environment(logStore)
                 .modelContainer(container)
                 .rnsTheme()
                 .frame(minWidth: 520, minHeight: 560)

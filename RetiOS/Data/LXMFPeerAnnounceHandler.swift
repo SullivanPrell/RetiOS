@@ -17,9 +17,14 @@ import LXMF
 ///      fetch + single `save()` for the whole batch. So a burst of hundreds of
 ///      announces collapses into one inexpensive write per second.
 ///
-/// The flush runs on the main actor against the app's main `ModelContext` so the
-/// `@Query`-backed views update reliably; the per-flush cost is bounded and tiny
-/// regardless of how much announce traffic arrives.
+/// The flush runs on a private serial queue against its own background
+/// `ModelContext`, NOT the main context. Coalescing alone still left a fetch +
+/// `save()` on the main thread once a second for as long as announces kept
+/// arriving — and because every `save()` re-runs every `@Query` in the app, the
+/// main thread was doing database work plus dependent view recomputation
+/// continuously under mesh traffic. That is what made typing feel bad on every
+/// screen, not just the ones showing peers. SwiftData merges the background
+/// save into the main context, so `@Query` views still update.
 final class LXMFPeerAnnounceHandler: AnnounceHandler {
     public var aspectFilter: String? { "lxmf.delivery" }
 
@@ -29,7 +34,12 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
     /// fresh broadcast announce. Mirrors NomadNet's `receive_path_responses = True`.
     public var receivePathResponses: Bool { true }
 
-    private let context: ModelContext
+    private let container: ModelContainer
+    /// Serial queue that owns `ingestContext`; all SwiftData work happens here.
+    private let queue = DispatchQueue(label: "dev.sprell.retios.peer-announce-ingest",
+                                      qos: .utility)
+    /// Background context — created on, and confined to, `queue`.
+    private var ingestContext: ModelContext?
 
     private let lock = NSLock()
     private var pending: [String: (name: String?, date: Date)] = [:]
@@ -38,8 +48,8 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
     /// Coalescing window. Bursts collapse into a single batched save per window.
     private let flushInterval: TimeInterval = 1.0
 
-    init(context: ModelContext) {
-        self.context = context
+    init(container: ModelContainer) {
+        self.container = container
     }
 
     func receivedAnnounce(destinationHash: Data, identity: Identity, appData: Data?,
@@ -61,15 +71,23 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
         lock.unlock()
 
         if needSchedule {
-            DispatchQueue.main.asyncAfter(deadline: .now() + flushInterval) { [weak self] in
-                MainActor.assumeIsolated { self?.flush() }
+            queue.asyncAfter(deadline: .now() + flushInterval) { [weak self] in
+                self?.flush()
             }
         }
     }
 
     /// Drains the pending buffer and writes it in one transaction.
-    @MainActor
+    /// Runs on `queue` against the background context — never the main thread.
     private func flush() {
+        let context: ModelContext
+        if let existing = ingestContext {
+            context = existing
+        } else {
+            context = ModelContext(container)
+            ingestContext = context
+        }
+
         lock.lock()
         let batch = pending
         pending.removeAll(keepingCapacity: true)

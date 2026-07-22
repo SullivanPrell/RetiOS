@@ -95,7 +95,7 @@ final class NomadNetController: ObservableObject {
 
         // Register nomadnetwork.node announce handler to populate the Peers tab
         // with actual NomadNet nodes (separate from the LXMF peer list).
-        let nodeHandler = NomadNetNodeAnnounceHandler(context: modelContext)
+        let nodeHandler = NomadNetNodeAnnounceHandler(container: modelContext.container)
         transport.register(announceHandler: nodeHandler)
         _nodeAnnounceHandler = nodeHandler
 

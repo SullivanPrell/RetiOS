@@ -297,7 +297,7 @@ final class StackController: ObservableObject {
             // Register peer announce handler so the Peers tab fills in.
             // It coalesces announce bursts into a single batched save per second,
             // so heavy mesh traffic can't starve the UI / keyboard.
-            let peerHandler = LXMFPeerAnnounceHandler(context: modelContext)
+            let peerHandler = LXMFPeerAnnounceHandler(container: modelContext.container)
             stack.transport.register(announceHandler: peerHandler)
             self.peerAnnounceHandler = peerHandler
 

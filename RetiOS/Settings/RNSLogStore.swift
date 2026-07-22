@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import ReticulumSwift
 import SwiftUI
 
@@ -74,15 +75,24 @@ private final class RNSLogBuffer: @unchecked Sendable {
 /// meant one main-actor `Task` hop plus one `objectWillChange` (and so a re-render
 /// of every observing view) per log line, which made raising the log level enough
 /// to saturate the main actor. Now a burst collapses into one batched append.
+/// `@Observable` (not `ObservableObject`) is load-bearing here, not stylistic.
+/// `ObservableObject` invalidates EVERY view holding the object on ANY
+/// `@Published` change — so appending a log line re-rendered `SettingsView`,
+/// which observes this store purely to read `logLevel` for one Picker. Settings
+/// (and every submenu and text field under it) therefore re-rendered on every
+/// RNS log line. `@Observable` tracks per-property, established by what each
+/// `body` actually reads: `LogsView` reads `entries` and still updates, while
+/// `SettingsView` reads only `logLevel` and no longer re-renders on log traffic.
 @MainActor
-final class RNSLogStore: ObservableObject {
+@Observable
+final class RNSLogStore {
     static let maxEntries = 500
     private static let logLevelKey = "rnsLogLevel"
     /// Coalescing window — short enough to feel live in the Logs screen.
     private static let flushInterval: TimeInterval = 0.25
 
-    @Published private(set) var entries: [RNSLogEntry] = []
-    @Published private(set) var logLevel: Reticulum.LogLevel
+    private(set) var entries: [RNSLogEntry] = []
+    private(set) var logLevel: Reticulum.LogLevel
 
     private let buffer = RNSLogBuffer()
 
