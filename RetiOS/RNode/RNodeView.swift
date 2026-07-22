@@ -2,8 +2,10 @@ import SwiftUI
 import ReticulumSwift
 
 struct RNodeView: View {
-    @Environment(StackController.self) private var stack
-    @State private var scanner = RNodeScannerController()
+    // App-scoped, not `@State` — see the ownership note in `RetiOSApp`. A
+    // view-scoped controller left a dead `RNodeInterface` registered with
+    // Transport forever once the user navigated away.
+    @Environment(RNodeScannerController.self) private var scanner
 
     var body: some View {
         List {
@@ -20,14 +22,14 @@ struct RNodeView: View {
         // pushed detail screens (Interfaces, Logs, Identity).
         .rnsInlineNavigationTitle()
         .toolbar { scanToolbar }
-        .onAppear {
-            if let t = stack.transport {
-                scanner.onInterfacesChanged = { [weak stack] in
-                    stack?.noteInterfacesChanged()
-                }
-                scanner.setup(transport: t)
-            }
-        }
+        // `setup` / `onInterfacesChanged` are wired once in `RetiOSApp`, not
+        // here — this view no longer owns the controller's lifetime.
+        //
+        // Scanning still stops on the way out: it is per-visit work (the device
+        // list is only meaningful while this screen is visible) and it keeps the
+        // BLE radio from scanning in the background. It deliberately does NOT
+        // disconnect — an established RNode link is the user's radio, and must
+        // survive them navigating elsewhere in the app.
         .onDisappear {
             scanner.stopScanning()
         }

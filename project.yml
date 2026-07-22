@@ -22,7 +22,7 @@ options:
 packages:
   ReticulumSwift:
     url: https://github.com/SullivanPrell/ReticulumSwift.git
-    from: 1.4.2
+    from: 1.4.3
   LXMFSwift:
     url: https://github.com/SullivanPrell/LXMFSwift.git
     from: 1.1.4
@@ -156,8 +156,8 @@ targets:
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.9"
-        MARKETING_VERSION: "0.3.2"
-        CURRENT_PROJECT_VERSION: "8"
+        MARKETING_VERSION: "0.3.3"
+        CURRENT_PROJECT_VERSION: "9"
         # The extension is an app extension bundled in the app; keep its own copy
         # of the engine framework so it always loads (see comment on embed below).
         LD_RUNPATH_SEARCH_PATHS:
