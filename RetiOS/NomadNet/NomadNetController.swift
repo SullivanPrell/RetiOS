@@ -38,6 +38,11 @@ final class NomadNetController: ObservableObject {
     @Published private(set) var canGoBack = false
     @Published private(set) var canGoForward = false
 
+    /// Whether we identify ("log in") to the *currently loaded* node. Reflects
+    /// the persisted per-node toggle and drives the URL-bar identify control.
+    /// Mirrors Python NomadNet's per-node `should_identify_on_connect`.
+    @Published private(set) var identifyToNode = false
+
     // MARK: RRC state
 
     /// Live hub manager — non-nil after setup().
@@ -94,14 +99,25 @@ final class NomadNetController: ObservableObject {
         transport.register(announceHandler: nodeHandler)
         _nodeAnnounceHandler = nodeHandler
 
-        // Browser.
-        let b = ReticulumNomadNetBrowser(transport: transport)
+        // Browser. Pass our identity so the browser can identify to nodes on the
+        // link (parity with Python's Browser — lets nodes gate / personalise pages).
+        let b = ReticulumNomadNetBrowser(transport: transport, identity: identity)
+        // Per-node identify predicate (parity with Python's
+        // `directory.should_identify_on_connect`). Reads the persisted per-node
+        // toggle directly from UserDefaults so it's correct for whichever node is
+        // actually being contacted — no MainActor hop, no pushed state, no race.
+        b.shouldIdentify = { hash in
+            UserDefaults.standard.bool(forKey: NomadNetController.identifyKey(for: hash))
+        }
         b.onPageLoaded = { [weak self] nodes, url in
             Task { @MainActor [weak self] in
                 self?.currentNodes = nodes
                 self?.currentURL   = url
                 self?.isLoading    = false
                 self?.errorMessage = nil
+                // Reflect the loaded node's persisted identify state in the URL bar.
+                self?.identifyToNode = UserDefaults.standard.bool(
+                    forKey: NomadNetController.identifyKey(for: url.destinationHash))
                 self?.updateHistory()
             }
         }
@@ -109,6 +125,9 @@ final class NomadNetController: ObservableObject {
             Task { @MainActor [weak self] in
                 self?.isLoading    = false
                 self?.errorMessage = reason
+                // Refresh Back/Forward enablement too — a failed navigation can
+                // still have moved the history cursor, leaving the buttons stale.
+                self?.updateHistory()
             }
         }
         browser = b
@@ -116,19 +135,44 @@ final class NomadNetController: ObservableObject {
 
     // MARK: - Browser navigation
 
-    func navigate(to urlString: String) {
+    func navigate(to urlString: String, fields: [String: String] = [:]) {
         guard let url = NomadNetURL.parse(urlString) else {
             errorMessage = "Invalid NomadNet URL"
             return
         }
-        navigate(to: url)
+        navigate(to: url, fields: fields)
     }
 
-    func navigate(to url: NomadNetURL) {
+    /// Navigate to a page, optionally carrying form-field values. `fields` are
+    /// sent to the node as `field_<name>` (widget/form inputs), distinct from the
+    /// URL's `var_<name>` variables — matching Python's NomadNet Browser. Passing
+    /// them here (rather than flattening them into the URL string) is what keeps
+    /// a submitted form field from being mis-sent as a URL variable.
+    func navigate(to url: NomadNetURL, fields: [String: String] = [:]) {
         isLoading = true
         errorMessage = nil
         currentURL = url          // populate URL bar immediately, not just on success
-        browser?.navigate(to: url)
+        browser?.navigate(to: url, fields: fields)
+    }
+
+    /// Toggle whether we identify ("log in") to the current node, persist the
+    /// choice per-node, and reload so it takes effect immediately — turning it on
+    /// re-requests the page with our identity revealed (so the node can serve
+    /// logged-in content); turning it off re-requests anonymously. Mirrors Python
+    /// NomadNet's per-node "Identify when connecting" setting, surfaced in the URL
+    /// bar. No-op when no page is loaded (nothing to identify to).
+    func setIdentify(_ on: Bool) {
+        guard let url = currentURL else { return }
+        UserDefaults.standard.set(on, forKey: Self.identifyKey(for: url.destinationHash))
+        identifyToNode = on
+        reload()
+    }
+
+    /// UserDefaults key for a node's persisted "identify on connect" toggle.
+    /// Static so the browser's `shouldIdentify` predicate can read it without a
+    /// MainActor hop.
+    static func identifyKey(for destinationHash: Data) -> String {
+        "nnIdentify." + destinationHash.map { String(format: "%02x", $0) }.joined()
     }
 
     func goBack() {
@@ -146,6 +190,10 @@ final class NomadNetController: ObservableObject {
     }
 
     func reload() {
+        // With no page loaded there is nothing to reload, and the browser fires
+        // neither onPageLoaded nor onError — so setting isLoading would leave the
+        // spinner spinning forever. No-op instead.
+        guard currentURL != nil else { return }
         isLoading = true
         errorMessage = nil
         browser?.reload()
@@ -265,7 +313,12 @@ final class NomadNetController: ObservableObject {
             ctx.insert(channel)
         }
         channel.lastActivity = ts
-        channel.unreadCount += 1
+        // Our own messages are echoed back by the hub — they must not inflate
+        // the channel's unread badge (ownSrc == rrcManager.identity.hash).
+        let ownHex = rrcManager?.identity?.hash.map { String(format: "%02x", $0) }.joined()
+        if ownHex != senderHex {
+            channel.unreadCount += 1
+        }
 
         // Insert message.
         ctx.insert(ChannelMessageEntity(

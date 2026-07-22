@@ -2,6 +2,8 @@
 .build/
 build/
 .spm/
+.spm-local/
+.dd/
 .swiftpm/
 DerivedData/
 RetiOS.xcodeproj/

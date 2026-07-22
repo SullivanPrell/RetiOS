@@ -95,6 +95,9 @@ final class YggdrasilVPNManager: ObservableObject {
         do {
             let all = try await NETunnelProviderManager.loadAllFromPreferences()
             self.didLoadManagers = true
+            // A previous transient failure (e.g. Simulator "IPC failed") must
+            // not leave a stale red error banner once a refresh succeeds.
+            self.lastError = nil
             let found = all.first {
                 ($0.protocolConfiguration as? NETunnelProviderProtocol)?
                     .providerBundleIdentifier == Self.extensionBundleID

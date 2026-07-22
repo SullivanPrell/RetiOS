@@ -11,15 +11,19 @@
 	<array>
 		<string>allow-vpn</string>
 	</array>
-	<!-- IPv6 multicast: AutoInterface discovers nearby Reticulum nodes over
-	     link-local multicast (ff02::/ff12::), which iOS 14+ gates behind this
-	     entitlement. REQUIRES a separate approval from Apple:
-	       https://developer.apple.com/contact/request/networking-multicast
-	     Until your provisioning profile includes it, a *signed* build will fail
-	     code signing — remove this key (and its extension twin) if you don't have
-	     it yet. See YGGDRASIL.md. -->
-	<key>com.apple.developer.networking.multicast</key>
-	<true/>
+	<!-- IPv6 multicast (com.apple.developer.networking.multicast) is INTENTIONALLY
+	     OMITTED so signed public / TestFlight / App Store builds succeed without
+	     Apple's separate multicast approval, which is still pending. Consequence:
+	     AutoInterface's LAN peer discovery over link-local multicast (ff02::/ff12::)
+	     is unavailable on *signed* device builds — the app still reaches peers over
+	     TCP / internet (tls://…) and Yggdrasil, and multicast works fine in the
+	     Simulator (unsandboxed). When Apple grants the entitlement
+	     (https://developer.apple.com/contact/request/networking-multicast) restore
+	     it here AND in the YggdrasilTunnel twin by re-adding:
+	         <key>com.apple.developer.networking.multicast</key>
+	         <true/>
+	     See YGGDRASIL.md ("LAN peer discovery"). -->
+
 	<!-- Shared with the YggdrasilTunnel extension. On macOS the group id must be
 	     prefixed with the team id ($(TeamIdentifierPrefix)group.dev.sprell.retios)
 	     and the app sandboxed — see YGGDRASIL.md. -->

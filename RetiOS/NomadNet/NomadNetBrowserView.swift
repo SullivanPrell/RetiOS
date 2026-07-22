@@ -57,6 +57,26 @@ struct NomadNetBrowserContent: View {
                 .submitLabel(.go)
                 #endif
 
+            // Identify ("log in") toggle — reveals our identity to the current
+            // node so it can serve logged-in / gated content, exactly like
+            // Python NomadNet's per-node "Identify when connecting". Persisted
+            // per-node; toggling reloads the page so it takes effect at once.
+            // Only meaningful once a page is loaded (there's a node to log in to).
+            if nomadNet.currentURL != nil {
+                Button(action: { nomadNet.setIdentify(!nomadNet.identifyToNode) }) {
+                    Image(systemName: nomadNet.identifyToNode ? "person.fill.checkmark" : "person")
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+                .tint(nomadNet.identifyToNode ? Color.rnsAccent : Color.rnsTextSecondary)
+                .accessibilityLabel(nomadNet.identifyToNode
+                    ? "Identified to this node. Tap to browse anonymously."
+                    : "Browsing anonymously. Tap to identify (log in) to this node.")
+                .help(nomadNet.identifyToNode
+                    ? "Identified — tap to browse anonymously"
+                    : "Identify to this node (log in)")
+            }
+
             if nomadNet.isLoading {
                 ProgressView()
                     .scaleEffect(0.75)
@@ -143,17 +163,33 @@ struct NomadNetBrowserContent: View {
         // Skip in-page anchors and RRC links — not page navigation.
         if target.hasPrefix("#") || target.hasPrefix("rrc://") { return }
 
-        let fieldPairs: [String] = link.fields.compactMap { name in
-            guard let value = formValues[name], !value.isEmpty else { return nil }
-            return "\(name)=\(value)"
+        // Split the link's data items into form-field references and inline
+        // variable assignments. A bare name (`who`) is a form-field reference:
+        // send the field's current value as `field_<name>`. A `name=value` item
+        // is a URL variable: send as `var_<name>`. Mirrors Python's NomadNet
+        // Browser — a submitted form field MUST reach the node as `field_<name>`,
+        // not as a URL variable, or the node's request handler never sees it.
+        // (Previously every item was flattened into the URL as `name=value`, so
+        // form fields were mis-sent as `var_*` and inline variables were dropped.)
+        var fieldValues: [String: String] = [:]   // → field_<name>
+        var urlVariables: [String: String] = [:]  // → var_<name>
+        for item in link.fields {
+            if let eq = item.firstIndex(of: "=") {
+                let name = String(item[..<eq])
+                if !name.isEmpty { urlVariables[name] = String(item[item.index(after: eq)...]) }
+            } else if let value = formValues[item], !value.isEmpty {
+                fieldValues[item] = value
+            }
         }
-        let suffix = fieldPairs.isEmpty ? "" : "`" + fieldPairs.joined(separator: "|")
+        let suffix = urlVariables.isEmpty
+            ? ""
+            : "`" + urlVariables.map { "\($0.key)=\($0.value)" }.joined(separator: "|")
 
         if target.hasPrefix("/") {
             // Root-relative path: prepend current node hash.
             if let current = nomadNet.currentURL {
                 let combined = current.destinationHash.hexString + ":" + target + suffix
-                nomadNet.navigate(to: combined)
+                nomadNet.navigate(to: combined, fields: fieldValues)
             }
         } else if target.hasPrefix(":") {
             // Colon-prefixed path (":page/about.mu" or ":/page/about.mu") —
@@ -161,7 +197,7 @@ struct NomadNetBrowserContent: View {
             if let current = nomadNet.currentURL {
                 let path = String(target.dropFirst())
                 let combined = current.destinationHash.hexString + ":" + path + suffix
-                nomadNet.navigate(to: combined)
+                nomadNet.navigate(to: combined, fields: fieldValues)
             }
         } else {
             // Determine whether this is an absolute NomadNet URL:
@@ -173,7 +209,7 @@ struct NomadNetBrowserContent: View {
                     || String(target.dropFirst(hexLen)).hasPrefix(":"))
 
             if looksAbsolute {
-                nomadNet.navigate(to: target + suffix)
+                nomadNet.navigate(to: target + suffix, fields: fieldValues)
             } else if let current = nomadNet.currentURL {
                 // Relative path — resolve against the directory of the current page.
                 // e.g. current path "/page/index.mu" + target "contact" → "/page/contact"
@@ -183,10 +219,10 @@ struct NomadNetBrowserContent: View {
                     ? base + target
                     : base + "/" + target
                 let combined = current.destinationHash.hexString + ":" + resolvedPath + suffix
-                nomadNet.navigate(to: combined)
+                nomadNet.navigate(to: combined, fields: fieldValues)
             } else {
                 // No current page context; pass through and let the parser report the error.
-                nomadNet.navigate(to: target + suffix)
+                nomadNet.navigate(to: target + suffix, fields: fieldValues)
             }
         }
     }

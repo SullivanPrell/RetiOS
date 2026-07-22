@@ -49,8 +49,9 @@ struct SettingsView: View {
         .listStyle(.inset)
         #endif
         .rnsScreenBackground()
-        .navigationTitle("Settings")
-        .rnsNavigationBar()
+        // Flush pinned title (no large-title dead space) — matches the other
+        // tabs. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
+        .rnsPinnedTitle("Settings")
         .task {
             // Initial load + periodic refresh every 5 s.
             while !Task.isCancelled {
@@ -209,12 +210,28 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section("About") {
+            // The app's own version first — otherwise "About" showed only the
+            // ReticulumSwift library's self-reported constant, which made the
+            // app look like it was at that version (and never surfaced RetiOS's
+            // real version/build at all).
+            LabeledContent("RetiOS") {
+                Text(Self.appVersion)
+                    .foregroundStyle(.secondary)
+            }
             LabeledContent("ReticulumSwift") {
                 Text(Reticulum.version)
                     .foregroundStyle(.secondary)
             }
         }
         .rnsRow()
+    }
+
+    /// "0.3.0 (6)" — from the bundle's short version + build number.
+    private static var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "\(short) (\(build))"
     }
 }
 

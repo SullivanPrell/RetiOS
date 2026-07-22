@@ -25,6 +25,20 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
 
     private weak var transport: Transport?
 
+    /// Local identity used to identify to the node on the link (Python
+    /// `Browser` identifies the browsing peer so nodes can gate / personalise
+    /// pages). Nil → can never identify (always anonymous).
+    private let appIdentity: Identity?
+
+    /// Per-node "identify on connect" predicate, mirroring Python NomadNet's
+    /// `directory.should_identify_on_connect(destination_hash)`. Called at link
+    /// establishment with the node's destination hash; return `true` to reveal
+    /// our identity to that node ("log in"). Nil / `false` → browse anonymously.
+    /// Backed by a persisted per-node toggle in `NomadNetController`, so the
+    /// answer is always fresh for whichever node is actually being contacted —
+    /// correct for navigate, back/forward and reload alike (no pushed state).
+    var shouldIdentify: ((Data) -> Bool)?
+
     /// How often to re-check `hasPath` while waiting for a path to resolve.
     private static let pathPollInterval: TimeInterval = 0.25
 
@@ -33,8 +47,11 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
     /// elsewhere — so a late-resolving path can't clobber a newer page.
     private var currentGeneration = 0
 
-    init(transport: Transport, timeout: TimeInterval = NomadNetBrowser.defaultTimeout) {
+    init(transport: Transport,
+         identity: Identity? = nil,
+         timeout: TimeInterval = NomadNetBrowser.defaultTimeout) {
         self.transport = transport
+        self.appIdentity = identity
         super.init(timeout: timeout)
     }
 
@@ -117,29 +134,79 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
         // reads bytes instead of a dict and drops every field/var. See bugs/008.
         let requestValue = NomadNetBrowser.encodeValue(fields: fields, variables: url.variables) ?? .nil
 
+        // One-shot latch shared by every terminal path (response / failure /
+        // establishment timeout / link close). Ensures exactly one of them
+        // surfaces a result, and — crucially — that tearing the link down after a
+        // successful load does NOT make `onClosed` fire a spurious error over the
+        // page the user just loaded.
+        let concluded = ConclusionLatch()
+
         do {
             let link = try Link.initiate(destination: dest, transport: transport)
             link.onEstablished = { [weak self] l in
                 guard let self else { return }
-                try? l.request(
-                    path: url.path,
-                    nativeValue: requestValue,
-                    responseCallback: { [weak self] data, _ in
-                        self?.handleResponse(data, url: url)
-                        try? l.teardown()
-                    },
-                    failedCallback: { [weak self] reason, _ in
-                        self?.onError?(reason, url)
-                        try? l.teardown()
-                    },
-                    timeout: timeout
-                )
+                // Identify to the node ONLY when the per-node toggle is set,
+                // exactly like Python's Browser (which identifies solely when
+                // `should_identify_on_connect(destination_hash)` is true) — never
+                // unconditionally, or we'd leak the user's identity to every node
+                // they browse. Best-effort: a node that doesn't require identity
+                // still serves, and a genuine failure surfaces via the request path.
+                if self.shouldIdentify?(destHash) == true, let identity = self.appIdentity {
+                    try? l.identify(as: identity)
+                }
+                // Route a thrown request (e.g. the link went stale between
+                // establishment and this call) to onError instead of swallowing it
+                // with `try?` — otherwise no callback ever fires and the UI spins
+                // forever with no feedback.
+                do {
+                    try l.request(
+                        path: url.path,
+                        nativeValue: requestValue,
+                        responseCallback: { [weak self] data, _ in
+                            guard concluded.claim() else { return }
+                            self?.handleResponse(data, url: url)
+                            try? l.teardown()
+                        },
+                        failedCallback: { [weak self] reason, _ in
+                            guard concluded.claim() else { return }
+                            self?.onError?(reason, url)
+                            try? l.teardown()
+                        },
+                        timeout: timeout
+                    )
+                } catch {
+                    guard concluded.claim() else { return }
+                    self.onError?("Request failed: \(error.localizedDescription)", url)
+                    try? l.teardown()
+                }
             }
             link.onTimeout = { [weak self] _ in
+                guard concluded.claim() else { return }
                 self?.onError?("Link establishment timed out", url)
+            }
+            // Surface an unexpected link close (before a response concluded) as an
+            // error rather than an endless spinner. The success/failure paths above
+            // claim the latch before their own teardown, so a normal close is a no-op.
+            link.onClosed = { [weak self] _ in
+                guard concluded.claim() else { return }
+                self?.onError?("Link closed before the page loaded", url)
             }
         } catch {
             onError?(error.localizedDescription, url)
         }
+    }
+}
+
+/// Thread-safe one-shot latch: `claim()` returns `true` for exactly one caller,
+/// `false` for every subsequent call. Lets several escaping link callbacks race
+/// to conclude a page request while guaranteeing only the first one acts.
+private final class ConclusionLatch {
+    private var claimed = false
+    private let lock = NSLock()
+    func claim() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        if claimed { return false }
+        claimed = true
+        return true
     }
 }
