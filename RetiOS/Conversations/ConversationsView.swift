@@ -17,26 +17,24 @@ struct ConversationsView: View {
 
     var body: some View {
         NavigationStack(path: $navPath) {
-            VStack(spacing: 0) {
-                // Only the section picker + list scroll below the pinned title.
-                RNSSectionPicker([
-                    ("Messages", MessagesSection.conversations),
-                    ("Contacts", MessagesSection.contacts),
-                    ("Peers",    MessagesSection.peers)
-                ], selection: $section)
-
-                Group {
-                    switch section {
-                    case .conversations:
-                        ConversationListContent()
-                    case .contacts:
-                        ContactsContent()
-                    case .peers:
-                        LXMFPeersContent()
-                    }
+            // Only the section picker + list scroll below the pinned title.
+            // The picker sits inline on iOS and in the window toolbar on Mac —
+            // see `rnsSectionPicker`.
+            Group {
+                switch section {
+                case .conversations:
+                    ConversationListContent()
+                case .contacts:
+                    ContactsContent()
+                case .peers:
+                    LXMFPeersContent()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .rnsSectionPicker([
+                ("Messages", MessagesSection.conversations),
+                ("Contacts", MessagesSection.contacts),
+                ("Peers",    MessagesSection.peers)
+            ], selection: $section)
             // Flush pinned title with the compose / add-contact action in the
             // header's trailing slot beside the title — matching the Calls tab.
             // (rnsPinnedTitle sizes/tints the action and hides the empty iOS

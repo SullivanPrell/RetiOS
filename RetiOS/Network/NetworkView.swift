@@ -21,22 +21,19 @@ struct ToolsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            RNSSectionPicker(
-                Tab.allCases.map { ($0.rawValue, $0) },
-                selection: $selection
-            )
-
-            Group {
-                switch selection {
-                case .paths:      PathTableView()
-                case .announces:  AnnouncesView()
-                case .ping:       NetworkToolsView()
-                case .visualizer: NetworkVisualizerView()
-                }
+        Group {
+            switch selection {
+            case .paths:      PathTableView()
+            case .announces:  AnnouncesView()
+            case .ping:       NetworkToolsView()
+            case .visualizer: NetworkVisualizerView()
             }
-            .environment(stack)
         }
+        .environment(stack)
+        .rnsSectionPicker(
+            Tab.allCases.map { ($0.rawValue, $0) },
+            selection: $selection
+        )
         .rnsCanvasBackground()
         .navigationTitle("Tools")
     }

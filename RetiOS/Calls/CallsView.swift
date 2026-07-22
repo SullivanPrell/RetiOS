@@ -55,26 +55,22 @@ struct CallsView: View {
     // MARK: - Idle container (tabs)
 
     private var idleContainerView: some View {
-        VStack(spacing: 0) {
-            RNSSectionPicker([
-                ("Recents", CallsIdleSection.recents),
-                ("Peers",   CallsIdleSection.peers)
-            ], selection: $idleSection)
-
-            Group {
-                switch idleSection {
-                case .recents:
-                    CallsRecentsContent()
-                case .peers:
-                    CallsPeersContent { hash in
-                        if let data = Data(hexString: hash) {
-                            calls.startCall(to: data)
-                        }
+        Group {
+            switch idleSection {
+            case .recents:
+                CallsRecentsContent()
+            case .peers:
+                CallsPeersContent { hash in
+                    if let data = Data(hexString: hash) {
+                        calls.startCall(to: data)
                     }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .rnsSectionPicker([
+            ("Recents", CallsIdleSection.recents),
+            ("Peers",   CallsIdleSection.peers)
+        ], selection: $idleSection)
     }
 
     // MARK: - Call states

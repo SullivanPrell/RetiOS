@@ -4,7 +4,7 @@
 # committed lockfile (./Package.resolved). `make ci` runs the very same
 # scripts/ci.sh that GitHub Actions runs, so a green `make ci` means a green CI.
 
-.PHONY: ci uitest generate update help
+.PHONY: ci uitest mac-screens generate update help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -15,6 +15,9 @@ ci: ## Reproduce CI: build the pinned lockfile versions (iOS Simulator). Run bef
 
 uitest: ## Run the XCUITest suite on an iOS Simulator (catches @Environment injection traps)
 	./scripts/uitest.sh
+
+mac-screens: ## Screenshot every top-level macOS screen into /tmp/retios-mac (for reviewing Mac layout)
+	./scripts/mac-screens.sh
 
 generate: ## Generate RetiOS.xcodeproj from project.yml + install the pinned lockfile (for Xcode)
 	./scripts/generate.sh

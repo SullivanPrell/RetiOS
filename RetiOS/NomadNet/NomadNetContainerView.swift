@@ -14,35 +14,31 @@ struct NomadNetContainerView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                RNSSectionPicker([
-                    ("Browse",    NomadSection.browse),
-                    ("Peers",     NomadSection.peers),
-                    ("Favorites", NomadSection.favorites),
-                    ("Channels",  NomadSection.channels)
-                ], selection: $section)
-
-                // Content — each case fills all remaining space.
-                Group {
-                    switch section {
-                    case .browse:
-                        NomadNetBrowserContent()
-                    case .peers:
-                        NomadNetPeersContent { hash in
-                            nomadNet.navigate(to: hash)
-                            section = .browse
-                        }
-                    case .favorites:
-                        NomadNetFavoritesContent { hash in
-                            nomadNet.navigate(to: hash)
-                            section = .browse
-                        }
-                    case .channels:
-                        ChannelsContent()
+            // Content — each case fills all remaining space.
+            Group {
+                switch section {
+                case .browse:
+                    NomadNetBrowserContent()
+                case .peers:
+                    NomadNetPeersContent { hash in
+                        nomadNet.navigate(to: hash)
+                        section = .browse
                     }
+                case .favorites:
+                    NomadNetFavoritesContent { hash in
+                        nomadNet.navigate(to: hash)
+                        section = .browse
+                    }
+                case .channels:
+                    ChannelsContent()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .rnsSectionPicker([
+                ("Browse",    NomadSection.browse),
+                ("Peers",     NomadSection.peers),
+                ("Favorites", NomadSection.favorites),
+                ("Channels",  NomadSection.channels)
+            ], selection: $section)
             // Flush pinned title (no large-title dead space) — matches the
             // Messages tab. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
             .rnsPinnedTitle("NomadNet")

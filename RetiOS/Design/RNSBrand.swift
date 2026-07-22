@@ -249,10 +249,43 @@ extension View {
     /// macOS: there is no navigation bar to reclaim and a custom in-content
     /// title would duplicate the window-chrome title, so fall back to the
     /// native `navigationTitle` + a trailing window-toolbar item.
+    /// Titles a screen that has no trailing action.
+    ///
+    /// This is a *separate overload* rather than a defaulted `trailing:`
+    /// parameter, and that distinction is load-bearing on macOS: a
+    /// `ToolbarItem` wrapping an `EmptyView` still claims a toolbar slot, and a
+    /// slot the user cannot see is still a slot the system can decide to
+    /// collapse. Every Mac screen was rendering a "»" overflow chevron —
+    /// hiding real actions behind it — because each one contributed a phantom
+    /// primary-action item here. With the default argument gone, screens
+    /// without an action contribute nothing at all.
+    @ViewBuilder
+    func rnsPinnedTitle(_ title: String) -> some View {
+        #if os(iOS)
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.largeTitle.bold())
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+
+            self
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .navigationTitle(title)
+        .toolbar(.hidden, for: .navigationBar)
+        #else
+        self.navigationTitle(title)
+        #endif
+    }
+
     @ViewBuilder
     func rnsPinnedTitle<Trailing: View>(
         _ title: String,
-        @ViewBuilder trailing: () -> Trailing = { EmptyView() }
+        @ViewBuilder trailing: () -> Trailing
     ) -> some View {
         #if os(iOS)
         VStack(spacing: 0) {
@@ -391,8 +424,70 @@ struct RNSSectionPicker<T: Hashable>: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+    }
+}
+
+/// Container for a settings-style screen — a stack of `Section`s of labelled
+/// rows and explanatory footers (Settings, Interfaces).
+///
+/// **iOS** keeps `List` + `.insetGrouped`. `List` is what supports
+/// `swipeActions`, which the Interfaces screen uses to remove an interface, so
+/// this is not interchangeable with `Form` there.
+///
+/// **macOS** uses `Form` + `.formStyle(.grouped)`, which is what a Mac settings
+/// pane actually is. `List` gave rows that spanned the whole window: on a
+/// 1100 pt-wide window a row read as its label on the far left and its control
+/// ~1000 pt away on the far right, with nothing between. Grouped `Form` boxes
+/// the sections and constrains their width the way System Settings does.
+///
+/// It also fixes a genuine defect rather than only a stylistic one: in the
+/// `List` layout, section footers were laid out on a single line and truncated
+/// — the Interfaces overlay-network footer ended mid-sentence at "Reticulum
+/// then…" — because the row was nearly wide enough to fit them. `Form` footers
+/// wrap.
+@ViewBuilder
+func rnsSettingsContainer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    #if os(macOS)
+    Form { content() }
+        .formStyle(.grouped)
+    #else
+    List { content() }
+        .listStyle(.insetGrouped)
+    #endif
+}
+
+extension View {
+    /// Attaches a section switcher to a screen, placed the way each platform
+    /// expects.
+    ///
+    /// **iOS** stretches a segmented control edge-to-edge under the title — the
+    /// standard phone idiom, and what this app has always done.
+    ///
+    /// **macOS** puts it in the window toolbar instead. A Mac segmented control
+    /// sizes to its content rather than filling the width, so the iOS placement
+    /// rendered as a small pill marooned in the middle of an otherwise empty
+    /// row across the top of every pane — the most conspicuous phone-ism in the
+    /// Mac build. The toolbar is where Finder, Mail and Xcode put exactly this
+    /// control.
+    ///
+    /// Apply to the *content*; the modifier arranges the picker around it.
+    @ViewBuilder
+    func rnsSectionPicker<T: Hashable>(_ tabs: [(String, T)], selection: Binding<T>) -> some View {
+        #if os(macOS)
+        self.toolbar {
+            ToolbarItem(placement: .principal) {
+                RNSSectionPicker(tabs, selection: selection)
+            }
+        }
+        #else
+        VStack(spacing: 0) {
+            RNSSectionPicker(tabs, selection: selection)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+            self
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        #endif
     }
 }
 

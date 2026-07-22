@@ -59,9 +59,20 @@ final class RetiOSUITests: XCTestCase {
     private func launchApp() -> XCUIApplication {
         let app = XCUIApplication()
         // `-key value` launch arguments land in UserDefaults' argument domain,
-        // which outranks everything else — so this skips the onboarding sheet
-        // without the app needing a test-only code path.
-        app.launchArguments += ["-hasCompletedOnboarding", "YES"]
+        // which outranks everything else — so these skip the onboarding sheet
+        // and suppress network bring-up without the app needing a test-only
+        // UI path.
+        //
+        // `-stackOffline` matters more than it looks. XCTest relaunches the app
+        // for every test method, so without it each method rejoined
+        // AutoInterface's multicast group, redialled every saved gateway,
+        // respawned i2pd and re-armed the Yggdrasil VPN profile — then had all
+        // of it killed abruptly when the test ended. That churn disrupts a real
+        // mesh the developer's machine belongs to, and makes the tests slow and
+        // dependent on network state. None of the assertions here need a live
+        // mesh. See `StackController.isOfflineUITestRun`.
+        app.launchArguments += ["-hasCompletedOnboarding", "YES",
+                                "-stackOffline", "YES"]
         app.launch()
         return app
     }

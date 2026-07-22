@@ -103,7 +103,11 @@ final class NomadNetController {
         // still render in ChannelsView, but findHub() returns nil so the
         // room view can never reconnect or send.
         manager.load()
-        reconnectHubs()
+        // Restoring hub *state* is what makes joined channels usable again;
+        // redialling their links is not, and an offline UI-test run must not.
+        if !StackController.isOfflineUITestRun {
+            reconnectHubs()
+        }
 
         // Register nomadnetwork.node announce handler to populate the Peers tab
         // with actual NomadNet nodes (separate from the LXMF peer list).

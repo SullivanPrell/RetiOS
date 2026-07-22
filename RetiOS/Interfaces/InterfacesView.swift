@@ -11,20 +11,16 @@ struct InterfacesView: View {
     @State private var showYggdrasilNodeSheet = false
     @State private var showI2PSheet = false
 
+    @ViewBuilder
+    private var sections: some View {
+        activeSection
+        radioSection
+        overlayNetworksSection
+        addSection
+    }
+
     var body: some View {
-        List {
-            activeSection
-            radioSection
-            overlayNetworksSection
-            addSection
-        }
-        // Match SettingsView's grouped list treatment (this screen is pushed
-        // from Settings on iPhone) rather than inheriting the default style.
-        #if os(iOS)
-        .listStyle(.insetGrouped)
-        #else
-        .listStyle(.inset)
-        #endif
+        rnsSettingsContainer { sections }
         .rnsScreenBackground()
         .navigationTitle("Interfaces")
         .rnsInlineNavigationTitle()

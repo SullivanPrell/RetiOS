@@ -15,3 +15,6 @@ xcuserdata/
 *.mode1v3
 *.mode2v3
 *.perspectivev3
+
+# Coverage artifact dropped by ad-hoc xcodebuild runs
+default.profraw

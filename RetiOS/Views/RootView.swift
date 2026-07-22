@@ -154,7 +154,7 @@ private extension View {
 private struct SidebarRootView: View {
     @Environment(StackController.self) private var stack
     @Environment(NotificationManager.self) private var notifs
-    @State private var selection: AppTab? = .messages
+    @State private var selection: AppTab? = AppTab.launchSelection
 
     // On macOS, Settings lives in its own ⌘, Preferences window (see RetiOSApp),
     // so it's dropped from the sidebar. iPad keeps it (no Settings scene there).
@@ -174,7 +174,10 @@ private struct SidebarRootView: View {
             }
             .listStyle(.sidebar)
             .navigationTitle("RetiOS")
+            // iOS only — see `sidebarToolbar`.
+            #if os(iOS)
             .toolbar { sidebarToolbar }
+            #endif
             .overlay(alignment: .bottom) { stackStatusBar }
         } detail: {
             detailView(for: selection ?? .messages)
@@ -239,12 +242,20 @@ private struct SidebarRootView: View {
 
     // MARK: Toolbar
 
+    /// iOS only. A `NavigationSplitView` on macOS merges the sidebar's toolbar
+    /// into the single window toolbar, where this competed for the same
+    /// primary-action slot as the detail screen's own actions — so the logo was
+    /// what the "»" overflow was hiding. Mac apps don't badge their window
+    /// toolbar with the app icon anyway; the Dock and the menu bar already say
+    /// which app this is.
+    #if os(iOS)
     @ToolbarContentBuilder
     private var sidebarToolbar: some ToolbarContent {
         ToolbarItem(placement: .rnsTrailing) {
             RNSLogoView(size: 28)
         }
     }
+    #endif
 
     // MARK: Detail view — mirrors the tab bar exactly
 
