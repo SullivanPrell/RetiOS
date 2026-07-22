@@ -43,8 +43,9 @@ struct NomadNetContainerView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .navigationTitle("NomadNet")
-            .rnsNavigationBar()
+            // Flush pinned title (no large-title dead space) — matches the
+            // Messages tab. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
+            .rnsPinnedTitle("NomadNet")
         }
     }
 }

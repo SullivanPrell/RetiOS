@@ -146,6 +146,10 @@ struct InterfacesView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                // Without this, only the label/trailing text is hittable and the
+                // Spacer gap in the row's middle is a dead zone — tapping the
+                // visual centre of the row does nothing. Make the whole row tap.
+                .contentShape(Rectangle())
             }
 
             // Yggdrasil — run an embedded node (system VPN packet tunnel).
@@ -168,13 +172,18 @@ struct InterfacesView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .contentShape(Rectangle())
             }
 
             // Yggdrasil — dial a specific peer over its IPv6 address.
             Button {
                 showYggdrasilSheet = true
             } label: {
-                Label("Add Yggdrasil Peer…", systemImage: "point.3.connected.trianglepath.dotted")
+                HStack {
+                    Label("Add Yggdrasil Peer…", systemImage: "point.3.connected.trianglepath.dotted")
+                    Spacer()
+                }
+                .contentShape(Rectangle())
             }
         } header: {
             Text("Overlay Networks")
@@ -194,13 +203,21 @@ struct InterfacesView: View {
             Button {
                 showDirectorySheet = true
             } label: {
-                Label("Quick Add from Public Directory…", systemImage: "list.bullet.rectangle.portrait")
+                HStack {
+                    Label("Quick Add from Public Directory…", systemImage: "list.bullet.rectangle.portrait")
+                    Spacer()
+                }
+                .contentShape(Rectangle())
             }
 
             Button {
                 showAddSheet = true
             } label: {
-                Label("Add TCP / IPv6 Gateway…", systemImage: "network.badge.shield.half.filled")
+                HStack {
+                    Label("Add TCP / IPv6 Gateway…", systemImage: "network.badge.shield.half.filled")
+                    Spacer()
+                }
+                .contentShape(Rectangle())
             }
 
             NavigationLink(destination: InterfaceReferenceView()) {

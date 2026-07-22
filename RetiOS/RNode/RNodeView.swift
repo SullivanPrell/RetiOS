@@ -16,6 +16,9 @@ struct RNodeView: View {
         }
         .rnsScreenBackground()
         .navigationTitle("RNode (BLE)")
+        // Inline title (flush, no large-title dead space) — matches the other
+        // pushed detail screens (Interfaces, Logs, Identity).
+        .rnsInlineNavigationTitle()
         .toolbar { scanToolbar }
         .onAppear {
             if let t = stack.transport { scanner.setup(transport: t) }

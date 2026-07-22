@@ -5,6 +5,11 @@ struct IdentityView: View {
     @EnvironmentObject var stack: StackController
     @State private var copied = false
     @State private var draftName: String = ""
+    // Memoized QR of the identity hash. Generating it via Core Image is costly,
+    // and the hash is stable, so build it once on appear / when the identity
+    // changes instead of on every `body` eval (each keystroke in the name /
+    // nickname fields otherwise regenerated it, causing typing lag).
+    @State private var qrImage: Image?
     // RRC chat nickname — read live by RRCManager.getNickname() via the
     // NomadNetAppAdapter, so saving here takes effect on the next message.
     @AppStorage("rrcNickname") private var rrcNickname: String = ""
@@ -23,7 +28,15 @@ struct IdentityView: View {
         .rnsScreenBackground()
         .navigationTitle("Identity")
         .rnsInlineNavigationTitle()
-        .onAppear { draftName = stack.nodeDisplayName }
+        .onAppear {
+            draftName = stack.nodeDisplayName
+            // Parenthesize so `flatMap` is Optional.flatMap (String? -> Image?),
+            // not String's Sequence.flatMap over Characters.
+            qrImage = (stack.identity?.hexHash).flatMap { rnsQRImage($0) }
+        }
+        .onChange(of: stack.identity?.hexHash) { _, hex in
+            qrImage = hex.flatMap { rnsQRImage($0) }
+        }
         .rnsFeedback(trigger: copied) { _, new in new ? .success : nil }
     }
 
@@ -85,7 +98,7 @@ struct IdentityView: View {
 
             if let hexHash = stack.identity?.hexHash {
                 hashRow(hexHash)
-                if let qr = rnsQRImage(hexHash) {
+                if let qr = qrImage {
                     qrRow(qr)
                 }
             } else {

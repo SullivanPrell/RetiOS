@@ -31,9 +31,11 @@ struct LogsView: View {
             }
             .listStyle(.plain)
             .rnsScreenBackground()
-            // Track the filtered list, not the raw entry count, so auto-scroll
-            // follows the last *visible* row while a search filter is active.
-            .onChange(of: filtered.count) { _, _ in
+            // Key on the last visible row's identity, not the count: once the
+            // ring buffer is full the count is pinned at its cap (new entries
+            // evict old ones), so `count` stops changing and count-keyed
+            // auto-scroll silently freezes. The last id still changes per entry.
+            .onChange(of: filtered.last?.id) { _, _ in
                 guard autoScroll, let last = filtered.last else { return }
                 proxy.scrollTo(last.id, anchor: .bottom)
             }

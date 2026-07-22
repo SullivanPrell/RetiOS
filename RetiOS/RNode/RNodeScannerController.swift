@@ -76,6 +76,14 @@ final class RNodeScannerController: NSObject, ObservableObject {
     func startScanning() {
         discovered = []
         if central == nil {
+            // Record scan intent *before* the async power-on. A freshly created
+            // central starts in .unknown and only reports .poweredOn later via
+            // centralManagerDidUpdateState, which begins scanning only when
+            // state == .scanning. Without setting it here the very first tap
+            // creates the central but never scans (state stays .idle), so the
+            // screen looks broken until a second tap. The delegate resets this
+            // to .idle / .bluetoothUnavailable if the radio isn't actually on.
+            state = .scanning
             central = CBCentralManager(delegate: self, queue: bleQueue)
         } else if central?.state == .poweredOn {
             beginScan()

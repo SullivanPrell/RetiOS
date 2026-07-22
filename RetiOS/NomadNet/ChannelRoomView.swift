@@ -84,6 +84,10 @@ struct ChannelRoomView: View {
                 .padding()
             }
             .onChange(of: messages.count) { _, _ in
+                // Clear unread for messages that arrive while the room is open —
+                // otherwise the badge lingers even though the user is reading it
+                // (onAppear alone only covers messages present when opened).
+                clearUnread()
                 if let last = messages.last {
                     withAnimation { proxy.scrollTo(last.messageID, anchor: .bottom) }
                 }

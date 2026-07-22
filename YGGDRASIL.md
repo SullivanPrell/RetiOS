@@ -53,43 +53,51 @@ and project wiring are all in place; you supply the team + capabilities:
    - **Network Extensions** (Packet Tunnel Provider)
    - **Personal VPN** (`allow-vpn`)
    - **App Groups** — create `group.dev.sprell.retios` and add it to both App IDs.
-   - **Multicast Networking** (`com.apple.developer.networking.multicast`) — needed
-     for LAN peer discovery; see the section below.
+   - **Multicast Networking** (`com.apple.developer.networking.multicast`) — OPTIONAL,
+     only for LAN peer discovery, and **not declared by default** (see below).
 
    Network Extensions, Personal VPN, and App Groups are available to any paid team
-   with no manual approval. **Multicast Networking is the exception** — it needs a
-   separate Apple approval (see "LAN peer discovery" below). Both entitlements are
-   already declared in the `.entitlements` files.
+   with no manual approval, and are declared in the `.entitlements` files.
+   **Multicast Networking is deliberately NOT declared** so that signed public
+   builds ship without waiting on Apple's separate multicast approval — see "LAN
+   peer discovery" below to opt back in.
 
 3. **Run on a real device.** Packet Tunnel Providers do not tunnel in the iOS
    Simulator — install on a physical iPhone/iPad (or run the Mac app). The first
    time you enable the node, iOS shows the system "… would like to add VPN
    configurations" prompt; approve it.
 
-### LAN peer discovery (multicast) — entitlement required
+### LAN peer discovery (multicast) — opt-in, entitlement required
 
 IPv6 multicast is used for LAN discovery by **both** RetiOS's `AutoInterface`
 (nearby Reticulum nodes) and the Yggdrasil engine (nearby Yggdrasil nodes). iOS 14+
 gates all multicast behind the **Multicast Networking** entitlement
-(`com.apple.developer.networking.multicast`), which is **declared on both targets**:
+(`com.apple.developer.networking.multicast`), which **needs a separate approval
+from Apple** — <https://developer.apple.com/contact/request/networking-multicast>.
+If a signed build declares it but the provisioning profile hasn't been granted it,
+**code signing fails**.
 
-- `RetiOS/RetiOS.entitlements` (app — for `AutoInterface`)
-- `YggdrasilTunnel/YggdrasilTunnel.entitlements` (extension — for Yggdrasil)
+Because that approval blocks public distribution, the key is **deliberately NOT
+declared** in either entitlements file:
 
-plus the `NSLocalNetworkUsageDescription` strings (app `Info.plist` and the
-extension's `Info.plist`) that back the system "find devices on your local
-network" prompt.
+- `RetiOS/RetiOS.entitlements` (app — would enable `AutoInterface` LAN discovery)
+- `YggdrasilTunnel/YggdrasilTunnel.entitlements` (extension — Yggdrasil LAN discovery)
 
-> ⚠️ **This entitlement needs a separate approval from Apple** —
-> <https://developer.apple.com/contact/request/networking-multicast>. Until your
-> App IDs' provisioning profiles include it, a **signed** build will fail code
-> signing. If you don't have it yet, remove the two
-> `com.apple.developer.networking.multicast` keys (the app still works over
-> internet peers / `tls://…` and TCP without multicast). Compile-only builds with
-> signing disabled are unaffected.
+Each file keeps an inline comment with the exact key to paste back. The
+`NSLocalNetworkUsageDescription` strings (app `Info.plist` + the extension's
+`Info.plist`) are still present, so the local-network prompt and the Yggdrasil
+sheet's **LAN peer discovery** toggle remain wired up.
 
-Then toggle **LAN peer discovery** on in the app's Yggdrasil Node sheet for
-Yggdrasil-side multicast (`AutoInterface`'s multicast is automatic).
+> ℹ️ **What you lose without it:** LAN auto-discovery on *signed device* builds.
+> The app still reaches peers over TCP / internet (`tls://…`) and Yggdrasil, and
+> multicast works fine in the **iOS Simulator** (unsandboxed) and in unsigned
+> compile-only builds.
+>
+> **To enable it** once Apple grants the entitlement: re-add
+> `com.apple.developer.networking.multicast` = `true` to **both** entitlements
+> files (the inline comment shows exactly where), then toggle **LAN peer
+> discovery** on in the Yggdrasil Node sheet for Yggdrasil-side multicast
+> (`AutoInterface`'s multicast is automatic).
 
 ## macOS notes
 

@@ -32,6 +32,9 @@ struct BLEMeshView: View {
         }
         .rnsScreenBackground()
         .navigationTitle("BLE Mesh")
+        // Inline title (flush, no large-title dead space) — matches the other
+        // pushed detail screens (Interfaces, Logs, Identity).
+        .rnsInlineNavigationTitle()
         .onAppear {
             if let t = stack.transport { controller.setup(transport: t) }
         }

@@ -18,6 +18,7 @@ struct ConversationsView: View {
     var body: some View {
         NavigationStack(path: $navPath) {
             VStack(spacing: 0) {
+                // Only the section picker + list scroll below the pinned title.
                 RNSSectionPicker([
                     ("Messages", MessagesSection.conversations),
                     ("Contacts", MessagesSection.contacts),
@@ -36,27 +37,17 @@ struct ConversationsView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            // Flush pinned title with the compose / add-contact action in the
+            // header's trailing slot beside the title — matching the Calls tab.
+            // (rnsPinnedTitle sizes/tints the action and hides the empty iOS
+            // nav bar; pushed thread views set their own nav bar / back button.)
+            .rnsPinnedTitle("Messages") {
+                headerActionButton
+            }
             // ConversationListContent, ContactsContent and LXMFPeersContent all push
             // String (peerHash) values; this single destination handles navigation for all.
             .navigationDestination(for: String.self) { hash in
                 MessageThreadView(peerHash: hash)
-            }
-            .navigationTitle("Messages")
-            .rnsNavigationBar()
-            .toolbar {
-                ToolbarItem(placement: .rnsTrailing) {
-                    if section == .contacts {
-                        Button { showAddContact = true } label: {
-                            Image(systemName: "person.badge.plus")
-                        }
-                        .accessibilityLabel("Add Contact")
-                    } else {
-                        Button { showCompose = true } label: {
-                            Image(systemName: "square.and.pencil")
-                        }
-                        .accessibilityLabel("New Message")
-                    }
-                }
             }
             .sheet(isPresented: $showCompose) {
                 ComposeView()
@@ -83,6 +74,24 @@ struct ConversationsView: View {
                 section = .contacts
                 showAddContact = true
             }
+        }
+    }
+
+    /// Compose (or add-contact, in the Contacts section) action, shown in the
+    /// pinned header's trailing slot beside the "Messages" title (the Calls-tab
+    /// layout). `rnsPinnedTitle` handles its sizing and accent tint.
+    @ViewBuilder
+    private var headerActionButton: some View {
+        if section == .contacts {
+            Button { showAddContact = true } label: {
+                Image(systemName: "person.badge.plus")
+            }
+            .accessibilityLabel("Add Contact")
+        } else {
+            Button { showCompose = true } label: {
+                Image(systemName: "square.and.pencil")
+            }
+            .accessibilityLabel("New Message")
         }
     }
 }
@@ -387,7 +396,10 @@ struct AddContactSheet: View {
                         .rnsHashFieldStyle()
                         .focused($hashFocused)
                         .onChange(of: hashInput) { _, new in
-                            hashInput = String(new.filter { $0.isHexDigit }.prefix(32))
+                            // Lowercase to match ComposeView — otherwise an
+                            // uppercase-hex entry creates a case-mismatched
+                            // duplicate peer whose thread never links up.
+                            hashInput = String(new.filter { $0.isHexDigit }.prefix(32)).lowercased()
                         }
                     if !hashInput.isEmpty && !hashValid {
                         Text("Must be a 32-character hex string (16 bytes).")

@@ -11,15 +11,18 @@
 	<array>
 		<string>allow-vpn</string>
 	</array>
-	<!-- LAN peer discovery over IPv6 multicast (Yggdrasil MulticastInterfaces,
-	     "en.*"/"bridge.*"). iOS 14+ gates multicast behind this entitlement, which
-	     REQUIRES a separate approval from Apple:
-	       https://developer.apple.com/contact/request/networking-multicast
-	     Until your provisioning profile includes it, a *signed* build will fail
-	     code signing — remove this key (and its app twin) if you don't have it
-	     yet; internet peers (tls://…) still work without it. See YGGDRASIL.md. -->
-	<key>com.apple.developer.networking.multicast</key>
-	<true/>
+	<!-- IPv6 multicast (com.apple.developer.networking.multicast) is INTENTIONALLY
+	     OMITTED so signed public / TestFlight / App Store builds succeed without
+	     Apple's separate multicast approval, which is still pending. Consequence:
+	     Yggdrasil's LAN peer discovery (MulticastInterfaces "en.*"/"bridge.*") is
+	     unavailable on *signed* device builds — internet peers (tls://…) still
+	     work. When Apple grants the entitlement
+	     (https://developer.apple.com/contact/request/networking-multicast) restore
+	     it here AND in the RetiOS app twin by re-adding:
+	         <key>com.apple.developer.networking.multicast</key>
+	         <true/>
+	     See YGGDRASIL.md ("LAN peer discovery"). -->
+
 	<!-- Shared with the containing app so the app can drive the tunnel and read
 	     status. Replace the group id if you change bundle IDs. -->
 	<key>com.apple.security.application-groups</key>

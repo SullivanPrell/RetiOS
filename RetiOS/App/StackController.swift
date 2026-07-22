@@ -105,6 +105,9 @@ final class StackController: ObservableObject {
     // MARK: - Stack state
 
     @Published private(set) var isRunning = false
+    /// Guards `bringUp` against re-entry (a second scene/window, or an
+    /// interleaving at an `await`) starting a duplicate stack over this one.
+    private var isBringingUp = false
     @Published private(set) var identity: Identity?
     @Published private(set) var lxmfRouter: LXMRouter?
     /// True when we connected to an external rnsd rather than starting our own.
@@ -139,13 +142,36 @@ final class StackController: ObservableObject {
     private static let nodeDisplayNameKey = "nodeDisplayName"
 
     func bringUp(modelContext: ModelContext, notificationManager: NotificationManager? = nil) async {
+        // Idempotent: never start a second stack over a running (or still
+        // starting) one. @MainActor makes this check-and-set race-free.
+        guard !isRunning, !isBringingUp else { return }
+        isBringingUp = true
+        defer { isBringingUp = false }
+
         self.notificationManager = notificationManager
         let storage = URL.documentsDirectory.appending(path: "reticulum", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
 
+        // Enable wire-compatible bz2 compression for Resource transfers. Without
+        // this, `Resource.compressor` stays `NoCompressor`, whose `decompress`
+        // returns nil — so any COMPRESSED resource sent by a Python peer (large
+        // NomadNet pages, large LXMF messages, RRC resources — all of which
+        // Python bz2-compresses) fails to assemble ("decompression failed"),
+        // tearing down the link ("Link closed before the page loaded"). Small
+        // single-packet responses are unaffected, which masked this. Set once,
+        // before any resource activity; idempotent across bring-up retries.
+        Resource.compressor = BZip2Compressor()
+
         let stack = Reticulum(configuration: .init(storagePath: storage))
         do {
             try stack.start()
+
+            // Acquire the identity up front — before registering any interfaces
+            // or starting the Yggdrasil tunnel. A failure here (e.g. a corrupt
+            // on-disk identity file) would otherwise jump to `catch` with the
+            // AutoInterface / saved gateways / I2P daemon / VPN already running
+            // and no handle to stop them, leaving the app wedged at "Starting…".
+            let id = try stack.loadOrCreateIdentity()
 
             #if os(macOS)
             let useDaemon = await StackController.probeLocalDaemon()
@@ -171,6 +197,13 @@ final class StackController: ObservableObject {
 
             // Restore user-added client interfaces from previous sessions.
             loadSavedInterfaces()
+            #if DEBUG
+            // Integration-test hook (DEBUG-only, never compiled into Release):
+            // reticulum_integration's `make mobile-verify` launches the app with
+            // RETIOS_INTEROP_TCP=host:port so the stack dials a Python RNS
+            // TCPServer running on the host, proving Python↔mobile reachability.
+            seedInteropInterfaceFromEnvironment()
+            #endif
             for saved in savedInterfaces {
                 let iface: any Interface
                 switch saved.kind {
@@ -218,8 +251,6 @@ final class StackController: ObservableObject {
             }
             #endif
 
-            let id = try stack.loadOrCreateIdentity()
-
             let router = LXMRouter(transport: stack.transport)
             let lxmfPath = storage.appendingPathComponent("lxmf").path
             try? FileManager.default.createDirectory(atPath: lxmfPath, withIntermediateDirectories: true)
@@ -263,9 +294,28 @@ final class StackController: ObservableObject {
             self.transport = stack.transport
             self.reticulum = stack
             self.isRunning = true
+
+            #if DEBUG
+            // Interop-test hook: when launched by `make mobile-verify`
+            // (RETIOS_INTEROP_TCP set), re-announce LXMF a few times after
+            // bring-up so the Python oracle reliably catches an announce once
+            // the seeded TCP link finishes connecting — the single startup
+            // announce above can race the link coming up. DEBUG-only, env-gated.
+            if ProcessInfo.processInfo.environment["RETIOS_INTEROP_TCP"] != nil {
+                Task { @MainActor [weak self] in
+                    for _ in 0..<20 where !Task.isCancelled {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        self?.announceLXMFNow()
+                    }
+                }
+            }
+            #endif
         } catch {
             Reticulum.log("StackController.bringUp failed: \(error)", level: .error)
             self.isRunning = false
+            // Stop anything that started before the failure so interfaces and
+            // the RNS instance don't leak, and a later retry can start clean.
+            stack.stop()
         }
     }
 
@@ -449,6 +499,24 @@ final class StackController: ObservableObject {
         savedInterfaces = saved
     }
 
+    #if DEBUG
+    /// Integration-test hook: if `RETIOS_INTEROP_TCP` (e.g. "127.0.0.1:4242") is
+    /// present in the environment, add a transient TCP client interface dialing
+    /// that host so `bringUp` connects to a Python RNS TCPServer. Not persisted
+    /// (kept out of UserDefaults) and DEBUG-only, so it never affects Release
+    /// builds or a user's saved interfaces. Host must be IPv4/hostname (the
+    /// last ':' separates the port — bracketless IPv6 is intentionally unsupported).
+    private func seedInteropInterfaceFromEnvironment() {
+        guard let spec = ProcessInfo.processInfo.environment["RETIOS_INTEROP_TCP"],
+              let sep = spec.lastIndex(of: ":") else { return }
+        let host = String(spec[spec.startIndex..<sep])
+        guard !host.isEmpty, let port = UInt16(spec[spec.index(after: sep)...]) else { return }
+        guard !savedInterfaces.contains(where: { $0.host == host && $0.port == port }) else { return }
+        savedInterfaces.append(SavedInterface(name: "Interop TCP", host: host, port: port, kind: .tcp))
+        Reticulum.log("StackController: seeded interop TCP interface \(host):\(port) from RETIOS_INTEROP_TCP", level: .notice)
+    }
+    #endif
+
     private func persistSavedInterfaces() {
         if let data = try? JSONEncoder().encode(savedInterfaces) {
             UserDefaults.standard.set(data, forKey: Self.savedInterfacesKey)
@@ -572,7 +640,11 @@ final class StackController: ObservableObject {
     /// Fails if the peer's identity has not been seen yet (no announce received).
     func send(content: String, title: String = "", to peerHash: Data,
               context: ModelContext) throws {
-        guard let router = lxmfRouter, let identity = identity else { return }
+        // Throw rather than silently return: a bare `return` here made the
+        // compose UI report success even though nothing was sent (stack not up).
+        guard let router = lxmfRouter, let identity = identity else {
+            throw StackError.notRunning
+        }
 
         // Recall peer identity from the Transport announce store. If it isn't
         // known yet, request a path so the identity can be resolved from the

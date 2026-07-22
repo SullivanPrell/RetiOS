@@ -210,6 +210,53 @@ extension View {
         #endif
     }
 
+    /// Pins a large, left-aligned screen title flush to the top of the content,
+    /// with an optional trailing action button. This replaces the system
+    /// collapsing large-title nav bar — which reserves an empty ~44 pt inline
+    /// bar *above* the big title (the "huge dead space" between the status bar
+    /// and the title) — with an in-content title that sits right under the safe
+    /// area. Only the content below scrolls; the title stays put.
+    ///
+    /// iOS: draws the title (and trailing action) in-content and hides the now
+    /// empty navigation bar. Pushed destinations still get their own nav bar /
+    /// back button, since bar-hiding applies only to this level of the stack.
+    ///
+    /// macOS: there is no navigation bar to reclaim and a custom in-content
+    /// title would duplicate the window-chrome title, so fall back to the
+    /// native `navigationTitle` + a trailing window-toolbar item.
+    @ViewBuilder
+    func rnsPinnedTitle<Trailing: View>(
+        _ title: String,
+        @ViewBuilder trailing: () -> Trailing = { EmptyView() }
+    ) -> some View {
+        #if os(iOS)
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.largeTitle.bold())
+                Spacer(minLength: 8)
+                // Size the action like a prominent nav action (≈22 pt) rather
+                // than default body text, and tint it with the brand accent.
+                trailing()
+                    .font(.title2)
+                    .tint(Color.rnsAccent)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+
+            self
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .navigationTitle(title)
+        .toolbar(.hidden, for: .navigationBar)
+        #else
+        self
+            .navigationTitle(title)
+            .toolbar { ToolbarItem(placement: .primaryAction) { trailing() } }
+        #endif
+    }
+
     /// No-op on macOS — `textInputAutocapitalization` is iOS/iPadOS/tvOS/
     /// watchOS only (it configures the on-screen keyboard's shift-key
     /// behavior). macOS text fields have no software keyboard / auto-cap

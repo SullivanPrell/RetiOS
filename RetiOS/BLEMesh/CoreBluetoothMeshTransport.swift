@@ -423,7 +423,13 @@ extension CoreBluetoothMeshTransport {
         pendingCentralWrites[peerID, default: []].append(contentsOf: pieces)
         lock.unlock()
 
-        drainCentralWrites(for: peerID, link: link)
+        // Serialize draining onto the CoreBluetooth `queue`. The delegate resume
+        // callback (peripheralIsReady) already drains there, so dispatching the
+        // send-path drain onto the same serial queue guarantees only one drain
+        // runs at a time. Otherwise the two could interleave: each peeks the same
+        // `first` chunk (writing it twice) and each `removeFirst`s (dropping the
+        // next), corrupting the fragment stream.
+        queue.async { [weak self] in self?.drainCentralWrites(for: peerID, link: link) }
     }
 
     /// Pushes queued chunks for `peerID` through
@@ -488,7 +494,11 @@ extension CoreBluetoothMeshTransport {
         pendingNotifications[peer, default: []].append(contentsOf: pieces)
         lock.unlock()
 
-        drainNotifications(for: peer, to: central)
+        // Same serialization as writeAsCentral: drainNotifications also runs from
+        // peripheralManagerIsReady on `queue`, so dispatch here too — otherwise a
+        // concurrent send-path drain and delegate-resume drain duplicate/drop
+        // notification chunks.
+        queue.async { [weak self] in self?.drainNotifications(for: peer, to: central) }
     }
 
     /// Pushes queued chunks for `peer` through `updateValue` until either the
