@@ -2,8 +2,8 @@ import SwiftUI
 import ReticulumSwift
 
 struct SettingsView: View {
-    @EnvironmentObject var stack: StackController
-    @EnvironmentObject var calls: CallsController
+    @Environment(StackController.self) private var stack
+    @Environment(CallsController.self) private var calls
     // @Observable + @Environment, so this view depends only on the property it
     // reads (`logLevel`). Under the old @EnvironmentObject/ObservableObject
     // spelling, every appended log line invalidated this whole screen.

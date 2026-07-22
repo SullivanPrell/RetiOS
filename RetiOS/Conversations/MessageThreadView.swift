@@ -3,7 +3,7 @@ import SwiftData
 
 struct MessageThreadView: View {
     let peerHash: String
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @Environment(\.modelContext) private var context
     @Query private var messages: [MessageEntity]
     @Query private var peers: [PeerEntity]

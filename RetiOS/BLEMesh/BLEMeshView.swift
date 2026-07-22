@@ -14,13 +14,13 @@ import ReticulumSwift
 /// (on/off/unavailable/failed) and a live peer count, mirroring the
 /// "Active interfaces" / radio-readout style used elsewhere in Settings.
 struct BLEMeshView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     // Owned at the app level (see `RetiOSApp`) and shared via the environment
     // — not a per-view @StateObject. The mesh radio must keep running (and
     // this view must keep reflecting its real state) whether or not the user
     // is currently looking at this screen; a view-scoped controller would be
     // torn down on navigation while its radio kept running headless beneath it.
-    @EnvironmentObject var controller: BLEMeshController
+    @Environment(BLEMeshController.self) private var controller
 
     var body: some View {
         List {

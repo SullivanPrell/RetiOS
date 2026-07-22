@@ -10,7 +10,7 @@ import ReticulumSwift
 //   Visualizer  — live network graph (nodes, edges, connection types)
 
 struct ToolsView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @State private var selection: Tab = .paths
 
     enum Tab: String, CaseIterable {
@@ -35,7 +35,7 @@ struct ToolsView: View {
                 case .visualizer: NetworkVisualizerView()
                 }
             }
-            .environmentObject(stack)
+            .environment(stack)
         }
         .rnsCanvasBackground()
         .navigationTitle("Tools")
@@ -45,7 +45,7 @@ struct ToolsView: View {
 // MARK: - Path table
 
 private struct PathTableView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @State private var paths: [(hash: String, hops: UInt8, interface: String)] = []
     private let refreshInterval: TimeInterval = 3
 
@@ -141,7 +141,7 @@ private struct PathRow: View {
 // MARK: - Announces log
 
 private struct AnnouncesView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @State private var knownIdentities: [String] = []
     private let refreshInterval: TimeInterval = 5
 
@@ -213,7 +213,7 @@ private struct AnnouncesView: View {
 // MARK: - Network tools
 
 private struct NetworkToolsView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @State private var pingTarget = ""
     @State private var pingResult: String?
     @State private var isPinging = false

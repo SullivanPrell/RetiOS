@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import UserNotifications
 
 // MARK: - App-level tab enum
@@ -30,17 +31,18 @@ enum AppTab: String, Hashable, CaseIterable {
 /// without needing the SwiftUI environment.  Use `NotificationManager.shared`
 /// everywhere; inject it as `@EnvironmentObject` in views that need to observe it.
 @MainActor
-final class NotificationManager: NSObject, ObservableObject {
+@Observable
+final class NotificationManager: NSObject {
 
     static let shared = NotificationManager()
 
     // MARK: - Published navigation intents
 
     /// Set by the notification delegate; consumed by RootView to switch tabs.
-    @Published var navigateTo: AppTab? = nil
+    var navigateTo: AppTab? = nil
     /// Set by the notification delegate; consumed by ConversationsView to push
     /// directly to the relevant conversation thread.
-    @Published var openConversationHash: String? = nil
+    var openConversationHash: String? = nil
 
     // MARK: - Menu-command intents (macOS / hardware keyboard)
     //
@@ -50,15 +52,15 @@ final class NotificationManager: NSObject, ObservableObject {
     // builder) because SwiftUI does not flow the environment into `.commands`.
 
     /// Open the New Message composer.
-    @Published var requestCompose = 0
+    var requestCompose = 0
     /// Open the Add Contact (by destination hash) sheet.
-    @Published var requestAddContact = 0
+    var requestAddContact = 0
     /// Open the New Call sheet.
-    @Published var requestNewCall = 0
+    var requestNewCall = 0
     /// Send an LXMF announce now.
-    @Published var requestAnnounce = 0
+    var requestAnnounce = 0
     /// Sync from the propagation node now.
-    @Published var requestSync = 0
+    var requestSync = 0
 
     // MARK: - Injected dependencies
 

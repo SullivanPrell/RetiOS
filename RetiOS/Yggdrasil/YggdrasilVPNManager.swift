@@ -9,6 +9,7 @@
 //  CrossPlatformAppDelegate into a SwiftUI-friendly ObservableObject.
 //
 import Foundation
+import Observation
 import NetworkExtension
 import Combine
 
@@ -30,7 +31,8 @@ struct YggdrasilPeerInfo: Identifiable {
 }
 
 @MainActor
-final class YggdrasilVPNManager: ObservableObject {
+@Observable
+final class YggdrasilVPNManager {
     /// Must match the extension target's bundle identifier (project.yml).
     static let extensionBundleID = "dev.sprell.retios.YggdrasilTunnel"
 
@@ -52,23 +54,23 @@ final class YggdrasilVPNManager: ObservableObject {
         var isActive: Bool { self == .connected || self == .connecting || self == .reasserting }
     }
 
-    @Published private(set) var status: Status = .disconnected
-    @Published private(set) var nodeAddress: String?
-    @Published private(set) var nodeSubnet: String?
-    @Published private(set) var publicKey: String?
-    @Published private(set) var peers: [YggdrasilPeerInfo] = []
-    @Published private(set) var lastError: String?
+    private(set) var status: Status = .disconnected
+    private(set) var nodeAddress: String?
+    private(set) var nodeSubnet: String?
+    private(set) var publicKey: String?
+    private(set) var peers: [YggdrasilPeerInfo] = []
+    private(set) var lastError: String?
     /// True once we have located (or created) the VPN profile.
-    @Published private(set) var isConfigured: Bool = false
+    private(set) var isConfigured: Bool = false
     /// True once a `NETunnelProviderManager.loadAllFromPreferences()` has
     /// succeeded this session. Distinguishes "queried NE, genuinely no profile"
     /// from "couldn't query NE" — the caller must not mint a new node key in the
     /// latter case (it would change the node identity). See StackController.
-    @Published private(set) var didLoadManagers: Bool = false
+    private(set) var didLoadManagers: Bool = false
 
-    private var manager: NETunnelProviderManager?
-    private var statusObserver: NSObjectProtocol?
-    private var pollTask: Task<Void, Never>?
+    @ObservationIgnored private var manager: NETunnelProviderManager?
+    @ObservationIgnored private var statusObserver: NSObjectProtocol?
+    @ObservationIgnored private var pollTask: Task<Void, Never>?
 
     init() {
         statusObserver = NotificationCenter.default.addObserver(
@@ -256,7 +258,7 @@ final class YggdrasilVPNManager: ObservableObject {
     /// exactly once.
     @MainActor
     private final class IPCResponder {
-        private var continuation: CheckedContinuation<Data?, Never>?
+        @ObservationIgnored private var continuation: CheckedContinuation<Data?, Never>?
         init(_ continuation: CheckedContinuation<Data?, Never>) { self.continuation = continuation }
         func finish(_ value: Data?) {
             continuation?.resume(returning: value)

@@ -9,7 +9,7 @@ import SwiftData
 //    iOS 26 Liquid Glass animation artifacts.
 //  • The navigation bar is minimal — no extra height from a toolbar principal item.
 struct NomadNetContainerView: View {
-    @EnvironmentObject var nomadNet: NomadNetController
+    @Environment(NomadNetController.self) private var nomadNet
     @State private var section: NomadSection = .browse
 
     var body: some View {

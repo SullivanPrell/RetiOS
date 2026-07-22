@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import CoreBluetooth
 import ReticulumSwift
 
@@ -10,7 +11,8 @@ import ReticulumSwift
 ///   idle → scanning → connecting → discoveringServices
 ///       → discoveringCharacteristics → detecting → online → idle (on disconnect)
 @MainActor
-final class RNodeScannerController: NSObject, ObservableObject {
+@Observable
+final class RNodeScannerController: NSObject {
 
     // MARK: - Published state
 
@@ -43,9 +45,9 @@ final class RNodeScannerController: NSObject, ObservableObject {
         }
     }
 
-    @Published private(set) var state: ConnectionState = .idle
-    @Published private(set) var discovered: [DiscoveredDevice] = []
-    @Published private(set) var rNodeInterface: RNodeInterface?
+    private(set) var state: ConnectionState = .idle
+    private(set) var discovered: [DiscoveredDevice] = []
+    private(set) var rNodeInterface: RNodeInterface?
 
     // MARK: - Discovered device
 
@@ -60,12 +62,12 @@ final class RNodeScannerController: NSObject, ObservableObject {
 
     // MARK: - Private
 
-    private var central: CBCentralManager?
-    private var connectingPeripheral: CBPeripheral?
-    private var bleTransport: BLERNodeTransport?
-    private var reticulumTransport: Transport?
+    @ObservationIgnored private var central: CBCentralManager?
+    @ObservationIgnored private var connectingPeripheral: CBPeripheral?
+    @ObservationIgnored private var bleTransport: BLERNodeTransport?
+    @ObservationIgnored private var reticulumTransport: Transport?
 
-    private let bleQueue = DispatchQueue(label: "RNodeScanner.ble")
+    @ObservationIgnored private let bleQueue = DispatchQueue(label: "RNodeScanner.ble")
 
     // MARK: - Public API
 

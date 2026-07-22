@@ -539,25 +539,79 @@ private func loadBrandImage(named name: String) -> Any? {
 
 // MARK: - QR code generation (shared by IdentityView + Onboarding)
 
+#if canImport(CoreImage)
+/// One shared Core Image context for the whole app.
+///
+/// `CIContext()` builds a full render pipeline and Apple documents it as
+/// expensive to create and intended for reuse. Constructing one per QR was the
+/// single largest block of app code on the main thread — ~75 ms every time the
+/// Identity screen appeared, on top of the render itself.
+private let rnsCIContext = CIContext()
+
+/// Rendered QR bitmaps keyed by "string@scale". Identity hashes are stable, so
+/// this is effectively a one-entry cache that makes every revisit free.
+private final class RNSQRCache: @unchecked Sendable {
+    static let shared = RNSQRCache()
+    private let lock = NSLock()
+    private var store: [String: CGImage] = [:]
+
+    func image(for key: String, build: () -> CGImage?) -> CGImage? {
+        lock.lock()
+        if let hit = store[key] { lock.unlock(); return hit }
+        lock.unlock()
+        // Built outside the lock: rendering is slow and two concurrent misses
+        // rendering the same code is cheaper than serialising every caller.
+        guard let made = build() else { return nil }
+        lock.lock(); store[key] = made; lock.unlock()
+        return made
+    }
+}
+
+/// Renders the QR bitmap. Safe to call off the main thread.
+private func rnsQRCGImage(_ string: String, scale: CGFloat) -> CGImage? {
+    RNSQRCache.shared.image(for: "\(string)@\(scale)") {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(string.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage else { return nil }
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        return rnsCIContext.createCGImage(scaled, from: scaled.extent)
+    }
+}
+
+private func rnsWrap(_ cg: CGImage) -> Image {
+    #if canImport(UIKit)
+    return Image(uiImage: UIImage(cgImage: cg))
+    #else
+    return Image(nsImage: NSImage(cgImage: cg, size: .zero))
+    #endif
+}
+#endif
+
 /// Generates a crisp QR-code SwiftUI `Image` for `string`, or `nil` if Core
 /// Image is unavailable. Cross-platform (UIImage / NSImage under the hood).
 /// Render it with `.interpolation(.none).resizable()` to keep the modules sharp.
+///
+/// Results are cached, but a *cold* call still renders synchronously — never
+/// call this from a `body`. Prefer `rnsQRImageAsync` from a `.task`.
 func rnsQRImage(_ string: String, scale: CGFloat = 6) -> Image? {
     #if canImport(CoreImage)
-    let filter = CIFilter.qrCodeGenerator()
-    filter.message = Data(string.utf8)
-    filter.correctionLevel = "M"
-    guard let output = filter.outputImage else { return nil }
-    let scaled = output.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-    let context = CIContext()
-    guard let cg = context.createCGImage(scaled, from: scaled.extent) else { return nil }
-    #if canImport(UIKit)
-    return Image(uiImage: UIImage(cgImage: cg))
-    #elseif canImport(AppKit)
-    return Image(nsImage: NSImage(cgImage: cg, size: .zero))
+    return rnsQRCGImage(string, scale: scale).map(rnsWrap)
     #else
     return nil
     #endif
+}
+
+/// Renders the QR off the main thread, then hands back the `Image`.
+///
+/// QR generation cost ~170 ms of blocked main thread on first appearance —
+/// enough to stall the navigation push animation and swallow the first taps on
+/// the screen. Cache hits return without leaving the current thread.
+func rnsQRImageAsync(_ string: String, scale: CGFloat = 6) async -> Image? {
+    #if canImport(CoreImage)
+    return await Task.detached(priority: .userInitiated) {
+        rnsQRCGImage(string, scale: scale)
+    }.value.map(rnsWrap)
     #else
     return nil
     #endif

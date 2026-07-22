@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import CoreLocation
 
 // MARK: - LocationManager
@@ -8,11 +9,12 @@ import CoreLocation
 // used by RNodeScannerController for its CoreBluetooth callbacks.
 
 @MainActor
-final class LocationManager: NSObject, ObservableObject {
-    @Published private(set) var authorizationStatus: CLAuthorizationStatus
-    @Published private(set) var location: CLLocation?
+@Observable
+final class LocationManager: NSObject {
+    private(set) var authorizationStatus: CLAuthorizationStatus
+    private(set) var location: CLLocation?
 
-    private let manager = CLLocationManager()
+    @ObservationIgnored private let manager = CLLocationManager()
 
     override init() {
         authorizationStatus = manager.authorizationStatus

@@ -4,7 +4,7 @@ import SwiftData
 /// New conversation sheet — pick a contact / recent peer, or enter a peer
 /// destination hash manually, then write the first message.
 struct ComposeView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 

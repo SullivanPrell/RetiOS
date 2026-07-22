@@ -4,7 +4,7 @@ import ReticulumSwift
 // MARK: - InterfacesView
 
 struct InterfacesView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @State private var showAddSheet = false
     @State private var showDirectorySheet = false
     @State private var showYggdrasilSheet = false
@@ -40,23 +40,23 @@ struct InterfacesView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             AddInterfaceSheet(mode: .tcp)
-                .environmentObject(stack)
+                .environment(stack)
         }
         .sheet(isPresented: $showDirectorySheet) {
             InterfaceDirectorySheet()
-                .environmentObject(stack)
+                .environment(stack)
         }
         .sheet(isPresented: $showYggdrasilSheet) {
             AddInterfaceSheet(mode: .yggdrasil)
-                .environmentObject(stack)
+                .environment(stack)
         }
         .sheet(isPresented: $showYggdrasilNodeSheet) {
             YggdrasilNodeSheet(vpn: stack.yggdrasilVPN)
-                .environmentObject(stack)
+                .environment(stack)
         }
         .sheet(isPresented: $showI2PSheet) {
             I2PConfigSheet()
-                .environmentObject(stack)
+                .environment(stack)
         }
     }
 
@@ -65,6 +65,11 @@ struct InterfacesView: View {
     private var activeSection: some View {
         Section {
             if stack.isRunning, let transport = stack.transport {
+                // Establish the observation dependency that `Transport` itself
+                // can't provide: it isn't observable, so registering or
+                // deregistering an interface would otherwise never invalidate
+                // this view. `StackController` bumps this counter on both.
+                let _ = stack.interfacesRevision
                 // Key rows by the interface's unique name, not array offset.
                 // Offset-keyed rows mis-associate identity when an interface is
                 // added/removed (offsets shift), corrupting remove animations
@@ -359,7 +364,7 @@ struct AddInterfaceSheet: View {
 
     let mode: Mode
 
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @Environment(\.dismiss) private var dismiss
 
     @State private var host = ""
@@ -461,7 +466,10 @@ struct AddInterfaceSheet: View {
         case .tcp, .yggdrasil:
             iface = TCPClientInterface(name: trimName, host: trimHost, port: portNum)
         }
-        transport.register(interface: iface)
+        // Via the controller (not `transport` directly) so the Interfaces list,
+        // which has no way to observe `Transport`, is invalidated. See
+        // `StackController.interfacesRevision`.
+        stack.registerLiveInterface(iface)
         do {
             try iface.start()
             stack.saveInterface(name: trimName, host: trimHost, port: portNum, kind: mode.savedKind)
@@ -476,7 +484,7 @@ struct AddInterfaceSheet: View {
 // MARK: - I2P configuration sheet
 
 struct I2PConfigSheet: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
@@ -584,9 +592,9 @@ struct I2PConfigSheet: View {
 /// tunnel). Enabling it gives the device a real Yggdrasil IPv6 address; Reticulum
 /// then rides over it, interoperable with Python RNS-over-Yggdrasil nodes.
 struct YggdrasilNodeSheet: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject var vpn: YggdrasilVPNManager
+    let vpn: YggdrasilVPNManager
 
     @State private var enabled = false
     @State private var nodeName = ""

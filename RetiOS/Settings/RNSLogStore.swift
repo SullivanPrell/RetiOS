@@ -34,9 +34,9 @@ struct RNSLogEntry: Identifiable {
 /// transport threads) and the main-actor store. Keeps the hot path to a lock +
 /// array append so logging never blocks the caller.
 private final class RNSLogBuffer: @unchecked Sendable {
-    private let lock = NSLock()
-    private var pending: [RNSLogEntry] = []
-    private var flushScheduled = false
+    @ObservationIgnored private let lock = NSLock()
+    @ObservationIgnored private var pending: [RNSLogEntry] = []
+    @ObservationIgnored private var flushScheduled = false
 
     /// Buffers an entry. Returns `true` when the caller should schedule a flush.
     func append(_ entry: RNSLogEntry, cap: Int) -> Bool {
@@ -94,7 +94,7 @@ final class RNSLogStore {
     private(set) var entries: [RNSLogEntry] = []
     private(set) var logLevel: Reticulum.LogLevel
 
-    private let buffer = RNSLogBuffer()
+    @ObservationIgnored private let buffer = RNSLogBuffer()
 
     init() {
         // Restore persisted level, defaulting to .notice if never saved.

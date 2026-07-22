@@ -9,7 +9,7 @@ struct ChannelRoomView: View {
     let channelName: String
     let destName: String
 
-    @EnvironmentObject var nomadNet: NomadNetController
+    @Environment(NomadNetController.self) private var nomadNet
     @Environment(\.modelContext) private var modelContext
 
     @Query private var messages: [ChannelMessageEntity]
@@ -220,6 +220,12 @@ struct ChannelRoomView: View {
     // MARK: - Actions
 
     private var activeHub: RRCHub? {
+        // `RRCHub` / `RRCManager` are plain library types with no observation
+        // support — reading `hub.status` or `hub.rooms` below creates no
+        // dependency. `rrcRevision` is the observable stand-in the controller
+        // bumps from `onChangeCallback`; touching it here is what makes hub
+        // status and the room list refresh live.
+        _ = nomadNet.rrcRevision
         guard let manager = nomadNet.rrcManager,
               let hashData = Data(hexString: channelHash) else { return nil }
         return manager.findHub(hash: hashData, destName: destName)

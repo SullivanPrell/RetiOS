@@ -8,9 +8,9 @@ struct RetiOSApp: App {
     // @Observable model → owned with @State and shared via .environment (NOT
     // @StateObject/.environmentObject, which are the ObservableObject spelling).
     @State private var logStore = RNSLogStore()
-    @StateObject private var stack     = StackController()
-    @StateObject private var calls     = CallsController()
-    @StateObject private var nomadNet  = NomadNetController()
+    @State private var stack     = StackController()
+    @State private var calls     = CallsController()
+    @State private var nomadNet  = NomadNetController()
     // Owned here (not as a per-view @StateObject in BLEMeshView) so the mesh
     // radio — and the UI state that reflects it — survives navigation. A
     // view-scoped controller would be torn down and recreated every time the
@@ -18,10 +18,10 @@ struct RetiOSApp: App {
     // would keep running (registered with `stack.transport`), but the fresh
     // controller would show "Off"/0 peers, and re-toggling would spin up a
     // *second*, conflicting CoreBluetooth stack on top of the first.
-    @StateObject private var bleMesh   = BLEMeshController()
+    @State private var bleMesh   = BLEMeshController()
     // NotificationManager is a singleton but injected as an EnvironmentObject so
     // views can observe navigateTo / openConversationHash reactively.
-    @StateObject private var notifs    = NotificationManager.shared
+    @State private var notifs    = NotificationManager.shared
     @Environment(\.scenePhase) private var scenePhase
 
     private let container = PersistenceController.makeContainer()
@@ -30,11 +30,11 @@ struct RetiOSApp: App {
         WindowGroup {
             RootView()
                 .environment(logStore)
-                .environmentObject(stack)
-                .environmentObject(calls)
-                .environmentObject(nomadNet)
-                .environmentObject(bleMesh)
-                .environmentObject(notifs)
+                .environment(stack)
+                .environment(calls)
+                .environment(nomadNet)
+                .environment(bleMesh)
+                .environment(notifs)
                 .modelContainer(container)
                 .rnsTheme()
                 .task {
@@ -92,8 +92,8 @@ struct RetiOSApp: App {
         #if os(macOS)
         Settings {
             NavigationStack { SettingsView() }
-                .environmentObject(stack)
-                .environmentObject(calls)
+                .environment(stack)
+                .environment(calls)
                 .environment(logStore)
                 .modelContainer(container)
                 .rnsTheme()

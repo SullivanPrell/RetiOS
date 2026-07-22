@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import SwiftData
 import ReticulumSwift
 import NomadNet
@@ -27,33 +28,44 @@ private final class NomadNetAppAdapter: NomadNetworkAppProtocol {
 /// Drives NomadNetBrowserView and ChannelsView — owns the browser instance,
 /// the RRCManager, and publishes navigation + channel state to SwiftUI.
 @MainActor
-final class NomadNetController: ObservableObject {
+@Observable
+final class NomadNetController {
 
     // MARK: Browser state
 
-    @Published private(set) var currentNodes: [MicronNode] = []
-    @Published private(set) var currentURL: NomadNetURL?
-    @Published private(set) var isLoading = false
-    @Published private(set) var errorMessage: String?
-    @Published private(set) var canGoBack = false
-    @Published private(set) var canGoForward = false
+    private(set) var currentNodes: [MicronNode] = []
+    private(set) var currentURL: NomadNetURL?
+    private(set) var isLoading = false
+    private(set) var errorMessage: String?
+    private(set) var canGoBack = false
+    private(set) var canGoForward = false
 
     /// Whether we identify ("log in") to the *currently loaded* node. Reflects
     /// the persisted per-node toggle and drives the URL-bar identify control.
     /// Mirrors Python NomadNet's per-node `should_identify_on_connect`.
-    @Published private(set) var identifyToNode = false
+    private(set) var identifyToNode = false
 
     // MARK: RRC state
 
     /// Live hub manager — non-nil after setup().
-    @Published private(set) var rrcManager: RRCManager?
+    private(set) var rrcManager: RRCManager?
+
+    /// Bumped whenever `RRCManager` reports a change to its hub/room state.
+    ///
+    /// `RRCManager` is a plain library type with no observation support, so
+    /// views showing hub state have nothing to depend on. Under
+    /// `ObservableObject` this was a blanket `objectWillChange.send()`, which
+    /// only worked because it invalidated *every* observer. `@Observable`
+    /// notifies per-property, so the dependency must be explicit — hub views
+    /// read this counter.
+    private(set) var rrcRevision: Int = 0
 
     // MARK: Private
 
-    private var browser: NomadNetBrowser?
-    private var _modelContext: ModelContext?
-    private var _appAdapter: NomadNetAppAdapter?   // keeps adapter alive (RRCManager holds weak ref)
-    private var _nodeAnnounceHandler: NomadNetNodeAnnounceHandler?
+    @ObservationIgnored private var browser: NomadNetBrowser?
+    @ObservationIgnored private var _modelContext: ModelContext?
+    @ObservationIgnored private var _appAdapter: NomadNetAppAdapter?   // keeps adapter alive (RRCManager holds weak ref)
+    @ObservationIgnored private var _nodeAnnounceHandler: NomadNetNodeAnnounceHandler?
 
     // MARK: - Setup
 
@@ -80,7 +92,7 @@ final class NomadNetController: ObservableObject {
         }
         manager.onChangeCallback = { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.objectWillChange.send()
+                self?.rrcRevision &+= 1
             }
         }
         rrcManager = manager

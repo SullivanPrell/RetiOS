@@ -2,8 +2,8 @@ import SwiftUI
 import ReticulumSwift
 
 struct RNodeView: View {
-    @EnvironmentObject var stack: StackController
-    @StateObject private var scanner = RNodeScannerController()
+    @Environment(StackController.self) private var stack
+    @State private var scanner = RNodeScannerController()
 
     var body: some View {
         List {

@@ -20,8 +20,8 @@ import AppKit
 // are a later enhancement (see the "Offline Maps" info sheet).
 
 struct MapView: View {
-    @EnvironmentObject var stack: StackController
-    @StateObject private var locationManager = LocationManager()
+    @Environment(StackController.self) private var stack
+    @State private var locationManager = LocationManager()
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var gpsSource: GPSSource = .device
     @State private var showOfflineInfo = false
