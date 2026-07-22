@@ -53,7 +53,7 @@ private struct PathTableView: View {
             } else {
                 List(paths, id: \.hash) { path in
                     PathRow(hash: path.hash, hops: path.hops, interfaceName: path.interface)
-                        .rnsContentRow()
+                        .rnsRow()
                 }
                 .rnsContentListStyle()
                 .rnsScreenBackground()
@@ -169,7 +169,7 @@ private struct AnnouncesView: View {
                                 Label("Copy Hash", systemImage: "doc.on.doc")
                             }
                         }
-                        .rnsContentRow()
+                        .rnsRow()
                     }
                 }
                 .rnsContentListStyle()

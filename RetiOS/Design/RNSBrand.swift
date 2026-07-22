@@ -494,36 +494,21 @@ extension View {
     @ViewBuilder
     func rnsContentListStyle() -> some View {
         #if os(macOS)
-        // `.inset` rather than `.bordered`: `.bordered` boxes the whole list,
-        // which fights the per-row cards `rnsContentRow()` draws and the
-        // grouped `Form` boxes on the settings screens. One container idiom,
-        // applied at the row level, keeps the app consistent.
-        self.listStyle(.inset)
+        // Alternating row backgrounds are the Mac idiom for a scannable list of
+        // records — Finder's list view, Mail's message list, Xcode's issue
+        // navigator. The banding is what separates one row from the next, and
+        // the *only* filled row is the selected one.
+        //
+        // Two earlier attempts were wrong in opposite directions. `.bordered`
+        // boxes the whole list, which collides with the grouped `Form` boxes on
+        // the settings screens. Giving every row its own rounded card fixed the
+        // "unselected row is the same colour as the page" complaint, but it
+        // transplanted the iOS inset-grouped idiom onto macOS: a column of
+        // heavy grey slabs running edge to edge, which is not what the HIG
+        // describes and read worse than the problem it solved.
+        self.listStyle(.inset(alternatesRowBackgrounds: true))
         #else
         self.listStyle(.plain)
-        #endif
-    }
-
-    /// Container for one row of a *content* list (see `rnsContentListStyle`).
-    ///
-    /// macOS draws an unselected row with no fill at all, so a row was
-    /// indistinguishable from the page until it was selected and turned solid
-    /// accent-blue. This gives it the same raised card the grouped `Form`
-    /// sections on Settings and Interfaces already have, so the two halves of
-    /// the app read as one design.
-    ///
-    /// iOS is untouched: `.insetGrouped`/`.plain` already supply row chrome
-    /// there, and a second background would double up.
-    @ViewBuilder
-    func rnsContentRow() -> some View {
-        #if os(macOS)
-        self.listRowBackground(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.rnsSurface)
-                .padding(.vertical, 1)
-        )
-        #else
-        self
         #endif
     }
 

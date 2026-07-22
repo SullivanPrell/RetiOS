@@ -70,7 +70,7 @@ struct ChannelsContent: View {
                         Label("Leave", systemImage: "xmark.circle.fill")
                     }
                 }
-                .rnsContentRow()
+                .rnsRow()
             }
         }
         .rnsContentListStyle()
