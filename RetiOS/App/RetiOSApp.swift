@@ -74,6 +74,10 @@ struct RetiOSApp: App {
                     // at a natural moment rather than mid-call.
                     await notifs.requestPermission()
 
+                    // DEBUG-only fixture rows for screenshot review; no-op
+                    // unless `-seedDemoData YES` and the store is empty.
+                    DemoData.seedIfNeeded(container.mainContext)
+
                     await stack.bringUp(
                         modelContext: container.mainContext,
                         notificationManager: notifs

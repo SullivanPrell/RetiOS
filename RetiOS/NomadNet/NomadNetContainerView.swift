@@ -71,7 +71,7 @@ struct NomadNetPeersContent: View {
                 node.isFavorite.toggle()
                 try? context.save()
             }
-            .rnsRow()
+            .rnsContentRow()
         }
         .rnsContentListStyle()
         .rnsScreenBackground()
@@ -140,7 +140,7 @@ struct NomadNetFavoritesContent: View {
                         node.isFavorite.toggle()
                         try? context.save()
                     }
-                    .rnsRow()
+                    .rnsContentRow()
                 }
                 .rnsContentListStyle()
                 .rnsScreenBackground()

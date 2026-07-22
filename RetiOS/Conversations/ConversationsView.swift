@@ -198,7 +198,7 @@ private struct ConversationList: View {
                         Label("Delete Conversation", systemImage: "trash")
                     }
                 }
-                .rnsRow()
+                .rnsContentRow()
             }
             .rnsContentListStyle()
             .rnsScreenBackground()
@@ -317,7 +317,7 @@ private struct LXMFPeersContent: View {
                               systemImage: peer.isContact ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
                     }
                 }
-                .rnsRow()
+                .rnsContentRow()
             }
             .rnsContentListStyle()
             .rnsScreenBackground()
@@ -386,7 +386,7 @@ private struct ContactsContent: View {
                         Label("Remove Contact", systemImage: "person.crop.circle.badge.minus")
                     }
                 }
-                .rnsRow()
+                .rnsContentRow()
             }
             .rnsContentListStyle()
             .rnsScreenBackground()

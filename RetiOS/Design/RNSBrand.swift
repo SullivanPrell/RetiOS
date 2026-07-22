@@ -494,9 +494,36 @@ extension View {
     @ViewBuilder
     func rnsContentListStyle() -> some View {
         #if os(macOS)
+        // `.inset` rather than `.bordered`: `.bordered` boxes the whole list,
+        // which fights the per-row cards `rnsContentRow()` draws and the
+        // grouped `Form` boxes on the settings screens. One container idiom,
+        // applied at the row level, keeps the app consistent.
         self.listStyle(.inset)
         #else
         self.listStyle(.plain)
+        #endif
+    }
+
+    /// Container for one row of a *content* list (see `rnsContentListStyle`).
+    ///
+    /// macOS draws an unselected row with no fill at all, so a row was
+    /// indistinguishable from the page until it was selected and turned solid
+    /// accent-blue. This gives it the same raised card the grouped `Form`
+    /// sections on Settings and Interfaces already have, so the two halves of
+    /// the app read as one design.
+    ///
+    /// iOS is untouched: `.insetGrouped`/`.plain` already supply row chrome
+    /// there, and a second background would double up.
+    @ViewBuilder
+    func rnsContentRow() -> some View {
+        #if os(macOS)
+        self.listRowBackground(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.rnsSurface)
+                .padding(.vertical, 1)
+        )
+        #else
+        self
         #endif
     }
 

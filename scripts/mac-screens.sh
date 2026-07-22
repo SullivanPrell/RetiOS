@@ -51,14 +51,20 @@ xcodebuild build \
 
 mkdir -p "$OUT"
 
-# Resolve the app's own window id. Capturing the whole display would sweep in
-# whatever else is on the developer's desktop.
+# Resolve the window belonging to the process THIS script launched. Capturing
+# the whole display would sweep in the rest of the desktop, and matching merely
+# on the owner name "RetiOS" is not enough either: a developer very often has
+# their own copy running from Xcode, and matching by name silently captures
+# *that* window instead. Every launch argument then appears to be ignored,
+# because the screenshots are of a process that never received them — which is
+# exactly the false trail this comment exists to prevent.
 window_id() {
-  python3 - "$@" <<'PY'
+  python3 - "$1" <<'PY'
 import sys, Quartz
+want_pid = int(sys.argv[1])
 opts = Quartz.kCGWindowListOptionAll | Quartz.kCGWindowListExcludeDesktopElements
 for w in Quartz.CGWindowListCopyWindowInfo(opts, Quartz.kCGNullWindowID):
-    if w.get('kCGWindowOwnerName') == 'RetiOS' and w.get('kCGWindowIsOnscreen'):
+    if w.get('kCGWindowOwnerPID') == want_pid and w.get('kCGWindowIsOnscreen'):
         print(w.get('kCGWindowNumber'))
         sys.exit(0)
 sys.exit(1)
@@ -67,15 +73,15 @@ PY
 
 for screen in "${SCREENS[@]}"; do
   step "capture $screen"
-  "$BIN" -hasCompletedOnboarding YES -stackOffline YES -startTab "$screen" \
-    >/dev/null 2>&1 &
+  "$BIN" -hasCompletedOnboarding YES -stackOffline YES -seedDemoData YES \
+    -startTab "$screen" >/dev/null 2>&1 &
   pid=$!
 
   # Wait for the window rather than sleeping a fixed amount: the first frame
   # can lag behind process start.
   wid=""
   for _ in $(seq 1 40); do
-    if wid=$(window_id 2>/dev/null); then break; fi
+    if wid=$(window_id "$pid" 2>/dev/null); then break; fi
     sleep 0.5
   done
 
@@ -83,7 +89,7 @@ for screen in "${SCREENS[@]}"; do
     # Let the screen settle. The stack finishes coming up shortly after the
     # first frame, so a shorter wait catches every screen mid-"Starting…".
     sleep 4
-    wid=$(window_id)             # re-resolve: SwiftUI can replace the window
+    wid=$(window_id "$pid")      # re-resolve: SwiftUI can replace the window
     screencapture -x -o -l "$wid" "$OUT/$screen.png"
     echo "  → $OUT/$screen.png"
   else

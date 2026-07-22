@@ -263,7 +263,7 @@ private struct CallsRecentsContent: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Call back")
-                .rnsRow()
+                .rnsContentRow()
             }
             .rnsContentListStyle()
             .rnsScreenBackground()
@@ -359,7 +359,7 @@ private struct CallsPeersContent: View {
         } else {
             List(calls.lxstPeers) { peer in
                 LXSTPeerRow(peer: peer, onCall: onCall)
-                    .rnsRow()
+                    .rnsContentRow()
             }
             .rnsContentListStyle()
             .rnsScreenBackground()
