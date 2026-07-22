@@ -200,7 +200,7 @@ private struct ConversationList: View {
                 }
                 .rnsRow()
             }
-            .listStyle(.plain)
+            .rnsContentListStyle()
             .rnsScreenBackground()
         }
     }
@@ -255,7 +255,7 @@ private struct ConversationRow: View, Equatable {
                     Text(label)
                         .font(summary.unread > 0 ? .headline.weight(.bold) : .headline)
                     Spacer()
-                    Text(summary.timestamp, style: .relative)
+                    Text(RNSDate.listTimestamp(summary.timestamp))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -319,7 +319,7 @@ private struct LXMFPeersContent: View {
                 }
                 .rnsRow()
             }
-            .listStyle(.plain)
+            .rnsContentListStyle()
             .rnsScreenBackground()
         }
     }
@@ -388,7 +388,7 @@ private struct ContactsContent: View {
                 }
                 .rnsRow()
             }
-            .listStyle(.plain)
+            .rnsContentListStyle()
             .rnsScreenBackground()
         }
     }

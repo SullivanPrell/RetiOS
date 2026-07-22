@@ -40,6 +40,11 @@ jobs:
       - name: Build (iOS Simulator)
         run: ./scripts/ci.sh
 
+      # Unit tests. Kept as its own step so a logic failure is distinguishable
+      # at a glance from a UI-test failure below.
+      - name: Unit tests (iOS Simulator)
+        run: make test
+
       # UI tests launch the real app and drive it through the accessibility
       # API. They exist to catch what nothing else here can: a scene that
       # forgets to inject an `@Environment` model traps at RUNTIME — it still

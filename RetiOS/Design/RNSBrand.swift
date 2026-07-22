@@ -29,18 +29,44 @@ extension Color {
         Color(nsColor: .windowBackgroundColor)
         #endif
     }
+    /// One step above `rnsCanvas` — message bubbles, compose bars, cards.
+    ///
+    /// The macOS mapping is **not** `controlBackgroundColor`, which is what it
+    /// used to be. On macOS that color is byte-identical to
+    /// `windowBackgroundColor` in *both* appearances (0.118 in Dark, 1.000 in
+    /// Light), so every surface the app painted was invisible against the page:
+    /// received message bubbles had no bubble, and the compose bar was
+    /// distinguishable only by its `Divider`. On iOS the equivalent pair genuinely
+    /// differs, which is why this only ever showed on the Mac.
+    ///
+    /// `unemphasizedSelectedContentBackgroundColor` is the semantic "content
+    /// that reads as distinct but not active", and it is the one system color
+    /// that shifts in the right direction in both appearances — measured at
+    /// +15.7% luminance in Dark and −13.7% in Light against the page.
     static var rnsSurface: Color {
         #if canImport(UIKit)
         Color(uiColor: .secondarySystemGroupedBackground)
         #else
-        Color(nsColor: .controlBackgroundColor)
+        Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
         #endif
     }
+
+    /// Two steps above `rnsCanvas` — a neutral chip sitting on a surface.
+    ///
+    /// macOS has no third semantic step here (`underPageBackgroundColor`, the
+    /// previous mapping, is a −37% dark grey in Light — far too heavy for a
+    /// badge on a white page), so the step is derived from `rnsSurface` by
+    /// nudging it toward the foreground in whichever direction the appearance
+    /// calls for.
     static var rnsSurfaceRaised: Color {
         #if canImport(UIKit)
         Color(uiColor: .tertiarySystemGroupedBackground)
         #else
-        Color(nsColor: .underPageBackgroundColor)
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let base = NSColor.unemphasizedSelectedContentBackgroundColor
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return base.blended(withFraction: 0.10, of: isDark ? .white : .black) ?? base
+        })
         #endif
     }
 
@@ -457,6 +483,23 @@ func rnsSettingsContainer<Content: View>(@ViewBuilder _ content: () -> Content) 
 }
 
 extension View {
+    /// Style for a *content* list — conversations, peers, paths, channels, logs.
+    /// (Settings-style screens use `rnsSettingsContainer` instead.)
+    ///
+    /// iOS keeps `.plain`, the edge-to-edge phone idiom. macOS uses `.inset`:
+    /// `.plain` there draws a full-bleed list with no margins and no row
+    /// affordances, which is why the Mac conversation list read as bare text
+    /// shoved against the window edge with its timestamp stranded on the far
+    /// right.
+    @ViewBuilder
+    func rnsContentListStyle() -> some View {
+        #if os(macOS)
+        self.listStyle(.inset)
+        #else
+        self.listStyle(.plain)
+        #endif
+    }
+
     /// Attaches a section switcher to a screen, placed the way each platform
     /// expects.
     ///
@@ -607,12 +650,51 @@ struct PeerIdentityView: View {
                     .lineLimit(1)
             }
             if let lastSeen {
-                Text(lastSeen, style: .relative)
+                Text(RNSDate.ago(lastSeen))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
         }
     }
+}
+
+// MARK: - Timestamps
+
+/// Date formatting for list rows.
+///
+/// Replaces `Text(date, style: .relative)`, which renders a bare *duration* —
+/// a conversation last touched yesterday evening read as "21 hr, 3 min". That
+/// is the format for a countdown, not for saying when something happened.
+enum RNSDate {
+
+    /// When an event happened, the way a messages/mail list says it: a time
+    /// today, "Yesterday", a weekday within the past week, a date beyond that.
+    static func listTimestamp(_ date: Date, now: Date = Date()) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) {
+            return date.formatted(date: .omitted, time: .shortened)
+        }
+        if cal.isDateInYesterday(date) {
+            return "Yesterday"
+        }
+        if let days = cal.dateComponents([.day], from: date, to: now).day, days < 7 {
+            return date.formatted(.dateTime.weekday(.abbreviated))
+        }
+        return date.formatted(date: .numeric, time: .omitted)
+    }
+
+    /// How long ago something was, in words — "21 hours ago", "2 days ago".
+    /// For recency ("last seen"), where the elapsed time *is* the point.
+    static func ago(_ date: Date, now: Date = Date()) -> String {
+        agoFormatter.localizedString(for: date, relativeTo: now)
+    }
+
+    private static let agoFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .full            // "21 hours ago", not "21 hr"
+        f.dateTimeStyle = .named        // "yesterday" rather than "1 day ago"
+        return f
+    }()
 }
 
 // MARK: - Clipboard

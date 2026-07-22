@@ -265,7 +265,7 @@ private struct CallsRecentsContent: View {
                 .accessibilityHint("Call back")
                 .rnsRow()
             }
-            .listStyle(.plain)
+            .rnsContentListStyle()
             .rnsScreenBackground()
         }
     }
@@ -302,7 +302,7 @@ private struct CallRecordRow: View {
 
             Spacer()
 
-            Text(record.startTime, style: .relative)
+            Text(RNSDate.listTimestamp(record.startTime))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -361,7 +361,7 @@ private struct CallsPeersContent: View {
                 LXSTPeerRow(peer: peer, onCall: onCall)
                     .rnsRow()
             }
-            .listStyle(.plain)
+            .rnsContentListStyle()
             .rnsScreenBackground()
         }
     }

@@ -73,7 +73,7 @@ struct ChannelsContent: View {
                 .rnsRow()
             }
         }
-        .listStyle(.plain)
+        .rnsContentListStyle()
         .rnsScreenBackground()
     }
 
@@ -149,7 +149,7 @@ private struct ChannelRowView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                Text(channel.lastActivity, style: .relative)
+                Text(RNSDate.listTimestamp(channel.lastActivity))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                 if channel.unreadCount > 0 {

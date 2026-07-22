@@ -29,7 +29,7 @@ struct LogsView: View {
                     .rnsRow()
                     .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
             }
-            .listStyle(.plain)
+            .rnsContentListStyle()
             .rnsScreenBackground()
             // Key on the last visible row's identity, not the count: once the
             // ring buffer is full the count is pinned at its cap (new entries

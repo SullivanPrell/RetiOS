@@ -73,7 +73,7 @@ struct NomadNetPeersContent: View {
             }
             .rnsRow()
         }
-        .listStyle(.plain)
+        .rnsContentListStyle()
         .rnsScreenBackground()
     }
 
@@ -142,7 +142,7 @@ struct NomadNetFavoritesContent: View {
                     }
                     .rnsRow()
                 }
-                .listStyle(.plain)
+                .rnsContentListStyle()
                 .rnsScreenBackground()
             }
         }

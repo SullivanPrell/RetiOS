@@ -55,7 +55,7 @@ private struct PathTableView: View {
                     PathRow(hash: path.hash, hops: path.hops, interfaceName: path.interface)
                         .rnsRow()
                 }
-                .listStyle(.plain)
+                .rnsContentListStyle()
                 .rnsScreenBackground()
                 // safeAreaInset (not overlay) so the last row isn't hidden
                 // behind the translucent count bar.
@@ -172,7 +172,7 @@ private struct AnnouncesView: View {
                         .rnsRow()
                     }
                 }
-                .listStyle(.plain)
+                .rnsContentListStyle()
                 .rnsScreenBackground()
                 // safeAreaInset (not overlay) so the last row isn't hidden
                 // behind the translucent count bar.

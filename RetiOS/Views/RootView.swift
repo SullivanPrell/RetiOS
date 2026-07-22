@@ -495,7 +495,7 @@ private struct OnboardingConnectStep: View {
                 List(quickAddable) { entry in
                     gatewayRow(entry)
                 }
-                .listStyle(.plain)
+                .rnsContentListStyle()
                 .frame(maxHeight: 300)
             }
             Spacer(minLength: 0)
