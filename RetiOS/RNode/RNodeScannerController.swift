@@ -49,6 +49,10 @@ final class RNodeScannerController: NSObject {
     private(set) var discovered: [DiscoveredDevice] = []
     private(set) var rNodeInterface: RNodeInterface?
 
+    /// Called after this controller adds or removes its interface from
+    /// `Transport` — see `BLEMeshController.onInterfacesChanged`.
+    @ObservationIgnored var onInterfacesChanged: (() -> Void)?
+
     // MARK: - Discovered device
 
     struct DiscoveredDevice: Identifiable, Equatable {
@@ -124,6 +128,7 @@ final class RNodeScannerController: NSObject {
         if let iface = rNodeInterface {
             iface.stop()
             reticulumTransport?.deregister(interface: iface)
+            onInterfacesChanged?()
         }
         rNodeInterface = nil
         bleTransport   = nil
@@ -171,6 +176,7 @@ final class RNodeScannerController: NSObject {
                 try iface.initRadio()
                 if let rns = self.reticulumTransport {
                     rns.register(interface: iface)
+                    await MainActor.run { self.onInterfacesChanged?() }
                 }
                 await MainActor.run { self.state = .online(ifaceName) }
             } catch {

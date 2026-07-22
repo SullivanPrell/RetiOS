@@ -21,7 +21,12 @@ struct RNodeView: View {
         .rnsInlineNavigationTitle()
         .toolbar { scanToolbar }
         .onAppear {
-            if let t = stack.transport { scanner.setup(transport: t) }
+            if let t = stack.transport {
+                scanner.onInterfacesChanged = { [weak stack] in
+                    stack?.noteInterfacesChanged()
+                }
+                scanner.setup(transport: t)
+            }
         }
         .onDisappear {
             scanner.stopScanning()

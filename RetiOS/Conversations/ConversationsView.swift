@@ -121,11 +121,20 @@ private struct ConversationSummary: Identifiable, Equatable {
 /// for N conversations — causing mass re-renders on every announce flush).
 ///
 /// It deliberately does **not** query `PeerEntity` — that lives one level down in
-/// `ConversationList`. Peer announces arrive continuously under mesh traffic, and
-/// while `@Query` invalidation is per-entity-type, both result sets feeding a single
-/// `body` meant every announce re-ran this O(messages) grouping on the main thread.
-/// Splitting the queries across two views confines each scan to the table that
-/// actually changed.
+/// `ConversationList`, so the name lookup and the message scan sit in separate
+/// views with separate inputs.
+///
+/// Be aware of what this did **not** achieve: `Self._printChanges()` still
+/// attributes a re-render of *this* view to `QueryController<PeerEntity>` under
+/// announce traffic, even though it declares no such query. `@Query`
+/// invalidation is evidently broader than per-view, and SwiftData publishes no
+/// documentation of its scope, so the mechanism is unexplained. The split was
+/// kept because value-typed `Equatable` summary rows are worth having on their
+/// own — not because it stops the grouping below from re-running.
+///
+/// Measured cost of that spurious re-run today: below the noise floor (p95 main-
+/// thread delay stays at 0.1 ms under a 40-peer announce storm). It is a
+/// scalability concern for very large message tables, not a current lag source.
 private struct ConversationListContent: View {
     @Query(sort: \MessageEntity.timestamp, order: .reverse) private var messages: [MessageEntity]
 

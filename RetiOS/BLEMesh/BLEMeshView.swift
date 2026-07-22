@@ -16,7 +16,7 @@ import ReticulumSwift
 struct BLEMeshView: View {
     @Environment(StackController.self) private var stack
     // Owned at the app level (see `RetiOSApp`) and shared via the environment
-    // — not a per-view @StateObject. The mesh radio must keep running (and
+    // — not a per-view @State controller. The mesh radio must keep running (and
     // this view must keep reflecting its real state) whether or not the user
     // is currently looking at this screen; a view-scoped controller would be
     // torn down on navigation while its radio kept running headless beneath it.
@@ -152,14 +152,17 @@ struct BLEMeshView: View {
                     .foregroundStyle(.secondary)
                     .font(.caption.monospaced())
             }
-            if let iface = controller.meshInterface {
+            // Read the controller's mirrored counters, not the interface's own.
+            // `BLEMeshInterface` is not observable, so reading it here would
+            // register no dependency and the rows would never refresh.
+            if controller.meshInterface != nil {
                 LabeledContent("Sent") {
-                    Text(prettyCount(iface.txPackets, bytes: iface.txBytes))
+                    Text(prettyCount(controller.txPackets, bytes: controller.txBytes))
                         .foregroundStyle(.secondary)
                         .font(.caption.monospaced())
                 }
                 LabeledContent("Received") {
-                    Text(prettyCount(iface.rxPackets, bytes: iface.rxBytes))
+                    Text(prettyCount(controller.rxPackets, bytes: controller.rxBytes))
                         .foregroundStyle(.secondary)
                         .font(.caption.monospaced())
                 }

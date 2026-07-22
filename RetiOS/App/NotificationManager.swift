@@ -29,7 +29,8 @@ enum AppTab: String, Hashable, CaseIterable {
 ///
 /// Designed as a singleton so StackController and CallsController can reach it
 /// without needing the SwiftUI environment.  Use `NotificationManager.shared`
-/// everywhere; inject it as `@EnvironmentObject` in views that need to observe it.
+/// everywhere; read it with `@Environment(NotificationManager.self)` in views
+/// that need to observe it.
 @MainActor
 @Observable
 final class NotificationManager: NSObject {
@@ -48,7 +49,7 @@ final class NotificationManager: NSObject {
     //
     // Bumped by the app's menu-bar commands (see RetiOSApp `.commands`). Views
     // observe the relevant counter via `.onChange` and act. Routed through this
-    // singleton (rather than passing @StateObject controllers into the `Commands`
+    // singleton (rather than passing the app-owned controllers into the `Commands`
     // builder) because SwiftUI does not flow the environment into `.commands`.
 
     /// Open the New Message composer.

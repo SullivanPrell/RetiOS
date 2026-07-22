@@ -258,7 +258,7 @@ final class YggdrasilVPNManager {
     /// exactly once.
     @MainActor
     private final class IPCResponder {
-        @ObservationIgnored private var continuation: CheckedContinuation<Data?, Never>?
+        private var continuation: CheckedContinuation<Data?, Never>?
         init(_ continuation: CheckedContinuation<Data?, Never>) { self.continuation = continuation }
         func finish(_ value: Data?) {
             continuation?.resume(returning: value)

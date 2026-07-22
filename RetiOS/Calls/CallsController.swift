@@ -416,7 +416,7 @@ final class CallsController {
 /// Traffic is low (LXST announces are rare) so no coalescing is needed.
 private final class LXSTCallAnnounceHandler: AnnounceHandler {
     var aspectFilter: String? { "lxst.telephony" }
-    @ObservationIgnored private let onAnnounce: @Sendable (String) -> Void
+    private let onAnnounce: @Sendable (String) -> Void
 
     init(onAnnounce: @escaping @Sendable (String) -> Void) {
         self.onAnnounce = onAnnounce

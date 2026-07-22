@@ -521,10 +521,20 @@ final class StackController {
 
     /// Register a newly built interface with the live transport, keeping the
     /// Interfaces screen in sync. Every path that adds to `transport.interfaces`
-    /// must go through here (or bump `interfacesRevision` itself) — see the
+    /// must go through here (or call `noteInterfacesChanged()`) — see the
     /// property's note on why an implicit refresh no longer exists.
     func registerLiveInterface(_ iface: any Interface) {
         transport?.register(interface: iface)
+        interfacesRevision &+= 1
+    }
+
+    /// Signal that `transport.interfaces` changed by a route that owns its own
+    /// registration (BLE Mesh and RNode each build and register their interface
+    /// from their own controller). Without this the Interfaces screen keeps
+    /// showing a stale Active list until the user navigates away and back:
+    /// enabling BLE Mesh adds a live interface the list never shows, and
+    /// disabling it leaves a ghost row.
+    func noteInterfacesChanged() {
         interfacesRevision &+= 1
     }
 

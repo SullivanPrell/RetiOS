@@ -34,6 +34,14 @@ struct ChannelRoomView: View {
     }
 
     var body: some View {
+        // Hoisted here deliberately. `RRCHub` is a plain library type with no
+        // observation support, so this counter is the ONLY thing that makes hub
+        // status and the room list refresh. Reading it inside `activeHub` alone
+        // made the dependency contingent on some caller of `activeHub` being
+        // evaluated unconditionally during `body` — true today only via the
+        // toolbar badge. Restructuring that badge would silently kill live
+        // updates with no compile error, so establish the dependency up front.
+        let _ = nomadNet.rrcRevision
         VStack(spacing: 0) {
             messageList
             Divider()

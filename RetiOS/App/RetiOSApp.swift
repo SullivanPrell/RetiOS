@@ -19,24 +19,38 @@ struct RetiOSApp: App {
     // controller would show "Off"/0 peers, and re-toggling would spin up a
     // *second*, conflicting CoreBluetooth stack on top of the first.
     @State private var bleMesh   = BLEMeshController()
-    // NotificationManager is a singleton but injected as an EnvironmentObject so
-    // views can observe navigateTo / openConversationHash reactively.
+    // NotificationManager is a singleton, injected into the environment so views
+    // can observe navigateTo / openConversationHash reactively.
     @State private var notifs    = NotificationManager.shared
     @Environment(\.scenePhase) private var scenePhase
 
     private let container = PersistenceController.makeContainer()
 
+    /// Injects every app-owned model plus the shared container and theme.
+    ///
+    /// Applied to BOTH scenes deliberately. The macOS Settings (⌘,) scene used
+    /// to inject only three of the six models — safe at the time, because no
+    /// view reachable from it read the others, but `@Environment(T.self)` is
+    /// non-optional and *traps* when the type is absent. One future line under
+    /// RNS Tools or Identity reading `nomadNet` would have become a crash that
+    /// compiles clean, passes tests, and reproduces only in the Preferences
+    /// window. Injecting a model no view reads is free (it creates no
+    /// observation dependency), so there is no reason to keep the scenes apart.
+    private func appEnvironment<C: View>(_ content: C) -> some View {
+        content
+            .environment(logStore)
+            .environment(stack)
+            .environment(calls)
+            .environment(nomadNet)
+            .environment(bleMesh)
+            .environment(notifs)
+            .modelContainer(container)
+            .rnsTheme()
+    }
+
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environment(logStore)
-                .environment(stack)
-                .environment(calls)
-                .environment(nomadNet)
-                .environment(bleMesh)
-                .environment(notifs)
-                .modelContainer(container)
-                .rnsTheme()
+            appEnvironment(RootView())
                 .task {
                     // Wire the notification manager to CallsController before
                     // bringing up the stack so no incoming calls are missed.
@@ -59,6 +73,9 @@ struct RetiOSApp: App {
                                        reticulum: rns,
                                        identity:  identity,
                                        modelContext: container.mainContext)
+                        bleMesh.onInterfacesChanged = { [weak stack] in
+                            stack?.noteInterfacesChanged()
+                        }
                         bleMesh.setup(transport: transport)
                         if bleMesh.enableOnStart {
                             let name = stack.nodeDisplayName.isEmpty ? "RetiOS" : stack.nodeDisplayName
@@ -91,12 +108,7 @@ struct RetiOSApp: App {
         // tab bar / sidebar; the `Settings` scene type is macOS-only.
         #if os(macOS)
         Settings {
-            NavigationStack { SettingsView() }
-                .environment(stack)
-                .environment(calls)
-                .environment(logStore)
-                .modelContainer(container)
-                .rnsTheme()
+            appEnvironment(NavigationStack { SettingsView() })
                 .frame(minWidth: 520, minHeight: 560)
         }
         #endif
@@ -104,7 +116,7 @@ struct RetiOSApp: App {
 
     // MARK: - Menu-bar commands
     //
-    // Routed through `NotificationManager.shared` (not the @StateObject
+    // Routed through `NotificationManager.shared` (not the app-owned
     // controllers) because SwiftUI does not propagate the environment into the
     // `.commands` builder. Views observe the published intents and act; RootView
     // handles Announce / Sync since it always has the stack in its environment.
