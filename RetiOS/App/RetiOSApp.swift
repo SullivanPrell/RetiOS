@@ -19,6 +19,18 @@ struct RetiOSApp: App {
     // controller would show "Off"/0 peers, and re-toggling would spin up a
     // *second*, conflicting CoreBluetooth stack on top of the first.
     @State private var bleMesh   = BLEMeshController()
+    // Owned here for the same reason as `bleMesh`, and for a sharper one: a
+    // connected RNode registers a live `RNodeInterface` with `Transport`, and
+    // `Transport.interfaces` holds it strongly. As a view-scoped `@State` the
+    // controller died when the user navigated away from the RNode screen —
+    // taking its `CBCentralManager` (and therefore the disconnect callback that
+    // calls `teardown()`) with it, while the now-dead interface stayed
+    // registered forever. Transport kept selecting it for outbound traffic that
+    // silently went nowhere. App-scoped, the controller outlives navigation, so
+    // teardown always runs and the interface is always deregistered.
+    // Constructing it is inert: no `CBCentralManager` exists until the user
+    // taps Scan, so this triggers no Bluetooth permission prompt at launch.
+    @State private var rnode     = RNodeScannerController()
     // NotificationManager is a singleton, injected into the environment so views
     // can observe navigateTo / openConversationHash reactively.
     @State private var notifs    = NotificationManager.shared
@@ -43,6 +55,7 @@ struct RetiOSApp: App {
             .environment(calls)
             .environment(nomadNet)
             .environment(bleMesh)
+            .environment(rnode)
             .environment(notifs)
             .modelContainer(container)
             .rnsTheme()
@@ -77,6 +90,10 @@ struct RetiOSApp: App {
                             stack?.noteInterfacesChanged()
                         }
                         bleMesh.setup(transport: transport)
+                        rnode.onInterfacesChanged = { [weak stack] in
+                            stack?.noteInterfacesChanged()
+                        }
+                        rnode.setup(transport: transport)
                         if bleMesh.enableOnStart {
                             let name = stack.nodeDisplayName.isEmpty ? "RetiOS" : stack.nodeDisplayName
                             bleMesh.enable(localName: name)
