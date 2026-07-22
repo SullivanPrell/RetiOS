@@ -186,6 +186,31 @@ extension View {
         self.background(Color.rnsCanvas.ignoresSafeArea())
     }
 
+    /// Material for the app's own floating bars (the sidebar status footer).
+    ///
+    /// Uses **Liquid Glass** on OSes that have it, falling back to
+    /// `.ultraThinMaterial` below that. The app builds against the iOS/macOS 26
+    /// SDK and does *not* set `UIDesignRequiresCompatibility`, so system chrome
+    /// — toolbars, sidebars, tab bars — already renders as Liquid Glass for
+    /// free. This helper is for the surfaces the app draws itself, which the
+    /// system cannot restyle on our behalf and which otherwise stay visibly
+    /// flat next to the chrome that did update.
+    ///
+    /// Deployment targets are still iOS 17 / macOS 14, so the API must be
+    /// runtime-gated; `#available` does not relax the compile-time SDK
+    /// requirement, which the CI workflow already selects Xcode for.
+    @ViewBuilder
+    func rnsBarMaterial() -> some View {
+        if #available(iOS 26, macOS 26, *) {
+            // `.rect` rather than the default capsule: this is a full-width
+            // edge-to-edge bar, and a capsule would round its outer corners
+            // away from the window edge.
+            self.glassEffect(.regular, in: .rect)
+        } else {
+            self.background(.ultraThinMaterial)
+        }
+    }
+
     /// No-op. Rows now use the system's native row background, which keeps
     /// correct selection / highlight / swipe-action behavior. The system row
     /// color already matches `rnsSurface` (secondary grouped background), so this

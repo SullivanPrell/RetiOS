@@ -39,3 +39,16 @@ jobs:
       # See scripts/ci.sh for the rationale.
       - name: Build (iOS Simulator)
         run: ./scripts/ci.sh
+
+      # UI tests launch the real app and drive it through the accessibility
+      # API. They exist to catch what nothing else here can: a scene that
+      # forgets to inject an `@Environment` model traps at RUNTIME — it still
+      # compiles, and unit tests never build a scene.
+      #
+      # iOS Simulator only, deliberately. macOS UI testing additionally
+      # requires Accessibility permission granted to the process running
+      # xcodebuild (otherwise every test fails with "has not loaded
+      # accessibility" after a 60 s wait), which a hosted runner cannot grant
+      # itself. See the header of RetiOSUITests.swift.
+      - name: UI tests (iOS Simulator)
+        run: make uitest

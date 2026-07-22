@@ -188,24 +188,53 @@ private struct SidebarRootView: View {
 
     // MARK: Stack status bar (sidebar footer)
 
+    /// One-line status footer pinned to the bottom of the sidebar.
+    ///
+    /// Laid out with `ViewThatFits` rather than truncation. The Mac sidebar is
+    /// far narrower (~200 pt) than any iPhone this was originally sized for,
+    /// and the naive version let the status text and the identity hash fight
+    /// for width until *both* wrapped — the footer read "Stack run-/ning" over
+    /// two rows with the hash broken across three.
+    ///
+    /// Truncating instead is no better: squeezing a 32-char hash into the
+    /// leftover space renders it as a lone "…", which carries no information at
+    /// all. So the hash is treated as genuinely optional — shown whole when it
+    /// fits, dropped when it doesn't, and always available via the tooltip.
     private var stackStatusBar: some View {
+        ViewThatFits(in: .horizontal) {
+            statusRow(includeHash: true)
+            statusRow(includeHash: false)
+        }
+        // 16 pt was an iOS-phone inset; the Mac sidebar adds its own margins,
+        // so stacking another 16 on top just wasted scarce width.
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .rnsBarMaterial()
+        .help(stack.identity.map { "Identity \($0.hexHash)" } ?? "Reticulum stack")
+    }
+
+    private func statusRow(includeHash: Bool) -> some View {
         HStack(spacing: 6) {
             Circle()
                 .fill(stack.isRunning ? Color.rnsSuccess : Color.rnsWarning)
+                // A bare Circle in an HStack will happily be squeezed to a
+                // sliver when the row is tight; pin it.
                 .frame(width: 7, height: 7)
+                .fixedSize()
             Text(stack.isRunning ? "Stack running" : "Starting…")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            Spacer()
-            if let id = stack.identity {
+                .lineLimit(1)
+                .fixedSize()
+            Spacer(minLength: 4)
+            if includeHash, let id = stack.identity {
                 Text(id.hexHash.truncatedHash)
                     .font(.caption2.monospaced())
                     .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .fixedSize()   // whole or not at all — never a lone "…"
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
     }
 
     // MARK: Toolbar
