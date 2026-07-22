@@ -299,7 +299,7 @@ final class StackController {
             // LXMFMessageIngest buffers off-actor and writes one batch per
             // window, mirroring LXMFPeerAnnounceHandler.
             let myHex = id.hash.map { String(format: "%02x", $0) }.joined()
-            let ingest = LXMFMessageIngest(context: modelContext,
+            let ingest = LXMFMessageIngest(container: modelContext.container,
                                            myHash: myHex,
                                            notificationManager: notificationManager)
             self.messageIngest = ingest

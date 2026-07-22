@@ -21,9 +21,12 @@ import LXMF
 /// problem for announce storms:
 ///   1. Extract plain value types on the calling thread and buffer them under a
 ///      lock (cheap, safe from any thread — no `@Model` object escapes).
-///   2. Flush at most once per `flushInterval` on the main actor, doing ONE bulk
-///      dedup fetch, ONE bulk peer-name fetch, and ONE `save()` for the whole
-///      batch — so a backlog of hundreds collapses into a single write.
+///   2. Flush at most once per `flushInterval` on a private serial queue against
+///      its own background `ModelContext`, doing ONE bulk dedup fetch, ONE bulk
+///      peer-name fetch, and ONE `save()` for the whole batch — so a backlog of
+///      hundreds collapses into a single write, and none of that fetch/insert/
+///      save work runs on the main thread. Only the resulting notifications hop
+///      to the main actor.
 final class LXMFMessageIngest {
 
     /// A received message reduced to value types, captured off the main actor.
@@ -43,10 +46,22 @@ final class LXMFMessageIngest {
         let packedMessage: Data?
     }
 
-    private let context: ModelContext
+    private let container: ModelContainer
     /// Our own lxmf.delivery hash (hex) — decides inbound vs outbound.
     private let myHash: String
     private weak var notificationManager: NotificationManager?
+
+    /// Serial queue owning `ingestContext`. A `ModelContext` is not thread-safe,
+    /// so it is created lazily *on* this queue and only ever touched here.
+    private let queue = DispatchQueue(label: "dev.sprell.retios.lxmf-ingest", qos: .utility)
+    private var _ingestContext: ModelContext?
+    private var ingestContext: ModelContext {
+        dispatchPrecondition(condition: .onQueue(queue))
+        if let c = _ingestContext { return c }
+        let c = ModelContext(container)
+        _ingestContext = c
+        return c
+    }
 
     private let lock = NSLock()
     private var pending: [Incoming] = []
@@ -56,8 +71,8 @@ final class LXMFMessageIngest {
     /// promptly, long enough that a backlog burst collapses into one write.
     private let flushInterval: TimeInterval = 0.4
 
-    init(context: ModelContext, myHash: String, notificationManager: NotificationManager?) {
-        self.context = context
+    init(container: ModelContainer, myHash: String, notificationManager: NotificationManager?) {
+        self.container = container
         self.myHash = myHash
         self.notificationManager = notificationManager
     }
@@ -93,15 +108,17 @@ final class LXMFMessageIngest {
         lock.unlock()
 
         if needSchedule {
-            DispatchQueue.main.asyncAfter(deadline: .now() + flushInterval) { [weak self] in
-                MainActor.assumeIsolated { self?.flush() }
+            queue.asyncAfter(deadline: .now() + flushInterval) { [weak self] in
+                self?.flush()
             }
         }
     }
 
     /// Drains the buffer and writes the whole batch in one transaction.
-    @MainActor
+    /// Runs on `queue`, against the background context — never the main actor.
     private func flush() {
+        dispatchPrecondition(condition: .onQueue(queue))
+        let context = ingestContext
         lock.lock()
         let batch = pending
         pending.removeAll(keepingCapacity: true)
@@ -147,14 +164,23 @@ final class LXMFMessageIngest {
         // on-screen @Query views, so it must happen once, not N times.
         try? context.save()
 
-        notify(inserted)
+        notify(inserted, context: context)
     }
 
-    /// Post local notifications for the inbound messages in a flushed batch,
-    /// resolving every sender name in a single fetch.
-    @MainActor
-    private func notify(_ inserted: [Incoming]) {
-        guard let nm = notificationManager else { return }
+    /// A notification to post, resolved to plain strings on the ingest queue so
+    /// nothing thread-confined crosses to the main actor.
+    private struct Banner {
+        let senderName: String
+        let preview: String
+        let peerHash: String
+    }
+
+    /// Resolve sender names and post local notifications for the inbound
+    /// messages in a flushed batch. The name fetch runs here on the ingest
+    /// queue; only the finished `Banner` values hop to the main actor.
+    private func notify(_ inserted: [Incoming], context: ModelContext) {
+        dispatchPrecondition(condition: .onQueue(queue))
+        guard notificationManager != nil else { return }
         let inbound = inserted.filter(\.isInbound)
         guard !inbound.isEmpty else { return }
 
@@ -171,23 +197,28 @@ final class LXMFMessageIngest {
         // bury the user in notifications for messages that all arrived at once.
         // Notify individually for a normal trickle, and summarise a burst.
         let burstThreshold = 3
+        let banners: [Banner]
         if inbound.count > burstThreshold {
             let senders = Set(inbound.map { names[$0.conversationHash] ?? "\($0.conversationHash.prefix(8))…" })
             let who = senders.count == 1 ? (senders.first ?? "") : "\(senders.count) contacts"
-            nm.scheduleMessageNotification(
-                senderName: who,
-                preview: "\(inbound.count) new messages",
-                peerHash: inbound.last?.conversationHash ?? ""
-            )
-            return
+            banners = [Banner(senderName: who,
+                              preview: "\(inbound.count) new messages",
+                              peerHash: inbound.last?.conversationHash ?? "")]
+        } else {
+            banners = inbound.map { item in
+                Banner(senderName: names[item.conversationHash] ?? "\(item.conversationHash.prefix(8))…",
+                       preview: item.content.trimmingCharacters(in: .whitespacesAndNewlines),
+                       peerHash: item.conversationHash)
+            }
         }
 
-        for item in inbound {
-            let senderName = names[item.conversationHash] ?? "\(item.conversationHash.prefix(8))…"
-            let preview = item.content.trimmingCharacters(in: .whitespacesAndNewlines)
-            nm.scheduleMessageNotification(senderName: senderName,
-                                           preview: preview,
-                                           peerHash: item.conversationHash)
+        Task { @MainActor [weak self] in
+            guard let nm = self?.notificationManager else { return }
+            for b in banners {
+                nm.scheduleMessageNotification(senderName: b.senderName,
+                                               preview: b.preview,
+                                               peerHash: b.peerHash)
+            }
         }
     }
 }
