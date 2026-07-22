@@ -628,10 +628,14 @@ final class StackController: ObservableObject {
         syncPollTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self, let router = self.lxmfRouter else { return }
-                self.propagationSyncState    = router.propagationTransferState
-                self.propagationSyncProgress = router.propagationTransferProgress
-                if router.propagationTransferState == .done
-                    || router.propagationTransferState == .failed {
+                // Assign only on change: @Published notifies on every assignment,
+                // equal or not, so writing both unconditionally invalidated every
+                // observing view twice a second for the whole sync.
+                let state    = router.propagationTransferState
+                let progress = router.propagationTransferProgress
+                if self.propagationSyncState != state { self.propagationSyncState = state }
+                if self.propagationSyncProgress != progress { self.propagationSyncProgress = progress }
+                if state == .done || state == .failed {
                     return
                 }
                 try? await Task.sleep(nanoseconds: 500_000_000)

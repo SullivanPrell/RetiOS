@@ -166,7 +166,13 @@ final class BLEMeshController: NSObject, ObservableObject {
         peerPollTask = Task { [weak self] in
             while let self, !Task.isCancelled {
                 guard self.state.isOnline, let iface = self.meshInterface else { return }
-                self.peerCount = iface.peerCount
+                // Assign only on change. @Published sends objectWillChange for
+                // EVERY assignment, equal or not — writing unconditionally
+                // re-rendered every view observing this controller once a
+                // second for as long as the mesh stayed online, even though the
+                // peer count almost never changes between ticks.
+                let count = iface.peerCount
+                if self.peerCount != count { self.peerCount = count }
                 try? await Task.sleep(for: .seconds(1))
             }
         }
