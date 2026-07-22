@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import Network
 import SwiftData
 import ReticulumSwift
@@ -13,7 +14,8 @@ import LXMF
 ///
 /// All other controllers receive transport/router after bringUp() completes.
 @MainActor
-final class StackController: ObservableObject {
+@Observable
+final class StackController {
 
     // MARK: - Saved interface model
 
@@ -88,14 +90,25 @@ final class StackController: ObservableObject {
     }
 
     /// All user-added interfaces that will be restored on next launch.
-    @Published private(set) var savedInterfaces: [SavedInterface] = []
+    private(set) var savedInterfaces: [SavedInterface] = []
     /// Saved I2P configuration (one I2PInterface, multiple peers).
-    @Published private(set) var savedI2PConfig: SavedI2PConfig?
+    private(set) var savedI2PConfig: SavedI2PConfig?
     /// Saved Yggdrasil node preferences (system-VPN packet tunnel).
-    @Published private(set) var savedYggdrasilConfig: SavedYggdrasilConfig?
+    private(set) var savedYggdrasilConfig: SavedYggdrasilConfig?
     /// Drives the Yggdrasil packet-tunnel extension and exposes live node status.
     /// Observe this directly for address / peer updates.
     let yggdrasilVPN = YggdrasilVPNManager()
+
+    /// Bumped whenever `transport.interfaces` is mutated behind SwiftUI's back.
+    ///
+    /// `Transport` is not observable, so a view listing the live interfaces has
+    /// nothing to depend on. Under `ObservableObject` this was a blanket
+    /// `objectWillChange.send()`, which worked precisely *because* it was a
+    /// firehose — it invalidated every observer regardless of what they read.
+    /// `@Observable` has no equivalent: observers are notified only for the
+    /// properties they actually touched. So the dependency has to be explicit —
+    /// `InterfacesView` reads this counter alongside `transport.interfaces`.
+    private(set) var interfacesRevision: Int = 0
 
     private static let savedInterfacesKey     = "savedTCPInterfaces"
     private static let savedI2PConfigKey       = "savedI2PConfig"
@@ -104,26 +117,26 @@ final class StackController: ObservableObject {
 
     // MARK: - Stack state
 
-    @Published private(set) var isRunning = false
+    private(set) var isRunning = false
     /// Guards `bringUp` against re-entry (a second scene/window, or an
     /// interleaving at an `await`) starting a duplicate stack over this one.
-    private var isBringingUp = false
-    @Published private(set) var identity: Identity?
-    @Published private(set) var lxmfRouter: LXMRouter?
+    @ObservationIgnored private var isBringingUp = false
+    private(set) var identity: Identity?
+    private(set) var lxmfRouter: LXMRouter?
     /// True when we connected to an external rnsd rather than starting our own.
-    @Published private(set) var isClientMode = false
+    private(set) var isClientMode = false
     /// Hex string of the configured LXMF outbound propagation node, if any.
-    @Published private(set) var propagationNodeHash: String?
+    private(set) var propagationNodeHash: String?
     /// Live state of an inbound propagation-node sync (mirrors the router's
     /// state machine; polled while a sync runs since LXMRouter is not observable).
-    @Published private(set) var propagationSyncState: PropagationTransferState = .idle
+    private(set) var propagationSyncState: PropagationTransferState = .idle
     /// 0.0–1.0 progress of the current propagation sync.
-    @Published private(set) var propagationSyncProgress: Double = 0
-    private var syncPollTask: Task<Void, Never>?
+    private(set) var propagationSyncProgress: Double = 0
+    @ObservationIgnored private var syncPollTask: Task<Void, Never>?
     /// 16-byte hash of our lxmf.delivery destination (available after bringUp).
-    @Published private(set) var lxmfDeliveryHash: Data?
+    private(set) var lxmfDeliveryHash: Data?
     /// Whether we actively announce our LXMF delivery address to the mesh.
-    @Published private(set) var lxmfAnnounceEnabled: Bool = {
+    private(set) var lxmfAnnounceEnabled: Bool = {
         UserDefaults.standard.object(forKey: "lxmfAnnounceEnabled") as? Bool ?? true
     }()
 
@@ -132,12 +145,15 @@ final class StackController: ObservableObject {
 
     /// Human-readable name for this node, included in LXMF announces.
     /// Peers see this name instead of a raw hash in their peer lists.
-    @Published private(set) var nodeDisplayName: String = {
+    private(set) var nodeDisplayName: String = {
         UserDefaults.standard.string(forKey: "nodeDisplayName") ?? ""
     }()
 
-    private var peerAnnounceHandler: LXMFPeerAnnounceHandler?
-    private var notificationManager: NotificationManager?
+    @ObservationIgnored private var peerAnnounceHandler: LXMFPeerAnnounceHandler?
+    /// Coalesces inbound LXMF messages into batched SwiftData writes. Held so it
+    /// outlives `bringUp` — the router's callback captures it.
+    @ObservationIgnored private var messageIngest: LXMFMessageIngest?
+    @ObservationIgnored private var notificationManager: NotificationManager?
     private static let lxmfAnnounceKey    = "lxmfAnnounceEnabled"
     private static let nodeDisplayNameKey = "nodeDisplayName"
 
@@ -273,19 +289,28 @@ final class StackController: ObservableObject {
                 propagationNodeHash = savedHex
             }
 
-            // Wire inbound message receipt → SwiftData insert.
+            // Wire inbound message receipt → coalesced SwiftData insert.
+            //
+            // The router delivers one callback per message from a transport
+            // background thread, and a propagation-node sync replays the whole
+            // offline backlog back-to-back. Writing (and saving) per message on
+            // the main context re-ran every on-screen @Query per message, which
+            // is what hung the UI during the sync that runs on every launch.
+            // LXMFMessageIngest buffers off-actor and writes one batch per
+            // window, mirroring LXMFPeerAnnounceHandler.
             let myHex = id.hash.map { String(format: "%02x", $0) }.joined()
-            router.onMessageReceived = { [weak self] message in
-                guard let self else { return }
-                Task { @MainActor in
-                    self.insertMessage(message, myHash: myHex, context: modelContext)
-                }
+            let ingest = LXMFMessageIngest(container: modelContext.container,
+                                           myHash: myHex,
+                                           notificationManager: notificationManager)
+            self.messageIngest = ingest
+            router.onMessageReceived = { message in
+                ingest.enqueue(message)
             }
 
             // Register peer announce handler so the Peers tab fills in.
             // It coalesces announce bursts into a single batched save per second,
             // so heavy mesh traffic can't starve the UI / keyboard.
-            let peerHandler = LXMFPeerAnnounceHandler(context: modelContext)
+            let peerHandler = LXMFPeerAnnounceHandler(container: modelContext.container)
             stack.transport.register(announceHandler: peerHandler)
             self.peerAnnounceHandler = peerHandler
 
@@ -323,7 +348,7 @@ final class StackController: ObservableObject {
 
     /// Persist a user-added client interface so it is restored next launch.
     func saveInterface(name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp) {
-        // Single assignment avoids two separate @Published objectWillChange notifications.
+        // Single assignment avoids two separate objectWillChange notifications.
         var updated = savedInterfaces
         updated.removeAll { $0.name == name }
         updated.append(SavedInterface(name: name, host: host, port: port, kind: kind))
@@ -348,6 +373,7 @@ final class StackController: ObservableObject {
             iface = BackboneInterface(name: name, host: normalizedHost, port: port)
         }
         transport.register(interface: iface)
+        interfacesRevision &+= 1
         do {
             try iface.start()
             saveInterface(name: name, host: normalizedHost, port: port, kind: kind)
@@ -484,13 +510,32 @@ final class StackController: ObservableObject {
     /// vanished: that was the "interface delete does nothing" bug, identical on
     /// iOS and macOS because this is shared code. `Transport` is not an
     /// `ObservableObject`, so mutating `interfaces` won't refresh SwiftUI on its
-    /// own — hence the explicit `objectWillChange`.
+    /// own — hence the explicit `interfacesRevision` bump.
     private func deregisterLiveInterface(named name: String) {
         guard let transport,
               let iface = transport.interfaces.first(where: { $0.name == name }) else { return }
-        objectWillChange.send()
         iface.stop()
         transport.deregister(interface: iface)
+        interfacesRevision &+= 1
+    }
+
+    /// Register a newly built interface with the live transport, keeping the
+    /// Interfaces screen in sync. Every path that adds to `transport.interfaces`
+    /// must go through here (or call `noteInterfacesChanged()`) — see the
+    /// property's note on why an implicit refresh no longer exists.
+    func registerLiveInterface(_ iface: any Interface) {
+        transport?.register(interface: iface)
+        interfacesRevision &+= 1
+    }
+
+    /// Signal that `transport.interfaces` changed by a route that owns its own
+    /// registration (BLE Mesh and RNode each build and register their interface
+    /// from their own controller). Without this the Interfaces screen keeps
+    /// showing a stale Active list until the user navigates away and back:
+    /// enabling BLE Mesh adds a live interface the list never shows, and
+    /// disabling it leaves a ghost row.
+    func noteInterfacesChanged() {
+        interfacesRevision &+= 1
     }
 
     private func loadSavedInterfaces() {
@@ -609,17 +654,20 @@ final class StackController: ObservableObject {
         propagationSyncProgress = 0
     }
 
-    /// Mirror the router's (non-observable) transfer state into @Published
-    /// properties twice a second until the sync reaches a terminal state.
+    /// Mirror the router's (non-observable) transfer state into /// properties twice a second until the sync reaches a terminal state.
     private func startSyncPolling() {
         syncPollTask?.cancel()
         syncPollTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self, let router = self.lxmfRouter else { return }
-                self.propagationSyncState    = router.propagationTransferState
-                self.propagationSyncProgress = router.propagationTransferProgress
-                if router.propagationTransferState == .done
-                    || router.propagationTransferState == .failed {
+                // Assign only on change: notifies on every assignment,
+                // equal or not, so writing both unconditionally invalidated every
+                // observing view twice a second for the whole sync.
+                let state    = router.propagationTransferState
+                let progress = router.propagationTransferProgress
+                if self.propagationSyncState != state { self.propagationSyncState = state }
+                if self.propagationSyncProgress != progress { self.propagationSyncProgress = progress }
+                if state == .done || state == .failed {
                     return
                 }
                 try? await Task.sleep(nanoseconds: 500_000_000)
@@ -703,53 +751,10 @@ final class StackController: ObservableObject {
         try? context.save()
     }
 
-    private func insertMessage(_ message: LXMessage, myHash: String, context: ModelContext) {
-        let senderHex    = message.sourceHash.map { String(format: "%02x", $0) }.joined()
-        let recipientHex = message.destinationHash.map { String(format: "%02x", $0) }.joined()
-        // conversationHash is always the peer's side — not us.
-        let peerHex  = senderHex == myHash ? recipientHex : senderHex
-        let msgHash  = message.hash?.map { String(format: "%02x", $0) }.joined() ?? UUID().uuidString
-        let isInbound = senderHex != myHash
-
-        // Deduplicate: skip if we already have this exact message.
-        let dedup = FetchDescriptor<MessageEntity>(
-            predicate: #Predicate { $0.messageHash == msgHash }
-        )
-        if (try? context.fetch(dedup).isEmpty) == false { return }
-
-        // Preserve attachments (image / files / audio / telemetry) carried in
-        // the LXMF `fields`. Inbound fields are recovered as of the C1 unpack
-        // fix; we keep the raw packed bytes so the thread view can re-decode
-        // them on demand (see MessageAttachments). Text-only messages store nil.
-        let carriesFields = !message.fields.isEmpty
-        let entity = MessageEntity(
-            messageHash: msgHash,
-            conversationHash: peerHex,
-            senderHash: senderHex,
-            recipientHash: recipientHex,
-            title: message.titleAsString ?? "",
-            content: message.contentAsString ?? "",
-            timestamp: Date(timeIntervalSince1970: message.timestamp ?? Date().timeIntervalSince1970),
-            isOutbound: !isInbound,
-            deliveryState: Int16(message.state.rawValue),
-            isRead: !isInbound,
-            hasAttachments: carriesFields,
-            packedMessage: carriesFields ? message.packed : nil
-        )
-        context.insert(entity)
-        try? context.save()
-
-        // Fire a local notification for inbound messages only.
-        if isInbound, let nm = notificationManager {
-            // Look up sender's display name from the peer list.
-            let peerDesc = FetchDescriptor<PeerEntity>(
-                predicate: #Predicate { $0.destinationHash == peerHex }
-            )
-            let senderName = (try? context.fetch(peerDesc).first?.displayName) ?? "\(peerHex.prefix(8))…"
-            let preview    = message.contentAsString?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            nm.scheduleMessageNotification(senderName: senderName, preview: preview, peerHash: peerHex)
-        }
-    }
+    // Inbound message persistence moved to `LXMFMessageIngest`, which coalesces
+    // a burst (e.g. a propagation-node backlog replay) into one batched write
+    // instead of one fetch + insert + save — and therefore one full @Query
+    // re-run — per message.
 
     // MARK: - macOS daemon probe
 

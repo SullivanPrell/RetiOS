@@ -5,7 +5,7 @@ import NomadNet
 // ChannelsContent is the inner content — no NavigationStack —
 // so it can be embedded in NomadNetContainerView without nesting stacks.
 struct ChannelsContent: View {
-    @EnvironmentObject var nomadNet: NomadNetController
+    @Environment(NomadNetController.self) private var nomadNet
     @Query(sort: \ChannelEntity.lastActivity, order: .reverse)
     private var channels: [ChannelEntity]
     @State private var showJoinSheet = false
@@ -32,7 +32,7 @@ struct ChannelsContent: View {
         }
         .sheet(isPresented: $showJoinSheet) {
             JoinChannelSheet()
-                .environmentObject(nomadNet)
+                .environment(nomadNet)
         }
         .confirmationDialog(
             "Leave \"\(leaveTarget?.displayName ?? "channel")\"?",
@@ -59,7 +59,7 @@ struct ChannelsContent: View {
                     ChannelRoomView(channelHash: channel.channelHash,
                                     channelName: channel.displayName,
                                     destName:    channel.destName)
-                        .environmentObject(nomadNet)
+                        .environment(nomadNet)
                 } label: {
                     ChannelRowView(channel: channel)
                 }
@@ -169,7 +169,7 @@ private struct ChannelRowView: View {
 // MARK: - JoinChannelSheet
 
 struct JoinChannelSheet: View {
-    @EnvironmentObject var nomadNet: NomadNetController
+    @Environment(NomadNetController.self) private var nomadNet
     @Environment(\.dismiss) private var dismiss
 
     @State private var hashInput   = ""

@@ -21,7 +21,7 @@ import ReticulumSwift
 // Pinch to zoom, drag to pan, or use the on-screen +/−/reset controls.
 
 struct NetworkVisualizerView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @State private var graph = NetworkGraph()
     @State private var selectedNodeID: String?
     @State private var zoom: CGFloat = 1

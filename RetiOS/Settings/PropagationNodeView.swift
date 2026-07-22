@@ -7,7 +7,7 @@ import LXMF
 /// acting as a mesh post-box. Enter the 32-character destination hash of
 /// any publicly reachable LXMF propagation node.
 struct PropagationNodeView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @State private var hashInput = ""
     @State private var saved = false
     @State private var validationError: String?

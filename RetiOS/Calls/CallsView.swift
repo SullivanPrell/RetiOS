@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct CallsView: View {
-    @EnvironmentObject var calls: CallsController
-    @EnvironmentObject var notifs: NotificationManager
+    @Environment(CallsController.self) private var calls
+    @Environment(NotificationManager.self) private var notifs
     @State private var showNewCall = false
     @State private var idleSection: CallsIdleSection = .recents
 
@@ -245,7 +245,7 @@ private enum CallsIdleSection: Hashable { case recents, peers }
 // MARK: - Recents content
 
 private struct CallsRecentsContent: View {
-    @EnvironmentObject var calls: CallsController
+    @Environment(CallsController.self) private var calls
 
     var body: some View {
         if calls.callHistory.isEmpty {
@@ -350,7 +350,7 @@ private struct CallRecordRow: View {
 // MARK: - LXST Peers content
 
 private struct CallsPeersContent: View {
-    @EnvironmentObject var calls: CallsController
+    @Environment(CallsController.self) private var calls
     let onCall: (String) -> Void
 
     var body: some View {
@@ -397,7 +397,7 @@ private struct LXSTPeerRow: View {
 // MARK: - New call sheet
 
 struct NewCallSheet: View {
-    @EnvironmentObject var calls: CallsController
+    @Environment(CallsController.self) private var calls
     @Environment(\.dismiss) private var dismiss
     @State private var hashInput = ""
     @State private var inputError: String?

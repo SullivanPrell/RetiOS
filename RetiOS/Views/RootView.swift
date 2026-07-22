@@ -9,8 +9,8 @@ import SwiftUI
 // section when the user taps a notification banner or action button.
 
 struct RootView: View {
-    @EnvironmentObject var stack: StackController
-    @EnvironmentObject var notifs: NotificationManager
+    @Environment(StackController.self) private var stack
+    @Environment(NotificationManager.self) private var notifs
     @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var showOnboarding = false
@@ -66,7 +66,7 @@ struct RootView: View {
 // MARK: - Phone / compact tab bar
 
 private struct TabRootView: View {
-    @EnvironmentObject var notifs: NotificationManager
+    @Environment(NotificationManager.self) private var notifs
     @State private var selectedTab: AppTab = .messages
 
     var body: some View {
@@ -152,8 +152,8 @@ private extension View {
 // Four sections mirror the four phone tabs exactly.
 
 private struct SidebarRootView: View {
-    @EnvironmentObject var stack: StackController
-    @EnvironmentObject var notifs: NotificationManager
+    @Environment(StackController.self) private var stack
+    @Environment(NotificationManager.self) private var notifs
     @State private var selection: AppTab? = .messages
 
     // On macOS, Settings lives in its own ⌘, Preferences window (see RetiOSApp),
@@ -269,19 +269,19 @@ private extension AppTab {
 // `InterfaceDirectory` quick-add — into a 3-step welcome.
 
 private struct OnboardingPresenter: ViewModifier {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @Binding var isPresented: Bool
     let onFinish: () -> Void
 
     func body(content: Content) -> some View {
         #if os(iOS)
         content.fullScreenCover(isPresented: $isPresented) {
-            OnboardingView(onFinish: onFinish).environmentObject(stack)
+            OnboardingView(onFinish: onFinish).environment(stack)
         }
         #else
         content.sheet(isPresented: $isPresented) {
             OnboardingView(onFinish: onFinish)
-                .environmentObject(stack)
+                .environment(stack)
                 .frame(minWidth: 540, minHeight: 620)
         }
         #endif
@@ -289,11 +289,15 @@ private struct OnboardingPresenter: ViewModifier {
 }
 
 private struct OnboardingView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     let onFinish: () -> Void
 
     @State private var step = 0
     @State private var draftName = ""
+    /// Rendered once, off the main thread. Calling `rnsQRImage` inline in `body`
+    /// re-rendered the whole QR (including a fresh CIContext) on *every* body
+    /// evaluation — on the very first screen a new user ever sees.
+    @State private var qrImage: Image?
 
     private let lastStep = 2
 
@@ -388,7 +392,7 @@ private struct OnboardingView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             if let hex = stack.identity?.hexHash {
-                if let qr = rnsQRImage(hex) {
+                if let qr = qrImage {
                     qr
                         .interpolation(.none)
                         .resizable()
@@ -410,12 +414,16 @@ private struct OnboardingView: View {
             }
             Spacer()
         }
+        .task(id: stack.identity?.hexHash) {
+            guard let hex = stack.identity?.hexHash else { qrImage = nil; return }
+            qrImage = await rnsQRImageAsync(hex)
+        }
     }
 }
 
 // Separate view so the directory fetch lives only while step 3 is on screen.
 private struct OnboardingConnectStep: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @State private var entries: [InterfaceDirectory.Entry] = []
     @State private var loadFailed = false
     @State private var added: Set<String> = []

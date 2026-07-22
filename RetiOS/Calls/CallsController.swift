@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import ReticulumSwift
 import LXST
 #if canImport(AVFAudio)
@@ -58,7 +59,8 @@ struct LXSTPeer: Identifiable {
 /// This controller maps `Telephone`'s callbacks onto the `@Published` UI state
 /// and supplies the platform audio backend + microphone-permission gating.
 @MainActor
-final class CallsController: ObservableObject {
+@Observable
+final class CallsController {
 
     enum CallState: Equatable {
         case idle
@@ -68,31 +70,31 @@ final class CallsController: ObservableObject {
         case failed(String)
     }
 
-    @Published private(set) var callState: CallState = .idle
-    @Published private(set) var isMuted = false
+    private(set) var callState: CallState = .idle
+    private(set) var isMuted = false
     /// 16-byte hash of our lxst.telephony destination (available after setup).
-    @Published private(set) var lxstCallHash: Data?
+    private(set) var lxstCallHash: Data?
     /// Whether we actively announce our LXST call address to the mesh.
-    @Published private(set) var lxstAnnounceEnabled: Bool = {
+    private(set) var lxstAnnounceEnabled: Bool = {
         UserDefaults.standard.object(forKey: "lxstAnnounceEnabled") as? Bool ?? false
     }()
 
     /// Recent calls (most recent first, capped at 100).
-    @Published private(set) var callHistory: [CallRecord] = []
+    private(set) var callHistory: [CallRecord] = []
     /// LXST-capable peers seen via mesh announces (most recent first).
-    @Published private(set) var lxstPeers: [LXSTPeer] = []
+    private(set) var lxstPeers: [LXSTPeer] = []
 
-    private var transport: Transport?
-    private var identity: Identity?
-    private var telephone: Telephone?
+    @ObservationIgnored private var transport: Transport?
+    @ObservationIgnored private var identity: Identity?
+    @ObservationIgnored private var telephone: Telephone?
 
     /// Display hash for the active/ringing call (dialled hash for outbound,
     /// caller identity hash for inbound). Used to label the call UI.
-    private var activePeerHash: Data?
+    @ObservationIgnored private var activePeerHash: Data?
     // In-progress call record — pushed to history when the call ends.
-    private var pendingRecord: CallRecord?
+    @ObservationIgnored private var pendingRecord: CallRecord?
 
-    private var lxstAnnounceHandler: LXSTCallAnnounceHandler?
+    @ObservationIgnored private var lxstAnnounceHandler: LXSTCallAnnounceHandler?
     private static let lxstAnnounceKey = "lxstAnnounceEnabled"
 
     // MARK: - Setup

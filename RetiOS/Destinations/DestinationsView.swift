@@ -2,8 +2,8 @@ import SwiftUI
 import SwiftData
 
 struct DestinationsView: View {
-    @EnvironmentObject var stack: StackController
-    @EnvironmentObject var calls: CallsController
+    @Environment(StackController.self) private var stack
+    @Environment(CallsController.self) private var calls
     @Environment(\.modelContext) private var context
     @Query(sort: \PeerEntity.lastSeen, order: .reverse) private var peers: [PeerEntity]
     @State private var searchText = ""

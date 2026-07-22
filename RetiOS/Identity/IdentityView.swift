@@ -2,13 +2,12 @@ import SwiftUI
 import ReticulumSwift
 
 struct IdentityView: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @State private var copied = false
     @State private var draftName: String = ""
-    // Memoized QR of the identity hash. Generating it via Core Image is costly,
-    // and the hash is stable, so build it once on appear / when the identity
-    // changes instead of on every `body` eval (each keystroke in the name /
-    // nickname fields otherwise regenerated it, causing typing lag).
+    // QR of the identity hash, rendered asynchronously (see the `.task` below).
+    // Core Image generation is costly and the hash is stable, so it is built
+    // once per identity — never in `body`, and never on the main thread.
     @State private var qrImage: Image?
     // RRC chat nickname — read live by RRCManager.getNickname() via the
     // NomadNetAppAdapter, so saving here takes effect on the next message.
@@ -28,14 +27,14 @@ struct IdentityView: View {
         .rnsScreenBackground()
         .navigationTitle("Identity")
         .rnsInlineNavigationTitle()
-        .onAppear {
-            draftName = stack.nodeDisplayName
-            // Parenthesize so `flatMap` is Optional.flatMap (String? -> Image?),
-            // not String's Sequence.flatMap over Characters.
-            qrImage = (stack.identity?.hexHash).flatMap { rnsQRImage($0) }
-        }
-        .onChange(of: stack.identity?.hexHash) { _, hex in
-            qrImage = hex.flatMap { rnsQRImage($0) }
+        .onAppear { draftName = stack.nodeDisplayName }
+        // Rendered off the main thread and keyed on the hash, so it runs once per
+        // identity and never blocks the push animation. Doing this synchronously
+        // in `onAppear` blocked the main thread for ~170 ms every time this
+        // screen appeared — the "Identity is painfully slow" stall.
+        .task(id: stack.identity?.hexHash) {
+            guard let hex = stack.identity?.hexHash else { qrImage = nil; return }
+            qrImage = await rnsQRImageAsync(hex)
         }
         .rnsFeedback(trigger: copied) { _, new in new ? .success : nil }
     }

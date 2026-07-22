@@ -7,7 +7,7 @@ import SwiftUI
 // TCPClientInterface / BackboneInterface with one tap.
 
 struct InterfaceDirectorySheet: View {
-    @EnvironmentObject var stack: StackController
+    @Environment(StackController.self) private var stack
     @Environment(\.dismiss) private var dismiss
 
     @State private var entries: [InterfaceDirectory.Entry] = []

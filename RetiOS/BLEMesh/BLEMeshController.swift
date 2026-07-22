@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import CoreBluetooth
 import ReticulumSwift
 
@@ -24,7 +25,8 @@ import ReticulumSwift
 /// `BLEMeshInterface`/`CoreBluetoothMeshTransport`, exactly as the RNode
 /// radio-config readout lives in `RNodeInterface`, not the scanner.
 @MainActor
-final class BLEMeshController: NSObject, ObservableObject {
+@Observable
+final class BLEMeshController: NSObject {
 
     // MARK: - Published state
 
@@ -51,18 +53,37 @@ final class BLEMeshController: NSObject, ObservableObject {
         }
     }
 
-    @Published private(set) var state: MeshState = .idle
-    @Published private(set) var peerCount: Int = 0
-    @Published private(set) var meshInterface: BLEMeshInterface?
-    @Published private(set) var enableOnStart: Bool = {
+    private(set) var state: MeshState = .idle
+    private(set) var peerCount: Int = 0
+    private(set) var meshInterface: BLEMeshInterface?
+
+    /// Traffic counters mirrored from `BLEMeshInterface`.
+    ///
+    /// `BLEMeshInterface` is a plain library class, not observable, so a view
+    /// reading `iface.txPackets` directly registers no dependency and never
+    /// refreshes. Previously the rows only updated as a side effect of this
+    /// controller's per-second `peerCount` write; once that became
+    /// assign-on-change the counters froze on screen. Mirroring them into
+    /// observed properties makes the dependency explicit instead of incidental.
+    private(set) var txPackets: Int = 0
+    private(set) var txBytes: Int = 0
+    private(set) var rxPackets: Int = 0
+    private(set) var rxBytes: Int = 0
+    /// Called after this controller adds or removes its interface from
+    /// `Transport`. Wired to `StackController.noteInterfacesChanged()` so the
+    /// Interfaces screen refreshes — it lists `transport.interfaces`, which is
+    /// not observable and so cannot signal the change itself.
+    @ObservationIgnored var onInterfacesChanged: (() -> Void)?
+
+    private(set) var enableOnStart: Bool = {
         UserDefaults.standard.bool(forKey: "bleMeshEnableOnStart")
     }()
 
     // MARK: - Private
 
-    private var bleTransport: CoreBluetoothMeshTransport?
-    private var reticulumTransport: Transport?
-    private var peerPollTask: Task<Void, Never>?
+    @ObservationIgnored private var bleTransport: CoreBluetoothMeshTransport?
+    @ObservationIgnored private var reticulumTransport: Transport?
+    @ObservationIgnored private var peerPollTask: Task<Void, Never>?
     private static let enableOnStartKey = "bleMeshEnableOnStart"
 
     // MARK: - Public API
@@ -106,6 +127,7 @@ final class BLEMeshController: NSObject, ObservableObject {
         bleTransport = transport
         meshInterface = iface
         reticulumTransport?.register(interface: iface)
+        onInterfacesChanged?()
         state = .online
         startPeerPolling()
     }
@@ -119,6 +141,7 @@ final class BLEMeshController: NSObject, ObservableObject {
         if let iface = meshInterface {
             iface.stop()
             reticulumTransport?.deregister(interface: iface)
+            onInterfacesChanged?()
         }
 
         meshInterface = nil
@@ -158,7 +181,7 @@ final class BLEMeshController: NSObject, ObservableObject {
 
     /// `BLEMeshInterface.peerCount` is a thread-safe snapshot, not a
     /// publisher. Polling at UI-refresh cadence is the simplest correct way
-    /// to keep `@Published peerCount` current — wiring up a bespoke
+    /// to keep `peerCount` current — wiring up a bespoke
     /// peer-table change notification through `BLEMeshTransport` would add
     /// real protocol surface for what is purely a display nicety.
     private func startPeerPolling() {
@@ -166,7 +189,23 @@ final class BLEMeshController: NSObject, ObservableObject {
         peerPollTask = Task { [weak self] in
             while let self, !Task.isCancelled {
                 guard self.state.isOnline, let iface = self.meshInterface else { return }
-                self.peerCount = iface.peerCount
+                // Assign only on change. sends objectWillChange for
+                // EVERY assignment, equal or not — writing unconditionally
+                // re-rendered every view observing this controller once a
+                // second for as long as the mesh stayed online, even though the
+                // peer count almost never changes between ticks.
+                let count = iface.peerCount
+                if self.peerCount != count { self.peerCount = count }
+
+                // Mirror the traffic counters too. Assign-on-change per field so
+                // an idle mesh still costs nothing, while a busy one keeps the
+                // readout live. See the property declarations for why the view
+                // cannot observe the interface directly.
+                if self.txPackets != iface.txPackets { self.txPackets = iface.txPackets }
+                if self.txBytes   != iface.txBytes   { self.txBytes   = iface.txBytes }
+                if self.rxPackets != iface.rxPackets { self.rxPackets = iface.rxPackets }
+                if self.rxBytes   != iface.rxBytes   { self.rxBytes   = iface.rxBytes }
+
                 try? await Task.sleep(for: .seconds(1))
             }
         }

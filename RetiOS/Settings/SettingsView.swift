@@ -2,9 +2,12 @@ import SwiftUI
 import ReticulumSwift
 
 struct SettingsView: View {
-    @EnvironmentObject var stack: StackController
-    @EnvironmentObject var calls: CallsController
-    @EnvironmentObject var logStore: RNSLogStore
+    @Environment(StackController.self) private var stack
+    @Environment(CallsController.self) private var calls
+    // @Observable + @Environment, so this view depends only on the property it
+    // reads (`logLevel`). Under the old @EnvironmentObject/ObservableObject
+    // spelling, every appended log line invalidated this whole screen.
+    @Environment(RNSLogStore.self) private var logStore
 
     private static let availableLogLevels: [Reticulum.LogLevel] = [
         .critical, .error, .warning, .notice, .info, .verbose, .debug
@@ -63,7 +66,10 @@ struct SettingsView: View {
 
     private func refreshCachedStats() {
         guard let transport = stack.transport else { return }
-        cachedPathCount = transport.getPathTable().count
+        // Assign only on change — writing @State unconditionally re-rendered the
+        // whole Settings list every 5 s even when the path count was identical.
+        let count = transport.getPathTable().count
+        if cachedPathCount != count { cachedPathCount = count }
     }
 
     // MARK: - Sections

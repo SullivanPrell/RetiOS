@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import ReticulumSwift
 import SwiftUI
 
@@ -29,18 +30,71 @@ struct RNSLogEntry: Identifiable {
 
 // MARK: - Log store
 
-/// Captures all RNS log output and exposes it to SwiftUI.
+/// Thread-safe hand-off between the RNS log handler (called from arbitrary
+/// transport threads) and the main-actor store. Keeps the hot path to a lock +
+/// array append so logging never blocks the caller.
+private final class RNSLogBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var pending: [RNSLogEntry] = []
+    private var flushScheduled = false
+
+    /// Buffers an entry. Returns `true` when the caller should schedule a flush.
+    func append(_ entry: RNSLogEntry, cap: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        pending.append(entry)
+        // Bound the buffer itself, so a burst between flushes can't grow without limit.
+        if pending.count > cap {
+            pending.removeFirst(pending.count - cap)
+        }
+        let needSchedule = !flushScheduled
+        flushScheduled = true
+        return needSchedule
+    }
+
+    func drain() -> [RNSLogEntry] {
+        lock.lock()
+        defer { lock.unlock() }
+        let out = pending
+        pending.removeAll(keepingCapacity: true)
+        flushScheduled = false
+        return out
+    }
+}
+
+/// Captures RNS log output and exposes it to SwiftUI.
 ///
-/// Installs itself as `Reticulum.logHandler` on init so it receives every
-/// `Reticulum.log()` call regardless of the global log level filter.
+/// Installs itself as `Reticulum.logHandler` on init. Note the handler is only
+/// invoked for messages that already passed `Reticulum.log`'s level filter
+/// (`guard level <= globalLogLevel`) — it does NOT see everything.
 /// Persists the chosen log level to UserDefaults so the setting survives relaunches.
+///
+/// Log lines are coalesced rather than published one-by-one: `Reticulum.log` is
+/// called from transport threads and, at the `.debug`/`.extreme` levels this app
+/// exposes in Settings, fires **per packet**. Publishing each line individually
+/// meant one main-actor `Task` hop plus one `objectWillChange` (and so a re-render
+/// of every observing view) per log line, which made raising the log level enough
+/// to saturate the main actor. Now a burst collapses into one batched append.
+/// `@Observable` (not `ObservableObject`) is load-bearing here, not stylistic.
+/// `ObservableObject` invalidates EVERY view holding the object on ANY
+/// `@Published` change — so appending a log line re-rendered `SettingsView`,
+/// which observes this store purely to read `logLevel` for one Picker. Settings
+/// (and every submenu and text field under it) therefore re-rendered on every
+/// RNS log line. `@Observable` tracks per-property, established by what each
+/// `body` actually reads: `LogsView` reads `entries` and still updates, while
+/// `SettingsView` reads only `logLevel` and no longer re-renders on log traffic.
 @MainActor
-final class RNSLogStore: ObservableObject {
+@Observable
+final class RNSLogStore {
     static let maxEntries = 500
     private static let logLevelKey = "rnsLogLevel"
+    /// Coalescing window — short enough to feel live in the Logs screen.
+    private static let flushInterval: TimeInterval = 0.25
 
-    @Published private(set) var entries: [RNSLogEntry] = []
-    @Published private(set) var logLevel: Reticulum.LogLevel
+    private(set) var entries: [RNSLogEntry] = []
+    private(set) var logLevel: Reticulum.LogLevel
+
+    @ObservationIgnored private let buffer = RNSLogBuffer()
 
     init() {
         // Restore persisted level, defaulting to .notice if never saved.
@@ -49,10 +103,15 @@ final class RNSLogStore: ObservableObject {
         logLevel = level
         Reticulum.globalLogLevel = level
 
-        // Route all RNS log output through this store.
+        // Route RNS log output through this store. Called on transport threads:
+        // buffer cheaply here, publish in batches on the main actor.
+        let buffer = self.buffer
+        let cap = Self.maxEntries
         Reticulum.logHandler = { [weak self] message, lvl in
-            Task { @MainActor [weak self] in
-                self?.append(message: message, level: lvl)
+            let entry = RNSLogEntry(level: lvl, message: message)
+            guard buffer.append(entry, cap: cap) else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.flushInterval) { [weak self] in
+                MainActor.assumeIsolated { self?.flush() }
             }
         }
     }
@@ -64,11 +123,16 @@ final class RNSLogStore: ObservableObject {
     }
 
     func clear() {
+        _ = buffer.drain()
         entries.removeAll()
     }
 
-    private func append(message: String, level: Reticulum.LogLevel) {
-        entries.append(RNSLogEntry(level: level, message: message))
+    /// Appends a whole batch in one mutation — a single `objectWillChange`
+    /// regardless of how many lines arrived in the window.
+    private func flush() {
+        let batch = buffer.drain()
+        guard !batch.isEmpty else { return }
+        entries.append(contentsOf: batch)
         if entries.count > Self.maxEntries {
             entries.removeFirst(entries.count - Self.maxEntries)
         }

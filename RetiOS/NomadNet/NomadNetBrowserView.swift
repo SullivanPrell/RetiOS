@@ -5,7 +5,7 @@ import NomadNet
 // NomadNetBrowserContent is the inner content — no NavigationStack —
 // so it can be embedded in NomadNetContainerView without nesting stacks.
 struct NomadNetBrowserContent: View {
-    @EnvironmentObject var nomadNet: NomadNetController
+    @Environment(NomadNetController.self) private var nomadNet
     @State private var urlInput = ""
     @FocusState private var urlBarFocused: Bool
 
@@ -92,7 +92,11 @@ struct NomadNetBrowserContent: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.rnsSurface)
-        .onReceive(nomadNet.$currentURL.compactMap { $0 }) { url in
+        // `onChange`, not `onReceive(controller.$currentURL)`: @Observable
+        // publishes no Combine projection. It also fires only on a real change
+        // rather than on every assignment, which is what we want here.
+        .onChange(of: nomadNet.currentURL) { _, url in
+            guard let url else { return }
             // Don't clobber text the user is actively editing in the URL bar;
             // only sync the field to the loaded page when it isn't focused.
             guard !urlBarFocused else { return }

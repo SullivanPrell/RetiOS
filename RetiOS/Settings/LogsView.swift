@@ -2,7 +2,7 @@ import SwiftUI
 import ReticulumSwift
 
 struct LogsView: View {
-    @EnvironmentObject var logStore: RNSLogStore
+    @Environment(RNSLogStore.self) private var logStore
     @State private var searchText = ""
     @State private var autoScroll = true
     @State private var showClearConfirm = false

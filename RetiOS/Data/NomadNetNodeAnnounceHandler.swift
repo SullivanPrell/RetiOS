@@ -12,14 +12,21 @@ import ReticulumSwift
 final class NomadNetNodeAnnounceHandler: AnnounceHandler {
     public var aspectFilter: String? { "nomadnetwork.node" }
 
-    private let context: ModelContext
+    private let container: ModelContainer
+    /// Serial queue that owns `ingestContext`; all SwiftData work happens here so
+    /// node-announce ingest never runs on the main thread. See
+    /// `LXMFPeerAnnounceHandler` for the full rationale.
+    private let queue = DispatchQueue(label: "dev.sprell.retios.node-announce-ingest",
+                                      qos: .utility)
+    private var ingestContext: ModelContext?
+
     private let lock = NSLock()
     private var pending: [String: (name: String?, date: Date)] = [:]
     private var flushScheduled = false
     private let flushInterval: TimeInterval = 1.0
 
-    init(context: ModelContext) {
-        self.context = context
+    init(container: ModelContainer) {
+        self.container = container
     }
 
     func receivedAnnounce(destinationHash: Data, identity: Identity, appData: Data?,
@@ -40,14 +47,22 @@ final class NomadNetNodeAnnounceHandler: AnnounceHandler {
         lock.unlock()
 
         if needSchedule {
-            DispatchQueue.main.asyncAfter(deadline: .now() + flushInterval) { [weak self] in
-                MainActor.assumeIsolated { self?.flush() }
+            queue.asyncAfter(deadline: .now() + flushInterval) { [weak self] in
+                self?.flush()
             }
         }
     }
 
-    @MainActor
+    /// Runs on `queue` against the background context — never the main thread.
     private func flush() {
+        let context: ModelContext
+        if let existing = ingestContext {
+            context = existing
+        } else {
+            context = ModelContext(container)
+            ingestContext = context
+        }
+
         lock.lock()
         let batch = pending
         pending.removeAll(keepingCapacity: true)
