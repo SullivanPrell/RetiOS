@@ -26,6 +26,12 @@ final class LocationManager: NSObject {
     /// Requests "when in use" authorization if undetermined, or starts updates
     /// if already granted. Safe to call repeatedly (e.g. from `.onAppear`).
     func requestAuthorizationIfNeeded() {
+        // An unattended UI test must never raise a system permission dialog on
+        // the developer's own machine — visiting the Map tab in a screenshot
+        // tour did exactly that. Same rule the suite already follows for
+        // Bluetooth. See `StackController.isOfflineUITestRun`.
+        guard !StackController.isOfflineUITestRun else { return }
+
         switch manager.authorizationStatus {
         case .notDetermined:
             manager.requestWhenInUseAuthorization()

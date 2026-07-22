@@ -14,6 +14,30 @@ enum AppTab: String, Hashable, CaseIterable {
     case interfaces = "interfaces"
     case tools      = "tools"
     case settings   = "settings"
+
+    /// Which screen the sidebar/tab bar starts on.
+    ///
+    /// Normally Messages. A DEBUG build additionally honours `-startTab <raw>`,
+    /// which exists so a Mac screen can be reviewed with nothing but a launch
+    /// and a screenshot:
+    ///
+    ///     RetiOS.app/Contents/MacOS/RetiOS -hasCompletedOnboarding YES \
+    ///       -stackOffline YES -startTab interfaces
+    ///
+    /// The alternative — driving the app through XCUITest — needs an
+    /// Accessibility grant *and* needs to activate the app, which fails
+    /// outright whenever another app is holding focus. Selecting the screen up
+    /// front needs neither: `screencapture -l <windowID>` captures a background
+    /// window just fine. Never compiled into Release.
+    static var launchSelection: AppTab {
+        #if DEBUG
+        if let raw = UserDefaults.standard.string(forKey: "startTab"),
+           let tab = AppTab(rawValue: raw) {
+            return tab
+        }
+        #endif
+        return .messages
+    }
 }
 
 // MARK: - NotificationManager

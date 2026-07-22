@@ -67,7 +67,12 @@ struct MessageThreadView: View {
                 Divider()
                 ComposeBar(onSend: sendMessage)
             }
-            .background(Color.rnsSurface)
+            // A bar, not a card. `rnsSurface` is sized for a small element
+            // (a bubble, a chip); stretched across the full width of the
+            // window it reads as a heavy grey slab. Bars get the system
+            // material — which is Liquid Glass on macOS 26 — matching the
+            // sidebar footer and the NomadNet URL bar.
+            .rnsBarMaterial()
         }
         .scrollDismissesKeyboard(.interactively)
         .rnsCanvasBackground()

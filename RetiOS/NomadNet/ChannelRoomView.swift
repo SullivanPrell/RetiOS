@@ -149,7 +149,9 @@ struct ChannelRoomView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.rnsSurface)
+        // Full-width bar — takes the system material, not the solid card fill.
+        // See the compose bar in MessageThreadView.
+        .rnsBarMaterial()
     }
 
     // MARK: - Compose bar
@@ -187,7 +189,9 @@ struct ChannelRoomView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.rnsSurface)
+        // Full-width bar — takes the system material, not the solid card fill.
+        // See the compose bar in MessageThreadView.
+        .rnsBarMaterial()
         .confirmationDialog("Switch Room", isPresented: $showRoomPicker) {
             if let hub = activeHub {
                 ForEach(hub.rooms.sorted(), id: \.self) { r in

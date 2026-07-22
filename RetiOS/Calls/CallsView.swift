@@ -55,26 +55,22 @@ struct CallsView: View {
     // MARK: - Idle container (tabs)
 
     private var idleContainerView: some View {
-        VStack(spacing: 0) {
-            RNSSectionPicker([
-                ("Recents", CallsIdleSection.recents),
-                ("Peers",   CallsIdleSection.peers)
-            ], selection: $idleSection)
-
-            Group {
-                switch idleSection {
-                case .recents:
-                    CallsRecentsContent()
-                case .peers:
-                    CallsPeersContent { hash in
-                        if let data = Data(hexString: hash) {
-                            calls.startCall(to: data)
-                        }
+        Group {
+            switch idleSection {
+            case .recents:
+                CallsRecentsContent()
+            case .peers:
+                CallsPeersContent { hash in
+                    if let data = Data(hexString: hash) {
+                        calls.startCall(to: data)
                     }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .rnsSectionPicker([
+            ("Recents", CallsIdleSection.recents),
+            ("Peers",   CallsIdleSection.peers)
+        ], selection: $idleSection)
     }
 
     // MARK: - Call states
@@ -269,7 +265,7 @@ private struct CallsRecentsContent: View {
                 .accessibilityHint("Call back")
                 .rnsRow()
             }
-            .listStyle(.plain)
+            .rnsContentListStyle()
             .rnsScreenBackground()
         }
     }
@@ -306,7 +302,7 @@ private struct CallRecordRow: View {
 
             Spacer()
 
-            Text(record.startTime, style: .relative)
+            Text(RNSDate.listTimestamp(record.startTime))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -365,7 +361,7 @@ private struct CallsPeersContent: View {
                 LXSTPeerRow(peer: peer, onCall: onCall)
                     .rnsRow()
             }
-            .listStyle(.plain)
+            .rnsContentListStyle()
             .rnsScreenBackground()
         }
     }

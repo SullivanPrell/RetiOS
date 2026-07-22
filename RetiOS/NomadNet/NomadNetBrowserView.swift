@@ -91,7 +91,10 @@ struct NomadNetBrowserContent: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.rnsSurface)
+        // This is a bar the app draws itself, sitting directly under the system
+        // toolbar. A flat fill left it as the one obviously non-glass surface
+        // abutting chrome that the OS had already restyled.
+        .rnsBarMaterial()
         // `onChange`, not `onReceive(controller.$currentURL)`: @Observable
         // publishes no Combine projection. It also fires only on a real change
         // rather than on every assignment, which is what we want here.

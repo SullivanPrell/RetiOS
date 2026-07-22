@@ -29,18 +29,44 @@ extension Color {
         Color(nsColor: .windowBackgroundColor)
         #endif
     }
+    /// One step above `rnsCanvas` — message bubbles, compose bars, cards.
+    ///
+    /// The macOS mapping is **not** `controlBackgroundColor`, which is what it
+    /// used to be. On macOS that color is byte-identical to
+    /// `windowBackgroundColor` in *both* appearances (0.118 in Dark, 1.000 in
+    /// Light), so every surface the app painted was invisible against the page:
+    /// received message bubbles had no bubble, and the compose bar was
+    /// distinguishable only by its `Divider`. On iOS the equivalent pair genuinely
+    /// differs, which is why this only ever showed on the Mac.
+    ///
+    /// `unemphasizedSelectedContentBackgroundColor` is the semantic "content
+    /// that reads as distinct but not active", and it is the one system color
+    /// that shifts in the right direction in both appearances — measured at
+    /// +15.7% luminance in Dark and −13.7% in Light against the page.
     static var rnsSurface: Color {
         #if canImport(UIKit)
         Color(uiColor: .secondarySystemGroupedBackground)
         #else
-        Color(nsColor: .controlBackgroundColor)
+        Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
         #endif
     }
+
+    /// Two steps above `rnsCanvas` — a neutral chip sitting on a surface.
+    ///
+    /// macOS has no third semantic step here (`underPageBackgroundColor`, the
+    /// previous mapping, is a −37% dark grey in Light — far too heavy for a
+    /// badge on a white page), so the step is derived from `rnsSurface` by
+    /// nudging it toward the foreground in whichever direction the appearance
+    /// calls for.
     static var rnsSurfaceRaised: Color {
         #if canImport(UIKit)
         Color(uiColor: .tertiarySystemGroupedBackground)
         #else
-        Color(nsColor: .underPageBackgroundColor)
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let base = NSColor.unemphasizedSelectedContentBackgroundColor
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return base.blended(withFraction: 0.10, of: isDark ? .white : .black) ?? base
+        })
         #endif
     }
 
@@ -186,6 +212,31 @@ extension View {
         self.background(Color.rnsCanvas.ignoresSafeArea())
     }
 
+    /// Material for the app's own floating bars (the sidebar status footer).
+    ///
+    /// Uses **Liquid Glass** on OSes that have it, falling back to
+    /// `.ultraThinMaterial` below that. The app builds against the iOS/macOS 26
+    /// SDK and does *not* set `UIDesignRequiresCompatibility`, so system chrome
+    /// — toolbars, sidebars, tab bars — already renders as Liquid Glass for
+    /// free. This helper is for the surfaces the app draws itself, which the
+    /// system cannot restyle on our behalf and which otherwise stay visibly
+    /// flat next to the chrome that did update.
+    ///
+    /// Deployment targets are still iOS 17 / macOS 14, so the API must be
+    /// runtime-gated; `#available` does not relax the compile-time SDK
+    /// requirement, which the CI workflow already selects Xcode for.
+    @ViewBuilder
+    func rnsBarMaterial() -> some View {
+        if #available(iOS 26, macOS 26, *) {
+            // `.rect` rather than the default capsule: this is a full-width
+            // edge-to-edge bar, and a capsule would round its outer corners
+            // away from the window edge.
+            self.glassEffect(.regular, in: .rect)
+        } else {
+            self.background(.ultraThinMaterial)
+        }
+    }
+
     /// No-op. Rows now use the system's native row background, which keeps
     /// correct selection / highlight / swipe-action behavior. The system row
     /// color already matches `rnsSurface` (secondary grouped background), so this
@@ -224,10 +275,43 @@ extension View {
     /// macOS: there is no navigation bar to reclaim and a custom in-content
     /// title would duplicate the window-chrome title, so fall back to the
     /// native `navigationTitle` + a trailing window-toolbar item.
+    /// Titles a screen that has no trailing action.
+    ///
+    /// This is a *separate overload* rather than a defaulted `trailing:`
+    /// parameter, and that distinction is load-bearing on macOS: a
+    /// `ToolbarItem` wrapping an `EmptyView` still claims a toolbar slot, and a
+    /// slot the user cannot see is still a slot the system can decide to
+    /// collapse. Every Mac screen was rendering a "»" overflow chevron —
+    /// hiding real actions behind it — because each one contributed a phantom
+    /// primary-action item here. With the default argument gone, screens
+    /// without an action contribute nothing at all.
+    @ViewBuilder
+    func rnsPinnedTitle(_ title: String) -> some View {
+        #if os(iOS)
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.largeTitle.bold())
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+
+            self
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .navigationTitle(title)
+        .toolbar(.hidden, for: .navigationBar)
+        #else
+        self.navigationTitle(title)
+        #endif
+    }
+
     @ViewBuilder
     func rnsPinnedTitle<Trailing: View>(
         _ title: String,
-        @ViewBuilder trailing: () -> Trailing = { EmptyView() }
+        @ViewBuilder trailing: () -> Trailing
     ) -> some View {
         #if os(iOS)
         VStack(spacing: 0) {
@@ -366,8 +450,99 @@ struct RNSSectionPicker<T: Hashable>: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+    }
+}
+
+/// Container for a settings-style screen — a stack of `Section`s of labelled
+/// rows and explanatory footers (Settings, Interfaces).
+///
+/// **iOS** keeps `List` + `.insetGrouped`. `List` is what supports
+/// `swipeActions`, which the Interfaces screen uses to remove an interface, so
+/// this is not interchangeable with `Form` there.
+///
+/// **macOS** uses `Form` + `.formStyle(.grouped)`, which is what a Mac settings
+/// pane actually is. `List` gave rows that spanned the whole window: on a
+/// 1100 pt-wide window a row read as its label on the far left and its control
+/// ~1000 pt away on the far right, with nothing between. Grouped `Form` boxes
+/// the sections and constrains their width the way System Settings does.
+///
+/// It also fixes a genuine defect rather than only a stylistic one: in the
+/// `List` layout, section footers were laid out on a single line and truncated
+/// — the Interfaces overlay-network footer ended mid-sentence at "Reticulum
+/// then…" — because the row was nearly wide enough to fit them. `Form` footers
+/// wrap.
+@ViewBuilder
+func rnsSettingsContainer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    #if os(macOS)
+    Form { content() }
+        .formStyle(.grouped)
+    #else
+    List { content() }
+        .listStyle(.insetGrouped)
+    #endif
+}
+
+extension View {
+    /// Style for a *content* list — conversations, peers, paths, channels, logs.
+    /// (Settings-style screens use `rnsSettingsContainer` instead.)
+    ///
+    /// iOS keeps `.plain`, the edge-to-edge phone idiom. macOS uses `.inset`:
+    /// `.plain` there draws a full-bleed list with no margins and no row
+    /// affordances, which is why the Mac conversation list read as bare text
+    /// shoved against the window edge with its timestamp stranded on the far
+    /// right.
+    @ViewBuilder
+    func rnsContentListStyle() -> some View {
+        #if os(macOS)
+        // Alternating row backgrounds are the Mac idiom for a scannable list of
+        // records — Finder's list view, Mail's message list, Xcode's issue
+        // navigator. The banding is what separates one row from the next, and
+        // the *only* filled row is the selected one.
+        //
+        // Two earlier attempts were wrong in opposite directions. `.bordered`
+        // boxes the whole list, which collides with the grouped `Form` boxes on
+        // the settings screens. Giving every row its own rounded card fixed the
+        // "unselected row is the same colour as the page" complaint, but it
+        // transplanted the iOS inset-grouped idiom onto macOS: a column of
+        // heavy grey slabs running edge to edge, which is not what the HIG
+        // describes and read worse than the problem it solved.
+        self.listStyle(.inset(alternatesRowBackgrounds: true))
+        #else
+        self.listStyle(.plain)
+        #endif
+    }
+
+    /// Attaches a section switcher to a screen, placed the way each platform
+    /// expects.
+    ///
+    /// **iOS** stretches a segmented control edge-to-edge under the title — the
+    /// standard phone idiom, and what this app has always done.
+    ///
+    /// **macOS** puts it in the window toolbar instead. A Mac segmented control
+    /// sizes to its content rather than filling the width, so the iOS placement
+    /// rendered as a small pill marooned in the middle of an otherwise empty
+    /// row across the top of every pane — the most conspicuous phone-ism in the
+    /// Mac build. The toolbar is where Finder, Mail and Xcode put exactly this
+    /// control.
+    ///
+    /// Apply to the *content*; the modifier arranges the picker around it.
+    @ViewBuilder
+    func rnsSectionPicker<T: Hashable>(_ tabs: [(String, T)], selection: Binding<T>) -> some View {
+        #if os(macOS)
+        self.toolbar {
+            ToolbarItem(placement: .principal) {
+                RNSSectionPicker(tabs, selection: selection)
+            }
+        }
+        #else
+        VStack(spacing: 0) {
+            RNSSectionPicker(tabs, selection: selection)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+            self
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        #endif
     }
 }
 
@@ -487,12 +662,51 @@ struct PeerIdentityView: View {
                     .lineLimit(1)
             }
             if let lastSeen {
-                Text(lastSeen, style: .relative)
+                Text(RNSDate.ago(lastSeen))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
         }
     }
+}
+
+// MARK: - Timestamps
+
+/// Date formatting for list rows.
+///
+/// Replaces `Text(date, style: .relative)`, which renders a bare *duration* —
+/// a conversation last touched yesterday evening read as "21 hr, 3 min". That
+/// is the format for a countdown, not for saying when something happened.
+enum RNSDate {
+
+    /// When an event happened, the way a messages/mail list says it: a time
+    /// today, "Yesterday", a weekday within the past week, a date beyond that.
+    static func listTimestamp(_ date: Date, now: Date = Date()) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) {
+            return date.formatted(date: .omitted, time: .shortened)
+        }
+        if cal.isDateInYesterday(date) {
+            return "Yesterday"
+        }
+        if let days = cal.dateComponents([.day], from: date, to: now).day, days < 7 {
+            return date.formatted(.dateTime.weekday(.abbreviated))
+        }
+        return date.formatted(date: .numeric, time: .omitted)
+    }
+
+    /// How long ago something was, in words — "21 hours ago", "2 days ago".
+    /// For recency ("last seen"), where the elapsed time *is* the point.
+    static func ago(_ date: Date, now: Date = Date()) -> String {
+        agoFormatter.localizedString(for: date, relativeTo: now)
+    }
+
+    private static let agoFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .full            // "21 hours ago", not "21 hr"
+        f.dateTimeStyle = .named        // "yesterday" rather than "1 day ago"
+        return f
+    }()
 }
 
 // MARK: - Clipboard

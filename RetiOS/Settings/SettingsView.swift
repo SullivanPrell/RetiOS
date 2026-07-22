@@ -35,22 +35,20 @@ struct SettingsView: View {
     // own back-navigation chrome and the inner stack's back button both render.
     // Owning the wrapper at each call site (mirroring `ToolsView`'s existing
     // pattern) lets each presentation context supply exactly one stack.
-    var body: some View {
-        List {
-            nodeSection
-            #if os(iOS)
-            interfacesSection
-            #endif
-            networkSection
-            announceSection
-            debugSection
-            aboutSection
-        }
+    @ViewBuilder
+    private var sections: some View {
+        nodeSection
         #if os(iOS)
-        .listStyle(.insetGrouped)
-        #else
-        .listStyle(.inset)
+        interfacesSection
         #endif
+        networkSection
+        announceSection
+        debugSection
+        aboutSection
+    }
+
+    var body: some View {
+        rnsSettingsContainer { sections }
         .rnsScreenBackground()
         // Flush pinned title (no large-title dead space) — matches the other
         // tabs. Replaces `.navigationTitle` + `.rnsNavigationBar()`.

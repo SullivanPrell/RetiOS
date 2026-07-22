@@ -157,6 +157,30 @@ final class StackController {
     private static let lxmfAnnounceKey    = "lxmfAnnounceEnabled"
     private static let nodeDisplayNameKey = "nodeDisplayName"
 
+    /// UI-test hook (DEBUG-only, never compiled into Release): bring the stack
+    /// up with **no interfaces registered**, so the app renders at full fidelity
+    /// — real identity, real router, real screens — while touching nothing on
+    /// the network.
+    ///
+    /// XCUITest relaunches the app for every test method. Without this, each
+    /// method re-joined AutoInterface's multicast group, redialled every saved
+    /// TCP/Backbone gateway, respawned the i2pd daemon and re-armed the
+    /// Yggdrasil VPN profile, then had all of it killed abruptly when the test
+    /// ended. That churn is disruptive to a real mesh the developer's machine
+    /// is part of, and it makes the tests slow and dependent on the network
+    /// being in a particular state. No interfaces means nothing reaches the
+    /// wire, which is exactly what a launch/reachability/appearance test wants.
+    ///
+    /// Set via `app.launchArguments += ["-stackOffline", "YES"]` — the argument
+    /// domain outranks persisted defaults, so it needs no test-only UI.
+    static var isOfflineUITestRun: Bool {
+        #if DEBUG
+        return UserDefaults.standard.bool(forKey: "stackOffline")
+        #else
+        return false
+        #endif
+    }
+
     func bringUp(modelContext: ModelContext, notificationManager: NotificationManager? = nil) async {
         // Idempotent: never start a second stack over a running (or still
         // starting) one. @MainActor makes this check-and-set race-free.
@@ -189,13 +213,21 @@ final class StackController {
             // and no handle to stop them, leaving the app wedged at "Starting…".
             let id = try stack.loadOrCreateIdentity()
 
+            let offline = StackController.isOfflineUITestRun
+            if offline {
+                Reticulum.log("StackController: offline UI-test run — no interfaces will be registered",
+                              level: .notice)
+            }
+
             #if os(macOS)
-            let useDaemon = await StackController.probeLocalDaemon()
+            let useDaemon = offline ? false : await StackController.probeLocalDaemon()
             #else
             let useDaemon = false
             #endif
 
-            if useDaemon {
+            if offline {
+                isClientMode = false
+            } else if useDaemon {
                 let localIf = LocalInterface()
                 stack.transport.register(interface: localIf)
                 try localIf.start()
@@ -211,6 +243,7 @@ final class StackController {
                 Reticulum.log("StackController: started embedded Reticulum with AutoInterface", level: .notice)
             }
 
+            if !offline {
             // Restore user-added client interfaces from previous sessions.
             loadSavedInterfaces()
             #if DEBUG
@@ -266,6 +299,7 @@ final class StackController {
                 Reticulum.log("StackController: (re)started Yggdrasil node with \(ygg.peers.count) peer(s)", level: .notice)
             }
             #endif
+            }   // !offline
 
             let router = LXMRouter(transport: stack.transport)
             let lxmfPath = storage.appendingPathComponent("lxmf").path
@@ -277,7 +311,7 @@ final class StackController {
             if let delivery = try? router.register(identity: id, transport: stack.transport,
                                                    displayName: nameForAnnounce) {
                 lxmfDeliveryHash = delivery.hash
-                if lxmfAnnounceEnabled {
+                if lxmfAnnounceEnabled, !offline {
                     try? router.announce(destinationHash: delivery.hash)
                 }
             }

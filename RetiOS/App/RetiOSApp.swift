@@ -74,6 +74,10 @@ struct RetiOSApp: App {
                     // at a natural moment rather than mid-call.
                     await notifs.requestPermission()
 
+                    // DEBUG-only fixture rows for screenshot review; no-op
+                    // unless `-seedDemoData YES` and the store is empty.
+                    DemoData.seedIfNeeded(container.mainContext)
+
                     await stack.bringUp(
                         modelContext: container.mainContext,
                         notificationManager: notifs
@@ -94,22 +98,29 @@ struct RetiOSApp: App {
                             stack?.noteInterfacesChanged()
                         }
                         rnode.setup(transport: transport)
-                        if bleMesh.enableOnStart {
-                            let name = stack.nodeDisplayName.isEmpty ? "RetiOS" : stack.nodeDisplayName
-                            bleMesh.enable(localName: name)
+
+                        // An offline UI-test run must stay off the air and off
+                        // the radios: enabling BLE mesh here would raise the
+                        // system Bluetooth dialog on the developer's own Mac,
+                        // which an unattended test must never do.
+                        if !StackController.isOfflineUITestRun {
+                            if bleMesh.enableOnStart {
+                                let name = stack.nodeDisplayName.isEmpty ? "RetiOS" : stack.nodeDisplayName
+                                bleMesh.enable(localName: name)
+                            }
+                            // Pick up messages parked at the propagation node while
+                            // we were offline. No-op when no node is configured;
+                            // if no path is known yet the router downloads as soon
+                            // as one arrives (wantsDownloadOnPathAvailableFrom).
+                            stack.syncFromPropagationNode()
                         }
-                        // Pick up messages parked at the propagation node while
-                        // we were offline. No-op when no node is configured;
-                        // if no path is known yet the router downloads as soon
-                        // as one arrives (wantsDownloadOnPathAvailableFrom).
-                        stack.syncFromPropagationNode()
                     }
                 }
                 // iOS tears down idle TCP links while the app is backgrounded,
                 // leaving RRC hubs in .disconnected/.failed when the user
                 // comes back. Reconnect them the moment the scene is active.
                 .onChange(of: scenePhase) { _, phase in
-                    guard phase == .active else { return }
+                    guard phase == .active, !StackController.isOfflineUITestRun else { return }
                     nomadNet.reconnectHubs()
                 }
         }
