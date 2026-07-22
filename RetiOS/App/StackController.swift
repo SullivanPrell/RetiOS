@@ -137,6 +137,9 @@ final class StackController: ObservableObject {
     }()
 
     private var peerAnnounceHandler: LXMFPeerAnnounceHandler?
+    /// Coalesces inbound LXMF messages into batched SwiftData writes. Held so it
+    /// outlives `bringUp` — the router's callback captures it.
+    private var messageIngest: LXMFMessageIngest?
     private var notificationManager: NotificationManager?
     private static let lxmfAnnounceKey    = "lxmfAnnounceEnabled"
     private static let nodeDisplayNameKey = "nodeDisplayName"
@@ -273,13 +276,22 @@ final class StackController: ObservableObject {
                 propagationNodeHash = savedHex
             }
 
-            // Wire inbound message receipt → SwiftData insert.
+            // Wire inbound message receipt → coalesced SwiftData insert.
+            //
+            // The router delivers one callback per message from a transport
+            // background thread, and a propagation-node sync replays the whole
+            // offline backlog back-to-back. Writing (and saving) per message on
+            // the main context re-ran every on-screen @Query per message, which
+            // is what hung the UI during the sync that runs on every launch.
+            // LXMFMessageIngest buffers off-actor and writes one batch per
+            // window, mirroring LXMFPeerAnnounceHandler.
             let myHex = id.hash.map { String(format: "%02x", $0) }.joined()
-            router.onMessageReceived = { [weak self] message in
-                guard let self else { return }
-                Task { @MainActor in
-                    self.insertMessage(message, myHash: myHex, context: modelContext)
-                }
+            let ingest = LXMFMessageIngest(context: modelContext,
+                                           myHash: myHex,
+                                           notificationManager: notificationManager)
+            self.messageIngest = ingest
+            router.onMessageReceived = { message in
+                ingest.enqueue(message)
             }
 
             // Register peer announce handler so the Peers tab fills in.
@@ -703,53 +715,10 @@ final class StackController: ObservableObject {
         try? context.save()
     }
 
-    private func insertMessage(_ message: LXMessage, myHash: String, context: ModelContext) {
-        let senderHex    = message.sourceHash.map { String(format: "%02x", $0) }.joined()
-        let recipientHex = message.destinationHash.map { String(format: "%02x", $0) }.joined()
-        // conversationHash is always the peer's side — not us.
-        let peerHex  = senderHex == myHash ? recipientHex : senderHex
-        let msgHash  = message.hash?.map { String(format: "%02x", $0) }.joined() ?? UUID().uuidString
-        let isInbound = senderHex != myHash
-
-        // Deduplicate: skip if we already have this exact message.
-        let dedup = FetchDescriptor<MessageEntity>(
-            predicate: #Predicate { $0.messageHash == msgHash }
-        )
-        if (try? context.fetch(dedup).isEmpty) == false { return }
-
-        // Preserve attachments (image / files / audio / telemetry) carried in
-        // the LXMF `fields`. Inbound fields are recovered as of the C1 unpack
-        // fix; we keep the raw packed bytes so the thread view can re-decode
-        // them on demand (see MessageAttachments). Text-only messages store nil.
-        let carriesFields = !message.fields.isEmpty
-        let entity = MessageEntity(
-            messageHash: msgHash,
-            conversationHash: peerHex,
-            senderHash: senderHex,
-            recipientHash: recipientHex,
-            title: message.titleAsString ?? "",
-            content: message.contentAsString ?? "",
-            timestamp: Date(timeIntervalSince1970: message.timestamp ?? Date().timeIntervalSince1970),
-            isOutbound: !isInbound,
-            deliveryState: Int16(message.state.rawValue),
-            isRead: !isInbound,
-            hasAttachments: carriesFields,
-            packedMessage: carriesFields ? message.packed : nil
-        )
-        context.insert(entity)
-        try? context.save()
-
-        // Fire a local notification for inbound messages only.
-        if isInbound, let nm = notificationManager {
-            // Look up sender's display name from the peer list.
-            let peerDesc = FetchDescriptor<PeerEntity>(
-                predicate: #Predicate { $0.destinationHash == peerHex }
-            )
-            let senderName = (try? context.fetch(peerDesc).first?.displayName) ?? "\(peerHex.prefix(8))…"
-            let preview    = message.contentAsString?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            nm.scheduleMessageNotification(senderName: senderName, preview: preview, peerHash: peerHex)
-        }
-    }
+    // Inbound message persistence moved to `LXMFMessageIngest`, which coalesces
+    // a burst (e.g. a propagation-node backlog replay) into one batched write
+    // instead of one fetch + insert + save — and therefore one full @Query
+    // re-run — per message.
 
     // MARK: - macOS daemon probe
 

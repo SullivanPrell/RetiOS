@@ -135,10 +135,15 @@ private struct ConversationListContent: View {
     }
 
     var body: some View {
-        if conversations.isEmpty {
+        // Bind once per body evaluation. `conversations` is a computed property,
+        // so Swift re-runs the whole O(messages + peers) grouping on EVERY read —
+        // reading it for both the empty check and the List did the full scan twice
+        // per render.
+        let items = conversations
+        if items.isEmpty {
             emptyState
         } else {
-            List(conversations, id: \.peerHash) { item in
+            List(items, id: \.peerHash) { item in
                 NavigationLink(value: item.peerHash) {
                     ConversationRow(peerHash: item.peerHash,
                                     displayName: item.displayName,
