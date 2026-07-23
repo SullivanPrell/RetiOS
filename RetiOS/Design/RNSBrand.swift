@@ -212,7 +212,8 @@ extension View {
         self.background(Color.rnsCanvas.ignoresSafeArea())
     }
 
-    /// Material for the app's own floating bars (the sidebar status footer).
+    /// Material for a bar the app draws itself — the NomadNet URL bar, the
+    /// sidebar status footer, the compose bars.
     ///
     /// Uses **Liquid Glass** on OSes that have it, falling back to
     /// `.ultraThinMaterial` below that. The app builds against the iOS/macOS 26
@@ -222,18 +223,112 @@ extension View {
     /// system cannot restyle on our behalf and which otherwise stay visibly
     /// flat next to the chrome that did update.
     ///
+    /// `placement` is new, and it is the reported bug. `glassEffect(_:in:)`
+    /// *draws the shape you hand it*, so the old unconditional `.rect` painted
+    /// four literal 90° corners at the bar's bounds. Under a top toolbar that is
+    /// right — nothing curved is adjacent. Pinned to the bottom of an iPhone it
+    /// puts a hard rectangle corner over the display's radius and alongside the
+    /// iOS 26 floating capsule tab bar: the "rectangle colliding with a capsule"
+    /// in the bug report. The original justification ("a capsule would round its
+    /// outer corners away from the window edge") was a macOS-window argument
+    /// that had been applied to every platform.
+    ///
+    /// HIG ▸ Components ▸ Toolbars: "If you need to create a custom component,
+    /// ensure that its corner radius is also concentric with the bar's corners."
+    /// `ConcentricRectangle` resolves corners "relative to the container shape,
+    /// so your view adapts correctly across devices and sizes without
+    /// hard-coded values"; a bar pinned to the screen bottom inside a
+    /// `NavigationStack` inherits the window's container shape, so no explicit
+    /// `containerShape` call is needed here.
+    ///
+    /// `concentric(minimum:)` rather than a bare `.concentric`, per the same
+    /// page: "When your ConcentricRectangle's corners are far away from the
+    /// containing shape's corners … the corner radius the system calculates may
+    /// be zero." Without the floor, a bar the system decides is too far from the
+    /// display corner silently renders square again — i.e. this exact bug
+    /// returns with no compile error to catch it.
+    ///
     /// Deployment targets are still iOS 17 / macOS 14, so the API must be
     /// runtime-gated; `#available` does not relax the compile-time SDK
     /// requirement, which the CI workflow already selects Xcode for.
+    func rnsBarMaterial(_ placement: RNSBarPlacement = .interior) -> some View {
+        modifier(RNSBarMaterial(placement: placement))
+    }
+
+    /// Anchors an app-drawn bar to the bottom of a scrolling screen.
+    ///
+    /// `safeAreaBar` — *not* `safeAreaInset` — on iOS/macOS 26. The two are
+    /// otherwise identical, and the difference is exactly the missing bottom
+    /// fade: `safeAreaBar` extends the edge effect of any scroll views affected
+    /// by the inset safe area, while `safeAreaInset` only reserves space. That
+    /// is why message bubbles scrolled under the compose bar and behind the
+    /// floating tab bar with no transition at all, and why the screen needed a
+    /// hand-drawn `Divider()` to fake one. HIG ▸ Foundations ▸ Layout: "Instead
+    /// of a background, use a scroll edge effect to provide a transition between
+    /// content and the control area."
     @ViewBuilder
-    func rnsBarMaterial() -> some View {
+    func rnsBottomBar<Bar: View>(spacing: CGFloat? = 0,
+                                 @ViewBuilder content: () -> Bar) -> some View {
         if #available(iOS 26, macOS 26, *) {
-            // `.rect` rather than the default capsule: this is a full-width
-            // edge-to-edge bar, and a capsule would round its outer corners
-            // away from the window edge.
-            self.glassEffect(.regular, in: .rect)
+            self.safeAreaBar(edge: .bottom, spacing: spacing, content: content)
         } else {
-            self.background(.ultraThinMaterial)
+            self.safeAreaInset(edge: .bottom, spacing: spacing, content: content)
+        }
+    }
+
+    /// Pins a bottom-anchored scroll view to its newest content.
+    ///
+    /// Replaces the `ScrollViewReader` + `proxy.scrollTo` dance, which had a
+    /// trigger for exactly one of the four cases that need one:
+    ///   1. First appearance — `scrollTo` in `onAppear` raced the `LazyVStack`;
+    ///      trailing rows are not materialised on the first layout pass, so the
+    ///      proxy had no target and the thread opened part-way up.
+    ///   2. Keyboard raise — grows the bottom safe area and shrinks the scroll
+    ///      view's *container*. SwiftUI keyboard avoidance only guarantees the
+    ///      *focused* view stays visible, and the focused view is the TextField
+    ///      down in the inset, not the list. No trigger fired.
+    ///   3. Compose growth (`lineLimit(1...5)`, up to ~80 pt) — same container
+    ///      shrink, same silence.
+    ///   4. A new message arriving — the one case that did work.
+    ///
+    /// The two-argument `defaultScrollAnchor(_:for:)` is the whole reason this is
+    /// a helper: the single-argument form ALSO sets the *alignment* role, so
+    /// content shorter than the viewport gets pinned to the bottom. But
+    /// `ScrollAnchorRole` is iOS 18 / macOS 15 and the app floor is iOS 17 /
+    /// macOS 14, so it cannot appear in a signature the floor has to compile.
+    /// Below 18 we take the single-argument form, and callers must keep
+    /// short-content states out of the scroll view (see `ChannelRoomView`'s
+    /// empty state, which is an `.overlay` for exactly this reason).
+    @ViewBuilder
+    func rnsBottomScrollAnchor() -> some View {
+        if #available(iOS 18, macOS 15, *) {
+            self.defaultScrollAnchor(.bottom, for: .initialOffset)
+                .defaultScrollAnchor(.bottom, for: .sizeChanges)
+                .defaultScrollAnchor(.top, for: .alignment)
+        } else {
+            self.defaultScrollAnchor(.bottom)
+        }
+    }
+
+    /// Hairline + material behind an app-drawn bottom bar, for OSes predating
+    /// the scroll edge effect.
+    ///
+    /// No-op on iOS/macOS 26: `rnsBottomBar` uses `safeAreaBar` there, which
+    /// extends the scroll view's edge effect into the bar, and that *is* the
+    /// separation — painting a second full-width material on top of it is the
+    /// "reduce the use of toolbar backgrounds" case in HIG ▸ Toolbars. Below 26
+    /// there is no edge effect at all, and `Color.rnsSurface`'s own note in this
+    /// file records that the macOS compose bar was once "distinguishable only by
+    /// its `Divider`" — so the hairline is load-bearing there, not decoration.
+    @ViewBuilder
+    func rnsLegacyBarChrome() -> some View {
+        if #available(iOS 26, macOS 26, *) {
+            self
+        } else {
+            VStack(spacing: 0) {
+                Divider()
+                self
+            }
         }
     }
 
@@ -362,6 +457,18 @@ extension View {
     /// the binding. Centralizing the styling here is the HIG "be consistent"
     /// fix — the four hand-rolled forms previously diverged on keyboard type
     /// and submit label.
+    ///
+    /// **Prefer `RNSHashField` to calling this directly.** `.font(_:)` is an
+    /// *environment* value — font information flows down the view hierarchy as
+    /// part of the environment — so the monospaced face set here reaches
+    /// everything in the modified view's subtree, *including the field's label*.
+    /// That is invisible on iOS, where a form row uses the label as in-field
+    /// placeholder text; on macOS a form always hoists the label out to the
+    /// leading edge, and it took the monospaced font with it. Tools ▸ Ping
+    /// rendered "Destination hash (32 hex chars)" as a monospaced sentence in a
+    /// column of its own, beside an empty, hintless field. `RNSHashField` puts
+    /// the label outside this subtree entirely, which is a structurally stronger
+    /// fix than overriding the font back afterwards.
     @ViewBuilder
     func rnsHashFieldStyle() -> some View {
         let styled = self
@@ -402,6 +509,90 @@ extension View {
     }
 }
 
+// MARK: - Bar geometry & layout tokens
+
+/// Where an app-drawn bar sits, which decides what its corners must do.
+///
+/// A *geometry* distinction, not a styling one. On iOS 26 the display's rounded
+/// corner is part of the layout and the tab bar is a floating capsule, so a
+/// bar's corner radius has neighbours it must agree with.
+enum RNSBarPlacement {
+    /// Butted against system chrome inside the window — the NomadNet URL bar
+    /// under the toolbar, a sidebar footer inside a Mac window. Square corners
+    /// are correct there: nothing curved is adjacent.
+    case interior
+    /// Pinned to the bottom edge of the screen, above the home indicator and (on
+    /// iPhone) beside the floating capsule tab bar. Bottom corners must be
+    /// concentric with the display's own radius.
+    ///
+    /// Requested, not guaranteed — see `RNSBarMaterial`, which downgrades this
+    /// to `.interior` wherever the bar is not actually at a screen edge.
+    case screenBottom
+}
+
+/// Applies `rnsBarMaterial`'s glass, resolving `.screenBottom` against the
+/// layout the bar is actually in.
+///
+/// A `ViewModifier` rather than a plain `View` extension purely so it can read
+/// `horizontalSizeClass`, and that read is load-bearing. `.screenBottom` asks
+/// for concentric bottom corners with a `.fixed(14)` floor, which is right only
+/// when the bar really does sit at the bottom edge of the display. In a
+/// `NavigationSplitView` detail column — every Mac window, and iPad at regular
+/// width — the bar's bottom-*leading* corner is at the sidebar divider,
+/// hundreds of points inboard. The concentric term resolves to zero there and
+/// the floor takes over, cutting a 14 pt notch into the bar mid-window and
+/// exposing a wedge of the canvas behind it. `uniformBottomCorners` propagates
+/// the larger of the two computed radii to *both* corners, so it cannot be
+/// dodged per-corner either.
+///
+/// `sizeClass == .compact` is exactly the condition under which `RootView`
+/// chooses `TabRootView` — the full-width, genuinely screen-bottom layout — so
+/// this tracks the real geometry rather than guessing from the platform.
+/// `horizontalSizeClass` is nil on macOS, which correctly lands on `.interior`.
+private struct RNSBarMaterial: ViewModifier {
+    let placement: RNSBarPlacement
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var isAtScreenEdge: Bool {
+        placement == .screenBottom && sizeClass == .compact
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26, macOS 26, *) {
+            if isAtScreenEdge {
+                content.glassEffect(
+                    .regular,
+                    in: .rect(uniformTopCorners: .fixed(0),
+                              uniformBottomCorners: .concentric(minimum: .fixed(14)))
+                )
+            } else {
+                content.glassEffect(.regular, in: .rect)
+            }
+        } else {
+            content.background(.ultraThinMaterial)
+        }
+    }
+}
+
+/// Shared measures for reading columns.
+///
+/// A thread and its compose bar use the *same* cap so the bar never spans wider
+/// than the content it separates. Without one, `RootView` routes
+/// `sizeClass == .regular` to a `NavigationSplitView` whose detail column is
+/// ~1000 pt wide, and every message becomes a single 130-character line.
+///
+/// These are empirical values, not derived from a HIG table — the HIG only says
+/// to "restrict the width of text for optimal readability" (Foundations ▸
+/// Layout). Worth an eye on an 11" and a 13" iPad.
+enum RNSLayout {
+    /// Max width of a message thread / reading column.
+    static let threadWidth: CGFloat = 720
+    /// Max width of one bubble inside `threadWidth` (~78%, which keeps the
+    /// inbound/outbound asymmetry legible instead of full-bleed on both sides).
+    static let bubbleWidth: CGFloat = 560
+}
+
 extension ToolbarItemPlacement {
     /// Trailing toolbar slot that resolves correctly per platform.
     ///
@@ -417,6 +608,102 @@ extension ToolbarItemPlacement {
         .topBarTrailing
         #else
         .primaryAction
+        #endif
+    }
+}
+
+// MARK: - Destination-hash entry field
+
+/// A destination-hash entry field that reads correctly on *both* platforms.
+///
+/// Motivated by two macOS-only defects visible together in Tools ▸ Ping: the
+/// "placeholder" rendered as a **monospaced label** in a column of its own,
+/// while the field beside it stretched ~1000 pt to the window edge containing no
+/// hint at all.
+///
+/// 1. **The placeholder was never a placeholder.** `TextField("Destination
+///    hash…", text:)` supplies a *label*. SwiftUI's own "Text field prompts"
+///    documentation is explicit: a form on macOS always places the label at the
+///    leading edge of the field and uses a prompt, when available, as
+///    placeholder text within the field itself — whereas on iOS the field uses
+///    either the prompt or the label as placeholder text. A label-only
+///    initializer therefore looks correct on iOS and strands the hint outside
+///    the field on macOS, in *every* form style. `.formStyle(.grouped)` alone
+///    does not fix this half.
+///
+/// 2. **The monospaced font leaked onto that label.** See `rnsHashFieldStyle()`.
+///    Fixed structurally here: on macOS `LabeledContent` owns the visible label,
+///    so it is never inside the subtree the monospaced `.font` flows through.
+///    There is no `.font(.body)` override to forget.
+///
+/// `LocalizedStringKey`, not `String`: a `String` parameter would bind
+/// `TextField` to its `StringProtocol` overload — the deliberately
+/// *non-localized* one — and quietly drop every hash prompt out of the
+/// localization table with no compile error. A literal at the call site still
+/// converts implicitly.
+///
+/// `.labelsHidden()` inside the `LabeledContent`: always provide a label for
+/// controls even when hiding it, because SwiftUI uses labels for other purposes
+/// including accessibility. The label is still declared; `LabeledContent`
+/// supplies the visible pairing.
+///
+/// The call site keeps its own `.onChange` hex filtering, which needs the
+/// binding and differs per screen.
+struct RNSHashField: View {
+    private let label: LocalizedStringKey
+    private let prompt: LocalizedStringKey
+    /// Written out by hand for iOS, where the label never renders and the prompt
+    /// has to carry the whole meaning. Interpolating `"\(label) (\(prompt))"`
+    /// instead measures ~345 pt of monospaced `.body` against ~290 pt of usable
+    /// row width on an iPhone SE — it truncates the only hint iOS shows.
+    private let compactPrompt: LocalizedStringKey
+    @Binding private var text: String
+
+    init(_ label: LocalizedStringKey,
+         prompt: LocalizedStringKey,
+         compactPrompt: LocalizedStringKey,
+         text: Binding<String>) {
+        self.label = label
+        self.prompt = prompt
+        self.compactPrompt = compactPrompt
+        self._text = text
+    }
+
+    var body: some View {
+        #if os(macOS)
+        // The cap belongs on the *control*, not on the labelled row. A
+        // `.frame(maxWidth:)` on the whole `LabeledContent` constrains label and
+        // field together: the label eats ~100 pt of the budget and a pasted
+        // 32-character hash then clips mid-glyph at ~27 — the field cannot show
+        // the one value it exists to hold. Capping the control instead also
+        // preserves the trailing-aligned-control alignment every other grouped
+        // row in the app has.
+        //
+        // 340 pt: 32 monospaced `.body` glyphs measure ~255 pt, plus the bezel
+        // and caret with headroom. HIG ▸ Text fields: "match the size of a text
+        // field to the quantity of anticipated text."
+        LabeledContent {
+            field
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 340)
+        } label: {
+            Text(label)
+        }
+        #else
+        field
+        #endif
+    }
+
+    private var field: some View {
+        #if os(macOS)
+        TextField(text: $text, prompt: Text(prompt)) { Text(label) }
+            .rnsHashFieldStyle()
+        #else
+        // iOS renders nothing *but* the placeholder, so it gets the written-out
+        // compact string rather than label and prompt concatenated.
+        TextField(text: $text, prompt: Text(compactPrompt)) { Text(label) }
+            .rnsHashFieldStyle()
         #endif
     }
 }

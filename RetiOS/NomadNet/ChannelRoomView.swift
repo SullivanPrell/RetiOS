@@ -42,87 +42,95 @@ struct ChannelRoomView: View {
         // toolbar badge. Restructuring that badge would silently kill live
         // updates with no compile error, so establish the dependency up front.
         let _ = nomadNet.rrcRevision
-        VStack(spacing: 0) {
-            messageList
-            Divider()
-            if let room = activeRoom {
-                composeBar(room: room)
-            } else {
-                joinRoomPrompt
+        messageList
+            // Was `VStack { messageList; Divider(); bar }`. A trailing VStack
+            // element sits outside the scroll view's safe area, so iOS keyboard
+            // avoidance resizes the *whole stack* rather than the inset — the
+            // shove-and-settle this screen had and MessageThreadView (already on
+            // a safe-area inset) did not. Same helper, metrics and material as
+            // the Messages compose bar now; the hand-drawn Divider goes with it,
+            // since `rnsBottomBar` extends the scroll edge effect into the bar
+            // on 26 and `rnsLegacyBarChrome` restores the hairline below it.
+            .rnsBottomBar {
+                Group {
+                    if let room = activeRoom {
+                        composeBar(room: room)
+                    } else {
+                        joinRoomPrompt
+                    }
+                }
+                .frame(maxWidth: RNSLayout.threadWidth)
+                .frame(maxWidth: .infinity)
+                .rnsLegacyBarChrome()
+                .rnsBarMaterial(.screenBottom)
             }
-        }
-        .rnsCanvasBackground()
-        .navigationTitle(channelName)
-        .rnsInlineNavigationTitle()
-        .toolbar { connectionBadge }
-        .alert("Send Error", isPresented: Binding(
-            get: { sendError != nil },
-            set: { if !$0 { sendError = nil } }
-        )) {
-            Button("OK", role: .cancel) { sendError = nil }
-        } message: {
-            Text(sendError ?? "")
-        }
-        .onAppear {
-            clearUnread()
-            ensureConnected()
-            // If the hub already has joined rooms, pick the first.
-            if let hub = activeHub, let r = hub.rooms.sorted().first {
-                activeRoom = r
-                roomInput  = r
+            .rnsCanvasBackground()
+            .navigationTitle(channelName)
+            .rnsInlineNavigationTitle()
+            .toolbar { connectionBadge }
+            .alert("Send Error", isPresented: Binding(
+                get: { sendError != nil },
+                set: { if !$0 { sendError = nil } }
+            )) {
+                Button("OK", role: .cancel) { sendError = nil }
+            } message: {
+                Text(sendError ?? "")
             }
-        }
+            .onAppear {
+                clearUnread()
+                ensureConnected()
+                // If the hub already has joined rooms, pick the first.
+                if let hub = activeHub, let r = hub.rooms.sorted().first {
+                    activeRoom = r
+                    roomInput  = r
+                }
+            }
     }
 
     // MARK: - Message list
 
     private var messageList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 6) {
-                    if messages.isEmpty {
-                        emptyState
-                    } else {
-                        ForEach(messages) { msg in
-                            ChannelMessageBubble(message: msg)
-                                .id(msg.messageID)
-                        }
-                    }
-                }
-                .padding()
-            }
-            .onChange(of: messages.count) { _, _ in
-                // Clear unread for messages that arrive while the room is open —
-                // otherwise the badge lingers even though the user is reading it
-                // (onAppear alone only covers messages present when opened).
-                clearUnread()
-                if let last = messages.last {
-                    withAnimation { proxy.scrollTo(last.messageID, anchor: .bottom) }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 6) {
+                ForEach(messages) { msg in
+                    ChannelMessageBubble(message: msg)
                 }
             }
-            .onAppear {
-                if let last = messages.last {
-                    proxy.scrollTo(last.messageID, anchor: .bottom)
-                }
+            .padding()
+            .frame(maxWidth: RNSLayout.threadWidth)
+            .frame(maxWidth: .infinity)
+        }
+        // Not a row in the LazyVStack any more. `rnsBottomScrollAnchor` also
+        // governs how a scroll view aligns content *smaller* than its container,
+        // and on the iOS 17 fallback path that is unconditionally `.bottom` —
+        // which would render this placeholder jammed against the compose bar
+        // with its top padding meaningless. As an overlay it is not scroll
+        // content at all, so the anchor cannot touch it. `RNSEmptyState` also
+        // handles the macOS/iOS split, which this file's hand-rolled VStack —
+        // a pre-existing duplicate of it — did not.
+        .overlay {
+            if messages.isEmpty {
+                RNSEmptyState(
+                    title: "No Messages Yet",
+                    systemImage: "bubble.left.and.bubble.right",
+                    description: activeHub?.status == .connecting
+                        ? "Connecting to hub…"
+                        : "Messages posted to this room will appear here."
+                )
             }
         }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 40))
-                .foregroundStyle(.tertiary)
-            Text("No messages yet")
-                .foregroundStyle(.secondary)
-            if activeHub?.status == .connecting {
-                Text("Connecting to hub…")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
+        // Replaces the ScrollViewReader. Note this screen was also the one still
+        // doing `withAnimation { proxy.scrollTo(…) }`, which MessageThreadView
+        // had already dropped — "avoids jank when keyboard and new messages
+        // arrive together".
+        .rnsBottomScrollAnchor()
+        .scrollDismissesKeyboard(.interactively)
+        .onChange(of: messages.count) { _, _ in
+            // Clear unread for messages that arrive while the room is open —
+            // otherwise the badge lingers even though the user is reading it
+            // (onAppear alone only covers messages present when opened).
+            clearUnread()
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 60)
     }
 
     // MARK: - Join-room prompt
@@ -149,9 +157,8 @@ struct ChannelRoomView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        // Full-width bar — takes the system material, not the solid card fill.
-        // See the compose bar in MessageThreadView.
-        .rnsBarMaterial()
+        // Material and corners come from the `rnsBottomBar` container in `body`,
+        // so this and the compose bar below can never drift apart again.
     }
 
     // MARK: - Compose bar
@@ -189,9 +196,7 @@ struct ChannelRoomView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        // Full-width bar — takes the system material, not the solid card fill.
-        // See the compose bar in MessageThreadView.
-        .rnsBarMaterial()
+        // Material and corners come from the `rnsBottomBar` container in `body`.
         .confirmationDialog("Switch Room", isPresented: $showRoomPicker) {
             if let hub = activeHub {
                 ForEach(hub.rooms.sorted(), id: \.self) { r in
