@@ -98,13 +98,21 @@ struct NomadNetBrowserContent: View {
         // `onChange`, not `onReceive(controller.$currentURL)`: @Observable
         // publishes no Combine projection. It also fires only on a real change
         // rather than on every assignment, which is what we want here.
-        .onChange(of: nomadNet.currentURL) { _, url in
-            guard let url else { return }
-            // Don't clobber text the user is actively editing in the URL bar;
-            // only sync the field to the loaded page when it isn't focused.
-            guard !urlBarFocused else { return }
-            urlInput = url.toString()
-        }
+        .onChange(of: nomadNet.currentURL) { _, _ in syncURLBar() }
+        // `onChange` alone left the address blank on a page that was plainly
+        // loaded. Each branch of the section switcher is its own view identity,
+        // so re-entering Browse rebuilds this view with `urlInput` back at "" —
+        // and the Peers list's Browse button sets `currentURL` and flips the
+        // section in the same update, so the change lands before this view
+        // exists and `onChange` never fires for it. Seed from the loaded page.
+        .onAppear { syncURLBar() }
+    }
+
+    /// Mirror the loaded page's address into the field. Never clobbers text the
+    /// user is actively editing — only syncs while the field isn't focused.
+    private func syncURLBar() {
+        guard !urlBarFocused, let url = nomadNet.currentURL else { return }
+        urlInput = url.toString()
     }
 
     // MARK: - Page content
