@@ -113,8 +113,8 @@ targets:
         # on the app — so bumping "the version" in this file silently bumped the
         # extension while the app's version came solely from literals in
         # `info.properties`. That is how v0.3.3 shipped reporting "0.3.1 (7)".
-        MARKETING_VERSION: "0.3.4"
-        CURRENT_PROJECT_VERSION: "10"
+        MARKETING_VERSION: "0.3.5"
+        CURRENT_PROJECT_VERSION: "11"
         # Set your own Apple Developer Team ID here (or select your team in
         # Xcode ▸ Signing & Capabilities). Left blank for open-source builds.
         DEVELOPMENT_TEAM: ""
@@ -185,8 +185,8 @@ targets:
         SWIFT_VERSION: "5.9"
         # Must match the app target's version — the App Store rejects a bundle
         # whose embedded extension disagrees with its container.
-        MARKETING_VERSION: "0.3.4"
-        CURRENT_PROJECT_VERSION: "10"
+        MARKETING_VERSION: "0.3.5"
+        CURRENT_PROJECT_VERSION: "11"
         # The extension is an app extension bundled in the app; keep its own copy
         # of the engine framework so it always loads (see comment on embed below).
         LD_RUNPATH_SEARCH_PATHS:
