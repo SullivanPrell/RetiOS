@@ -5,6 +5,7 @@ build/
 .spm-local/
 .dd/
 .dd-mac/
+.dd-ios/
 .swiftpm/
 DerivedData/
 RetiOS.xcodeproj/
