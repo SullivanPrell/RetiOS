@@ -970,16 +970,21 @@ enum RNSDate {
     /// today, "Yesterday", a weekday within the past week, a date beyond that.
     static func listTimestamp(_ date: Date, now: Date = Date()) -> String {
         let cal = Calendar.current
-        if cal.isDateInToday(date) {
-            return date.formatted(date: .omitted, time: .shortened)
+        // Calendar days between the two, measured from `now` — not from the
+        // real clock. `isDateInToday`/`isDateInYesterday` ignore an injected
+        // `now` entirely, so the tests below agreed with this function only on
+        // the day they were written and failed every day after.
+        let days = cal.dateComponents([.day],
+                                      from: cal.startOfDay(for: date),
+                                      to: cal.startOfDay(for: now)).day ?? 0
+        switch days {
+        case 0:      return date.formatted(date: .omitted, time: .shortened)
+        case 1:      return "Yesterday"
+        case 2..<7:  return date.formatted(.dateTime.weekday(.abbreviated))
+        // Beyond a week — and anything dated after `now`, which a peer with a
+        // skewed clock can produce — gets an unambiguous date.
+        default:     return date.formatted(date: .numeric, time: .omitted)
         }
-        if cal.isDateInYesterday(date) {
-            return "Yesterday"
-        }
-        if let days = cal.dateComponents([.day], from: date, to: now).day, days < 7 {
-            return date.formatted(.dateTime.weekday(.abbreviated))
-        }
-        return date.formatted(date: .numeric, time: .omitted)
     }
 
     /// How long ago something was, in words — "21 hours ago", "2 days ago".
