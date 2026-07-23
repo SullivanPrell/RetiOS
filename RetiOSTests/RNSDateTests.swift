@@ -63,6 +63,23 @@ final class RNSDateTests: XCTestCase {
                        sevenDaysAgo.formatted(date: .numeric, time: .omitted))
     }
 
+    /// The header above claims every case pins `now`. It didn't hold:
+    /// `listTimestamp` branched on `isDateInToday`/`isDateInYesterday`, which
+    /// read the real clock and ignored the injected `now`, so this suite agreed
+    /// with the function only on the day it was written — CI went red the next
+    /// morning. Pinning `now` to a fixed date in the past makes any return to
+    /// the real clock fail immediately rather than a day later.
+    func testTodayIsRelativeToTheInjectedNowNotTheRealClock() {
+        let fixedNow = cal.date(from: DateComponents(year: 2020, month: 3, day: 5,
+                                                     hour: 14, minute: 30))!
+        let earlierThatDay = cal.date(byAdding: DateComponents(hour: -3), to: fixedNow)!
+        XCTAssertEqual(RNSDate.listTimestamp(earlierThatDay, now: fixedNow),
+                       earlierThatDay.formatted(date: .omitted, time: .shortened))
+
+        let theDayBefore = cal.date(byAdding: DateComponents(hour: -21), to: fixedNow)!
+        XCTAssertEqual(RNSDate.listTimestamp(theDayBefore, now: fixedNow), "Yesterday")
+    }
+
     // MARK: - ago
 
     func testAgoReadsAsElapsedTime() {

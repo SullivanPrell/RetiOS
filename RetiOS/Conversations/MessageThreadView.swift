@@ -25,62 +25,89 @@ struct MessageThreadView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(messages) { msg in
-                        MessageBubble(message: msg)
-                            .id(msg.id)
-                    }
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                ForEach(messages) { msg in
+                    MessageBubble(message: msg)
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
             }
-            // Scroll to the last message whenever the list grows.
-            // No withAnimation — avoids jank when keyboard and new messages arrive together.
-            .onChange(of: messages.count) { _, _ in
-                if let last = messages.last {
-                    proxy.scrollTo(last.id, anchor: .bottom)
-                }
-                markRead()
-            }
-            // Scroll to bottom on first appearance.
-            .onAppear {
-                if let last = messages.last {
-                    proxy.scrollTo(last.id, anchor: .bottom)
-                }
-                markRead()
-            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            // iPad / Mac: this renders in a NavigationSplitView detail column
+            // ~1000 pt wide, and an unconstrained thread turns every message
+            // into one 130-character line. The compose bar below takes the same
+            // cap so the bar never spans wider than the content it separates.
+            // The outer .infinity frame re-centres the capped column instead of
+            // leaving it flush leading.
+            .frame(maxWidth: RNSLayout.threadWidth)
+            .frame(maxWidth: .infinity)
         }
-        // safeAreaInset keeps the compose bar anchored at the bottom without
-        // resizing the scroll view. SwiftUI's keyboard avoidance then works
-        // on the safe area rather than the VStack — much smoother on iOS.
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                if let err = errorMessage {
-                    Text(err)
-                        .font(.caption)
-                        .foregroundStyle(Color.rnsError)
-                        .padding(.horizontal)
-                        .padding(.top, 6)
-                }
-                Divider()
-                ComposeBar(onSend: sendMessage)
-            }
-            // A bar, not a card. `rnsSurface` is sized for a small element
-            // (a bubble, a chip); stretched across the full width of the
-            // window it reads as a heavy grey slab. Bars get the system
-            // material — which is Liquid Glass on macOS 26 — matching the
-            // sidebar footer and the NomadNet URL bar.
-            .rnsBarMaterial()
-        }
+        // Replaces the entire ScrollViewReader + proxy.scrollTo, which had a
+        // trigger for exactly one of the four cases that need one — see
+        // `rnsBottomScrollAnchor`. In particular the `onAppear` scrollTo raced
+        // the LazyVStack (trailing rows are not materialised on the first
+        // layout pass, so the proxy had no target and the thread opened
+        // part-way up), and neither the keyboard raising nor the compose field
+        // growing to five lines fired anything at all.
+        .rnsBottomScrollAnchor()
+        // Messages-style: drag the list down and the keyboard follows the
+        // finger. With the anchor in place this now stays glued to the newest
+        // message throughout the interactive dismissal instead of jumping at
+        // the end of it.
         .scrollDismissesKeyboard(.interactively)
+        .onChange(of: messages.count) { _, _ in markRead() }
+        .onAppear { markRead() }
+        // `rnsBottomBar` (safeAreaBar on 26) rather than safeAreaInset: it also
+        // extends the scroll view's bottom edge effect into the inset, which is
+        // the fade that was missing under the bar — bubbles used to scroll
+        // under it, and behind the floating tab bar, with no transition at all.
+        .rnsBottomBar { composeBar }
         .rnsCanvasBackground()
         .navigationTitle(peerDisplayName)
         .rnsInlineNavigationTitle()
         .rnsNavigationBar()
         .rnsFeedback(.success, trigger: sentTick)
         .rnsFeedback(.error, trigger: failTick)
+    }
+
+    /// The bottom bar: an optional error line, then the compose row.
+    ///
+    /// Glass stays on the *container*, which is what HIG ▸ Virtual keyboards
+    /// asks for: "If other views in your app use Liquid Glass, or if your view
+    /// looks out of place above the keyboard, apply Liquid Glass to the view
+    /// that contains your controls to maintain consistency." Putting it on the
+    /// field and the send button individually instead would also run against
+    /// Materials' "use Liquid Glass effects sparingly — overusing this material
+    /// in multiple custom controls can provide a subpar user experience."
+    ///
+    /// `.screenBottom` is the actual reported fix: the bar's bottom corners now
+    /// follow the display's radius instead of cutting a 90° rectangle across it
+    /// beside the floating capsule tab bar.
+    ///
+    /// No `Divider()` on iOS/macOS 26 — `rnsBottomBar` extends the scroll edge
+    /// effect into the inset and that *is* the separation.
+    /// `rnsLegacyBarChrome` puts the hairline back below 26, where there is no
+    /// such effect.
+    private var composeBar: some View {
+        VStack(spacing: 0) {
+            if let err = errorMessage {
+                Text(err)
+                    .font(.caption)
+                    .foregroundStyle(Color.rnsError)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // Matches ComposeBar's own horizontal padding below, so the
+                    // error lines up with the field it refers to.
+                    .padding(.horizontal)
+                    .padding(.top, 6)
+            }
+            ComposeBar(onSend: sendMessage, onDraftChanged: { errorMessage = nil })
+        }
+        // Same cap as the thread above, so the bar and the content it separates
+        // share one edge on iPad and Mac.
+        .frame(maxWidth: RNSLayout.threadWidth)
+        .frame(maxWidth: .infinity)
+        .rnsLegacyBarChrome()
+        .rnsBarMaterial(.screenBottom)
     }
 
     private var peerDisplayName: String {
@@ -121,8 +148,23 @@ struct MessageThreadView: View {
 private struct ComposeBar: View {
     /// Called with trimmed, non-empty text when the user sends.
     let onSend: (String) -> Void
+    /// Called when the user edits the draft. The parent uses it to clear a stale
+    /// send error, which otherwise pinned a red caption above the bar for the
+    /// life of the view — and, now that the error line sits inside the bottom
+    /// bar, permanently inflated the bottom safe area with it.
+    let onDraftChanged: () -> Void
     @State private var draft = ""
     @FocusState private var isFocused: Bool
+    /// Set while `submit()` clears the field, so the programmatic reset is not
+    /// reported as a user edit.
+    ///
+    /// Without it, a *failed* send is silent: `sendMessage` assigns
+    /// `errorMessage` and returns, then `submit()` assigns `draft = ""` in the
+    /// same main-actor turn, whose `.onChange` calls back and clears the error
+    /// before it is ever drawn. The red caption this bar was restructured to
+    /// host would exist for at most one frame, leaving the `.error` haptic as
+    /// the only signal that the send failed at all.
+    @State private var isResettingDraft = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -134,6 +176,10 @@ private struct ComposeBar: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...5)
                 .focused($isFocused)
+                .onChange(of: draft) { _, _ in
+                    if isResettingDraft { isResettingDraft = false }
+                    else { onDraftChanged() }
+                }
 
             Button(action: submit) {
                 Image(systemName: "arrow.up.circle.fill")
@@ -160,6 +206,7 @@ private struct ComposeBar: View {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         onSend(text)
+        isResettingDraft = true
         draft = ""
     }
 }
@@ -241,6 +288,13 @@ private struct MessageBubble: View {
                     }
                 }
             }
+            // `Spacer(minLength:)` alone only guarantees a 40 pt gutter — it does
+            // not stop the bubble taking the other 950 pt of an iPad detail
+            // column. Capping the bubble is what keeps a long message a
+            // paragraph instead of one 130-character line, on the platform where
+            // this view is widest.
+            .frame(maxWidth: RNSLayout.bubbleWidth,
+                   alignment: message.isOutbound ? .trailing : .leading)
             if !message.isOutbound { Spacer(minLength: 40) }
         }
     }

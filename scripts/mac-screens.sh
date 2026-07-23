@@ -33,7 +33,12 @@ OUT="${1:-/tmp/retios-mac}"
 DD=".dd-mac"
 APP="$DD/Build/Products/Debug/RetiOS.app"
 BIN="$APP/Contents/MacOS/RetiOS"
-SCREENS=(messages calls nomadNet map interfaces tools)
+# "tab[:section]". A bare tab starts on that screen's own default segment; the
+# ":section" suffix additionally passes -startSection, which the Tools screen
+# honours. Without it only Tools' default Paths segment was ever photographed,
+# so the Ping and Visualizer panes — the two with reported visual defects — had
+# no coverage here at all.
+SCREENS=(messages calls nomadNet map interfaces tools tools:ping tools:visualizer)
 
 step() { printf '\n\033[1;36m▸ %s\033[0m\n' "$1"; }
 
@@ -73,8 +78,11 @@ PY
 
 for screen in "${SCREENS[@]}"; do
   step "capture $screen"
+  tab="${screen%%:*}"
+  section="${screen#*:}"
+  [ "$section" = "$screen" ] && section=""   # no ":" present
   "$BIN" -hasCompletedOnboarding YES -stackOffline YES -seedDemoData YES \
-    -startTab "$screen" >/dev/null 2>&1 &
+    -startTab "$tab" ${section:+-startSection "$section"} >/dev/null 2>&1 &
   pid=$!
 
   # Wait for the window rather than sleeping a fixed amount: the first frame
@@ -90,8 +98,10 @@ for screen in "${SCREENS[@]}"; do
     # first frame, so a shorter wait catches every screen mid-"Starting…".
     sleep 4
     wid=$(window_id "$pid")      # re-resolve: SwiftUI can replace the window
-    screencapture -x -o -l "$wid" "$OUT/$screen.png"
-    echo "  → $OUT/$screen.png"
+    # ":" is legal in a POSIX filename but Finder renders it as "/", so the
+    # tab:section screens are written with a hyphen instead.
+    screencapture -x -o -l "$wid" "$OUT/${screen/:/-}.png"
+    echo "  → $OUT/${screen/:/-}.png"
   else
     echo "  ✗ no window appeared for '$screen'"
   fi

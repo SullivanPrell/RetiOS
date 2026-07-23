@@ -14,7 +14,12 @@ struct PropagationNodeView: View {
     @State private var showClearConfirm = false
 
     var body: some View {
-        Form {
+        // Was a bare `Form` — the same non-scrolling columns layout diagnosed on
+        // Tools ▸ Ping. This screen is reachable twice on macOS: as the ⌘,
+        // Settings scene (framed at 520 pt) and as the detail column of the
+        // 1100 pt main window, so it took the full width damage on the second
+        // path and a real clipping risk on the first.
+        rnsSettingsContainer {
             inputSection
             if stack.propagationNodeHash != nil {
                 syncSection
@@ -49,8 +54,16 @@ struct PropagationNodeView: View {
 
     private var inputSection: some View {
         Section {
-            TextField("32-character hex hash", text: $hashInput)
-                .rnsHashFieldStyle()
+            // See RNSHashField: the string passed to `TextField(_:text:)` is a
+            // *label*, and macOS forms never put a label inside the field.
+            // Labelled "Propagation node", not "Node hash" — `currentSection`
+            // already renders a `LabeledContent("Node hash")`, and two rows
+            // reading "Node hash" with different meanings (what you are entering
+            // vs. what is saved) is worse than the bug being fixed.
+            RNSHashField("Propagation node",
+                         prompt: "32 hex characters",
+                         compactPrompt: "32-character hex hash",
+                         text: $hashInput)
                 .onChange(of: hashInput) { _, new in
                     hashInput = String(new.filter { $0.isHexDigit }.prefix(32))
                     saved = false
