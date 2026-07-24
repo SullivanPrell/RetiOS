@@ -10,7 +10,7 @@ import SwiftData
 //  • The navigation bar is minimal — no extra height from a toolbar principal item.
 struct NomadNetContainerView: View {
     @Environment(NomadNetController.self) private var nomadNet
-    @State private var section: NomadSection = .browse
+    @State private var section: NomadSection = .launchSelection
 
     var body: some View {
         NavigationStack {
@@ -31,13 +31,16 @@ struct NomadNetContainerView: View {
                     }
                 case .channels:
                     ChannelsContent()
+                case .pages:
+                    PagesContent()
                 }
             }
             .rnsSectionPicker([
                 ("Browse",    NomadSection.browse),
                 ("Peers",     NomadSection.peers),
                 ("Favorites", NomadSection.favorites),
-                ("Channels",  NomadSection.channels)
+                ("Channels",  NomadSection.channels),
+                ("Pages",     NomadSection.pages)
             ], selection: $section)
             // Flush pinned title (no large-title dead space) — matches the
             // Messages tab. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
@@ -46,7 +49,25 @@ struct NomadNetContainerView: View {
     }
 }
 
-enum NomadSection: Hashable { case browse, peers, favorites, channels }
+enum NomadSection: String, Hashable, CaseIterable {
+    case browse, peers, favorites, channels, pages
+
+    /// Which segment this tab starts on. Normally Browse; a DEBUG build also
+    /// honours `-startSection <raw>`, the same convention `NetworkView.Tab` uses
+    /// so `scripts/mac-screens.sh` can photograph a segment other than the
+    /// default. Never compiled into Release.
+    static var launchSelection: NomadSection {
+        #if DEBUG
+        if let raw = UserDefaults.standard.string(forKey: "startSection"),
+           let section = NomadSection.allCases.first(where: {
+               $0.rawValue.caseInsensitiveCompare(raw) == .orderedSame
+           }) {
+            return section
+        }
+        #endif
+        return .browse
+    }
+}
 
 // MARK: - NomadNet Peers content
 

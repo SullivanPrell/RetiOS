@@ -38,7 +38,7 @@ BIN="$APP/Contents/MacOS/RetiOS"
 # honours. Without it only Tools' default Paths segment was ever photographed,
 # so the Ping and Visualizer panes — the two with reported visual defects — had
 # no coverage here at all.
-SCREENS=(messages calls nomadNet map interfaces tools tools:ping tools:visualizer)
+SCREENS=(messages calls nomadNet nomadNet:pages map interfaces tools tools:ping tools:visualizer)
 
 step() { printf '\n\033[1;36m▸ %s\033[0m\n' "$1"; }
 

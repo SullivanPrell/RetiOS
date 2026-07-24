@@ -31,6 +31,13 @@ struct RetiOSApp: App {
     // Constructing it is inert: no `CBCentralManager` exists until the user
     // taps Scan, so this triggers no Bluetooth permission prompt at launch.
     @State private var rnode     = RNodeScannerController()
+    // The Micron page library. App-scoped rather than owned by PagesContent: it
+    // holds a security-scoped resource open when the user has pointed it at a
+    // folder outside the container (a live NomadNet node's storage/pages, say),
+    // and a view-scoped store would drop that access every time the section
+    // switcher rebuilt the view — the same class of bug the two controllers
+    // above document.
+    @State private var pageStore = MicronPageStore()
     // NotificationManager is a singleton, injected into the environment so views
     // can observe navigateTo / openConversationHash reactively.
     @State private var notifs    = NotificationManager.shared
@@ -57,6 +64,7 @@ struct RetiOSApp: App {
             .environment(bleMesh)
             .environment(rnode)
             .environment(notifs)
+            .environment(pageStore)
             .modelContainer(container)
             .rnsTheme()
     }
