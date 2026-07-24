@@ -31,26 +31,58 @@ struct NomadNetContainerView: View {
                     }
                 case .channels:
                     ChannelsContent()
+                #if os(iOS)
                 case .pages:
                     PagesContent()
+                #endif
                 }
             }
-            .rnsSectionPicker([
-                ("Browse",    NomadSection.browse),
-                ("Peers",     NomadSection.peers),
-                ("Favorites", NomadSection.favorites),
-                ("Channels",  NomadSection.channels),
-                ("Pages",     NomadSection.pages)
-            ], selection: $section)
+            .rnsSectionPicker(Self.sections, selection: $section)
             // Flush pinned title (no large-title dead space) — matches the
             // Messages tab. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
             .rnsPinnedTitle("NomadNet")
         }
     }
+
+    /// Segments offered by the picker, in order.
+    ///
+    /// Built from `NomadSection.allCases` rather than spelled out a second time,
+    /// so the picker cannot drift from the switch above — on macOS `.pages` does
+    /// not exist as a case at all, and a hand-written array would still offer a
+    /// segment that resolves to nothing.
+    private static let sections: [(String, NomadSection)] =
+        NomadSection.allCases.map { ($0.title, $0) }
 }
 
+/// The NomadNet tab's segments.
+///
+/// `.pages` is **iOS/iPadOS only**. The Micron page editor is built on
+/// Runestone, a UIKit-only code editor (see MicronSourceEditor.swift); the Mac
+/// had no equivalent surface, so rather than ship a degraded one the section is
+/// compiled out of the Mac slice entirely. Omitting the *case* — not just the
+/// picker entry — is what makes it unreachable by construction: `allCases` has
+/// no `.pages` on macOS, so the DEBUG `-startSection pages` launch argument
+/// matches nothing there and falls through to `.browse` rather than selecting a
+/// segment with no content behind it.
 enum NomadSection: String, Hashable, CaseIterable {
-    case browse, peers, favorites, channels, pages
+    case browse, peers, favorites, channels
+    #if os(iOS)
+    case pages
+    #endif
+
+    /// Picker label. Derived here rather than at the call site so a new case
+    /// cannot be added without naming it.
+    var title: String {
+        switch self {
+        case .browse:    return "Browse"
+        case .peers:     return "Peers"
+        case .favorites: return "Favorites"
+        case .channels:  return "Channels"
+        #if os(iOS)
+        case .pages:     return "Pages"
+        #endif
+        }
+    }
 
     /// Which segment this tab starts on. Normally Browse; a DEBUG build also
     /// honours `-startSection <raw>`, the same convention `NetworkView.Tab` uses
@@ -74,7 +106,16 @@ enum NomadSection: String, Hashable, CaseIterable {
 struct NomadNetPeersContent: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \NomadNodeEntity.lastSeen, order: .reverse) private var nodes: [NomadNodeEntity]
+    @State private var searchText = ""
     let onBrowse: (String) -> Void
+
+    /// Same filter as Destinations ▸ Peers: display name OR destination hash,
+    /// case-insensitively. Announce-derived nodes often have no name at all, so
+    /// matching the hash is the only way to find one of those.
+    private var filtered: [NomadNodeEntity] {
+        guard let q = RNSSearch.query(searchText) else { return nodes }
+        return nodes.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }
+    }
 
     var body: some View {
         Group {
@@ -87,7 +128,7 @@ struct NomadNetPeersContent: View {
     }
 
     private var nodeList: some View {
-        List(nodes) { node in
+        List(filtered) { node in
             NomadNodeRow(node: node, onBrowse: onBrowse) {
                 node.isFavorite.toggle()
                 try? context.save()
@@ -96,6 +137,20 @@ struct NomadNetPeersContent: View {
         }
         .rnsContentListStyle()
         .rnsScreenBackground()
+        // Standard no-results state instead of a blank list when the query
+        // matches no node. Applied to the List *before* the field is stacked
+        // above it — after, it would cover the field and a no-results query
+        // could never be cleared.
+        .overlay {
+            if filtered.isEmpty && !searchText.isEmpty {
+                ContentUnavailableView.search(text: searchText)
+            }
+        }
+        // NOT `.searchable`: this is a tab root under `rnsPinnedTitle`, which
+        // hides the navigation bar that every iOS SearchFieldPlacement resolves
+        // into — the field renders nothing at all, silently. See
+        // `rnsInlineSearch`.
+        .rnsInlineSearch(text: $searchText)
     }
 
     private var emptyState: some View {
@@ -145,7 +200,14 @@ struct NomadNetFavoritesContent: View {
     @Environment(\.modelContext) private var context
     @Query(filter: #Predicate<NomadNodeEntity> { $0.isFavorite == true },
            sort: \NomadNodeEntity.lastSeen, order: .reverse) private var favorites: [NomadNodeEntity]
+    @State private var searchText = ""
     let onBrowse: (String) -> Void
+
+    /// Same filter as the Peers list — name or hash, case-insensitively.
+    private var filtered: [NomadNodeEntity] {
+        guard let q = RNSSearch.query(searchText) else { return favorites }
+        return favorites.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }
+    }
 
     var body: some View {
         Group {
@@ -156,7 +218,7 @@ struct NomadNetFavoritesContent: View {
                     description: "Tap the star next to a node in the Peers list to pin it here for quick access."
                 )
             } else {
-                List(favorites) { node in
+                List(filtered) { node in
                     NomadNodeRow(node: node, onBrowse: onBrowse) {
                         node.isFavorite.toggle()
                         try? context.save()
@@ -165,6 +227,12 @@ struct NomadNetFavoritesContent: View {
                 }
                 .rnsContentListStyle()
                 .rnsScreenBackground()
+                .overlay {
+                    if filtered.isEmpty && !searchText.isEmpty {
+                        ContentUnavailableView.search(text: searchText)
+                    }
+                }
+                .rnsInlineSearch(text: $searchText)
             }
         }
     }

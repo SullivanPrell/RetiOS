@@ -43,9 +43,19 @@ A network-extension VPN **cannot** be signed or run without a paid Apple
 Developer team that has the right capabilities. The code, framework, entitlements
 and project wiring are all in place; you supply the team + capabilities:
 
-1. **Set your Team ID.** In `project.yml`, set `DEVELOPMENT_TEAM` on the
-   `RetiOS`, `YggdrasilTunnel`, and `RetiOSTests` targets (or pick your team in
-   Xcode ▸ Signing & Capabilities for each), then run `scripts/generate.sh`.
+1. **Set your Team ID.** Put it in the gitignored `.xcode-team` file at the
+   repo root, then run `make generate`:
+
+   ```sh
+   echo YOURTEAMID > .xcode-team
+   make generate
+   ```
+
+   Do **not** set `DEVELOPMENT_TEAM` in `project.yml` — that file is public, and
+   `make generate` substitutes the value from `.xcode-team` into every target.
+   Setting it in Xcode's UI instead does not survive the next regeneration:
+   `xcodegen` rewrites `project.pbxproj` wholesale. See
+   [docs/BUILDING.md](docs/BUILDING.md).
 
 2. **Enable capabilities on both App IDs** (`dev.sprell.retios` and
    `dev.sprell.retios.YggdrasilTunnel`) in the Apple Developer portal — or let

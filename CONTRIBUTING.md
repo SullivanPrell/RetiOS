@@ -13,13 +13,19 @@ SwiftUI experience on top. Protocol bugs usually belong in a package repo.
 brew install xcodegen
 git clone https://github.com/SullivanPrell/RetiOS.git
 cd RetiOS
+echo YOURTEAMID > .xcode-team      # optional; simulator-only builds need no team
 make generate && open RetiOS.xcodeproj
 ```
 
 `RetiOS.xcodeproj` is generated and gitignored — never commit it. Edit
-`project.yml` (sources, Info.plist keys, settings) and run `make generate` (a
-bare `xcodegen generate` also works, but `make generate` additionally installs
-the pinned dependency lockfile — see below).
+`project.yml` (sources, Info.plist keys, settings) and run `make generate`.
+
+**Always `make generate`, never a bare `xcodegen generate`.** The bare command
+writes a literal `${DEVELOPMENT_TEAM}` into the project — XcodeGen substitutes
+an environment variable only when it is actually *set*, and `.xcode-team` is
+read by `scripts/generate.sh`, not by XcodeGen. It also skips installing the
+pinned dependency lockfile (see below). Your team ID belongs in the gitignored
+`.xcode-team`, not in `project.yml`, which is public.
 
 ## Reproducible builds & the package lockfile
 

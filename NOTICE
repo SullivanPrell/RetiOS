@@ -13,6 +13,42 @@ via the ReticulumSwift, LXMFSwift, LXSTSwift, and NomadNetSwift packages. Those
 packages bundle additional third-party components (i2pd, codec2, opus); see each
 package's NOTICE / THIRD-PARTY documentation for their licenses.
 
+Third-party components linked into the app (source code incorporated):
+
+  Runestone 0.5.2 — https://github.com/simonbs/Runestone
+    MIT License. Copyright (c) 2021 Simon Støvring.
+    Runestone is the code-editor surface behind the Micron page editor
+    (RetiOS/NomadNet/MicronSourceEditor.swift). It is UIKit-only, so it is
+    linked for iOS/iPadOS destinations only (XcodeGen `destinationFilters:
+    [iOS]`); the macOS build of RetiOS contains no Runestone code.
+
+  tree-sitter 0.20.9 — https://github.com/tree-sitter/tree-sitter
+    MIT License. Copyright (c) 2018-2023 Max Brunsfeld.
+    A dependency of Runestone, pulled in transitively and therefore subject
+    to the same iOS-only linkage.
+
+  MIT License — applies to both Runestone and tree-sitter above.
+  Reproduced in full because the MIT terms require the permission notice, not
+  just the copyright line, to accompany the distributed software:
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+
 Acknowledgements (inspiration only — no source code incorporated):
 
   Meshtastic-Apple   — https://github.com/meshtastic/Meshtastic-Apple

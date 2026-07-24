@@ -14,6 +14,10 @@ struct MessageThreadView: View {
     // Bumped on a successful send / failed send to drive haptic feedback.
     @State private var sentTick = 0
     @State private var failTick = 0
+    // Bumped when the peer is saved as a contact; drives both the haptic and the
+    // transient confirmation below.
+    @State private var contactAddedTick = 0
+    @State private var showContactAdded = false
 
     init(peerHash: String) {
         self.peerHash = peerHash
@@ -63,11 +67,60 @@ struct MessageThreadView: View {
         // under it, and behind the floating tab bar, with no transition at all.
         .rnsBottomBar { composeBar }
         .rnsCanvasBackground()
+        // Transient confirmation. The button vanishing is the primary signal,
+        // but on its own it is ambiguous — a control that disappears the instant
+        // it is tapped reads just as easily as a mis-tap or a glitch, and nothing
+        // else on this screen changes (the title already showed the peer's name).
+        // This says what happened, in the place the user is looking.
+        .overlay(alignment: .top) {
+            if showContactAdded {
+                Label("Added to Contacts", systemImage: "person.crop.circle.badge.checkmark")
+                    .font(.caption.weight(.medium))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.thinMaterial, in: Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    // The state change is the announcement; the capsule itself
+                    // isn't a control and shouldn't be a VoiceOver stop.
+                    .accessibilityHidden(true)
+            }
+        }
         .navigationTitle(peerDisplayName)
         .rnsInlineNavigationTitle()
         .rnsNavigationBar()
+        .toolbar {
+            // Present only while the peer is *not* a contact. `peers` is a live
+            // @Query on this hash, so flipping isContact (or inserting the row in
+            // the no-announce case) removes this item on the next render without
+            // any extra state.
+            if !isContact {
+                ToolbarItem(placement: .rnsTrailing) {
+                    // Image rather than Label: a Label in a nav-bar button
+                    // renders titleAndIcon, putting the words "Add Contact"
+                    // beside the peer's name in the title bar. Icon + an
+                    // accessibility label is this app's toolbar idiom.
+                    Button(action: addContact) {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                    }
+                    .accessibilityLabel("Add Contact")
+                    .help("Add Contact")
+                }
+            }
+        }
+        // Drives the confirmation's lifetime off the tick rather than a timer
+        // captured in a closure: .task(id:) is cancelled automatically if the
+        // user navigates away mid-display, so nothing writes to @State after the
+        // view is gone.
+        .task(id: contactAddedTick) {
+            guard contactAddedTick > 0 else { return }
+            withAnimation { showContactAdded = true }
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation { showContactAdded = false }
+        }
         .rnsFeedback(.success, trigger: sentTick)
         .rnsFeedback(.error, trigger: failTick)
+        .rnsFeedback(.success, trigger: contactAddedTick)
     }
 
     /// The bottom bar: an optional error line, then the compose row.
@@ -112,6 +165,40 @@ struct MessageThreadView: View {
 
     private var peerDisplayName: String {
         peers.first?.label ?? "<\(String(peerHash.prefix(8)))>"
+    }
+
+    /// No PeerEntity at all means the thread was opened for a hash we've never
+    /// heard an announce from (compose-to-hash), which is likewise "not a
+    /// contact" — so the add action is offered in both cases.
+    private var isContact: Bool {
+        peers.first?.isContact == true
+    }
+
+    /// Save this thread's peer to the address book.
+    ///
+    /// Deliberately re-fetches rather than trusting `peers.first`: announce
+    /// ingest runs on a background context and merges into this one
+    /// asynchronously (see LXMFPeerAnnounceHandler), so the @Query snapshot this
+    /// body was built from can be a beat behind. Inserting on a stale "no row"
+    /// reading would violate the `@Attribute(.unique)` on `destinationHash`.
+    /// Same fetch-then-upsert idiom as AddContactSheet.save().
+    private func addContact() {
+        let hash = peerHash
+        let descriptor = FetchDescriptor<PeerEntity>(
+            predicate: #Predicate { $0.destinationHash == hash }
+        )
+        if let existing = try? context.fetch(descriptor).first {
+            existing.isContact = true
+        } else {
+            // Never announced. Insert the row the announce handler would have
+            // created; a later announce upserts by hash and fills in the display
+            // name instead of colliding. No displayName is invented here — the
+            // list falls back to `<shorthash>` via PeerEntity.label, and a made-up
+            // name would be indistinguishable from an announced one.
+            context.insert(PeerEntity(destinationHash: hash, isContact: true))
+        }
+        try? context.save()
+        contactAddedTick += 1
     }
 
     /// Clear the unread flag on everything in this thread — called when the

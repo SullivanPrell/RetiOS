@@ -1,7 +1,16 @@
+#if os(iOS)
+
 import SwiftUI
 import UniformTypeIdentifiers
 
 // The page library: the "Pages" section of the NomadNet tab.
+//
+// iOS/iPadOS only. The whole point of the library is the Micron editor it opens
+// into, and that editor is Runestone — UIKit-only, linked with XcodeGen
+// `destinationFilters: [iOS]` (see MicronSourceEditor.swift). Shipping the list
+// on the Mac would mean shipping a second-class editor behind it, so the section
+// is compiled out of the Mac slice entirely; `NomadSection` has no `.pages` case
+// there.
 //
 // PagesContent is the inner content — no NavigationStack — so it slots into
 // NomadNetContainerView's section switcher alongside Browse / Peers / Favorites
@@ -9,7 +18,7 @@ import UniformTypeIdentifiers
 //
 // These are real `.mu` files in Python NomadNet's own directory layout (see
 // MicronPageStore), not database rows. That is what makes the relocatable root
-// work: on a Mac you can point this at a running NomadNet node's
+// work: the Files-app folder picker can point this at a shared NomadNet
 // `storage/pages` and edit pages that are already being served to peers.
 struct PagesContent: View {
     @Environment(MicronPageStore.self) private var store
@@ -153,7 +162,6 @@ struct PagesContent: View {
                         Label("Delete", systemImage: "trash")
                     }
                 }
-                #if os(iOS)
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
                         deleteTarget = page
@@ -168,7 +176,6 @@ struct PagesContent: View {
                     }
                     .tint(.rnsAccent)
                 }
-                #endif
             }
         }
         .rnsContentListStyle()
@@ -281,3 +288,5 @@ private struct PageRow: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+#endif

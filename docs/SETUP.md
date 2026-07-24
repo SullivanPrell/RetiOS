@@ -8,26 +8,27 @@ distribution. Assumes you already have an Apple Developer Program membership act
 
 ## 1. Locate your Team ID
 
-You need this 10-character string for `project.yml`.
+You need this 10-character string to sign device and Mac builds.
 
 1. Sign in at [developer.apple.com/account](https://developer.apple.com/account)
 2. Go to **Membership Details**
 3. Copy the **Team ID** (looks like `AB12CD34EF`)
 
-Open `project.yml` and confirm it is already set (or update it):
-
-```yaml
-settings:
-  base:
-    DEVELOPMENT_TEAM: "AB12CD34EF"   # ← your Team ID
-```
-
-After any `project.yml` edit, regenerate the Xcode project:
+Write it to the gitignored `.xcode-team` file at the repo root and regenerate:
 
 ```bash
 cd RetiOS
-xcodegen generate
+echo AB12CD34EF > .xcode-team   # ← your Team ID
+make generate
 ```
+
+`project.yml` carries `DEVELOPMENT_TEAM: "${DEVELOPMENT_TEAM}"`; XcodeGen
+substitutes it from the environment, and `scripts/generate.sh` exports it from
+`.xcode-team` (or from an already-set `DEVELOPMENT_TEAM`, which wins). Do **not**
+hardcode a team ID in `project.yml` — this repo is public. Details and the trap
+this avoids: [docs/BUILDING.md § Signing](BUILDING.md#4-signing).
+
+After any `project.yml` edit, run `make generate` again.
 
 ---
 
@@ -41,10 +42,15 @@ Skip if you have already registered `dev.sprell.retios`.
    - **Description**: RetiOS
    - **Bundle ID**: Explicit → `dev.sprell.retios`
 4. Enable capabilities (scroll down):
-   - **Background Modes** (check: Audio, AirPlay, and Picture in Picture; Background fetch;
-     Remote notifications) — needed for mesh connectivity in background
+   - **Background Modes** — needed for mesh connectivity in the background
+   - **Network Extensions** and **App Groups** — required by the Yggdrasil packet-tunnel
+     extension (see [YGGDRASIL.md](../YGGDRASIL.md)); both need a **paid** membership
    - **Push Notifications** (optional — for future remote-push delivery)
 5. **Register**
+
+The tunnel extension needs its own App ID too: `dev.sprell.retios.YggdrasilTunnel`,
+with the same Network Extensions and App Groups capabilities. Both App IDs must
+join the app group `group.dev.sprell.retios`.
 
 ---
 
@@ -116,12 +122,13 @@ Open `RetiOS.xcodeproj`. Two options:
 
 ### Option A — Automatic signing (recommended for development)
 
-1. Select the **RetiOS** target → **Signing & Capabilities**
-2. Check **Automatically manage signing**
-3. Select your **Team** from the dropdown
-4. Xcode creates and refreshes profiles automatically
+`project.yml` already sets `CODE_SIGN_STYLE: Automatic` on every target, so with
+`.xcode-team` written (step 1) the generated project is signed and ready — Xcode
+creates and refreshes profiles automatically.
 
-This is the fastest path for device testing.
+If you instead pick the team in **Signing & Capabilities**, be aware that it lands
+only in the gitignored `project.pbxproj`, which the next `make generate`
+overwrites. Put it in `.xcode-team` so it survives.
 
 ### Option B — Manual signing
 
@@ -134,55 +141,34 @@ entitlements you need to control precisely.
 
 ---
 
-## 7. Add required entitlements and privacy keys
+## 7. Entitlements and privacy keys
 
-### 7a. Privacy usage strings (required for iOS)
+These are **already configured** — this section is for understanding and changing
+them, not for first-time setup.
 
-Add these to `project.yml` under the `info` block (they are required before the first
-TestFlight upload; the app will crash without them if Bluetooth or mic is accessed):
+### 7a. Privacy usage strings and background modes
 
-```yaml
-targets:
-  RetiOS:
-    info:
-      path: RetiOS/Info.plist
-      properties:
-        NSBluetoothAlwaysUsageDescription: >
-          RetiOS uses Bluetooth to communicate with RNode LoRa radios for
-          off-grid mesh networking.
-        NSMicrophoneUsageDescription: >
-          RetiOS uses the microphone for encrypted voice calls over the
-          Reticulum mesh.
-        NSLocalNetworkUsageDescription: >
-          RetiOS uses the local network to discover and connect to other
-          Reticulum nodes via AutoInterface.
-        NSBonjourServices:
-          - _rns-autointerface._udp
-```
+They live in `project.yml` under the app target's `info.properties` block
+(Bluetooth, microphone, local network, location, `NSBonjourServices`, and
+`UIBackgroundModes`), and `xcodegen generate` writes `RetiOS/Info.plist` from
+them.
 
-Then regenerate: `xcodegen generate`
+> `xcodegen generate` **overwrites** that plist — it does not merge. A key added
+> through Xcode's UI is silently lost at the next `make generate`. Always edit
+> `project.yml`.
 
-### 7b. Background Modes entitlement
+### 7b. Entitlements
 
-To keep the Reticulum stack alive when the app is backgrounded:
+`RetiOS/RetiOS.entitlements` declares the Network Extension (packet-tunnel) and
+app-group entitlements the Yggdrasil node needs, with a twin file for the
+`YggdrasilTunnel` target.
 
-1. In Xcode, target → **Signing & Capabilities → + Capability → Background Modes**
-2. Check:
-   - **Audio, AirPlay, and Picture in Picture** (LXST calls)
-   - **Background fetch** (LXMF propagation node sync)
-
-Or add to `project.yml`:
-
-```yaml
-targets:
-  RetiOS:
-    entitlements:
-      path: RetiOS/RetiOS.entitlements
-      properties:
-        UIBackgroundModes:
-          - audio
-          - fetch
-```
+The multicast entitlement (`com.apple.developer.networking.multicast`) is
+**deliberately omitted** so signed TestFlight/App Store builds do not depend on
+Apple's separate multicast approval. The consequence — AutoInterface LAN
+discovery is unavailable on signed device builds, while TCP and Yggdrasil work
+normally — and how to restore it are documented in the entitlements file itself
+and in [YGGDRASIL.md](../YGGDRASIL.md).
 
 ---
 
@@ -273,7 +259,7 @@ For automated TestFlight uploads from CI (GitHub Actions, Xcode Cloud, etc.):
 
 | Task | Where |
 |------|-------|
-| Team ID | developer.apple.com → Membership |
+| Team ID | developer.apple.com → Membership (store it in `.xcode-team`) |
 | App IDs | developer.apple.com → Identifiers |
 | Certificates | developer.apple.com → Certificates |
 | Provisioning profiles | developer.apple.com → Profiles |

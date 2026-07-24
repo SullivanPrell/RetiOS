@@ -37,7 +37,18 @@ struct RetiOSApp: App {
     // and a view-scoped store would drop that access every time the section
     // switcher rebuilt the view — the same class of bug the two controllers
     // above document.
+    //
+    // iOS-only, because the Pages section is (Runestone is UIKit-only — see
+    // MicronSourceEditor.swift). Not merely unused on the Mac: `init()` calls
+    // `reload()`, which calls `ensureRootExists()`, which *creates*
+    // Documents/nomadnet/pages. Keeping it cross-platform would mkdir a page
+    // library on every Mac launch for a UI that does not exist there. Nothing
+    // reachable on macOS reads `MicronPageStore` from the environment, so
+    // dropping the injection below cannot trap the way a missing model
+    // otherwise would.
+    #if os(iOS)
     @State private var pageStore = MicronPageStore()
+    #endif
     // NotificationManager is a singleton, injected into the environment so views
     // can observe navigateTo / openConversationHash reactively.
     @State private var notifs    = NotificationManager.shared
@@ -55,8 +66,13 @@ struct RetiOSApp: App {
     /// compiles clean, passes tests, and reproduces only in the Preferences
     /// window. Injecting a model no view reads is free (it creates no
     /// observation dependency), so there is no reason to keep the scenes apart.
+    ///
+    /// The split below is by PLATFORM, not by scene, and it is the only kind of
+    /// omission that is safe here: `MicronPageStore` does not exist on macOS at
+    /// all, so no macOS view can read it and the trap above is unreachable. Both
+    /// scenes still get identical environments on whichever platform they run.
     private func appEnvironment<C: View>(_ content: C) -> some View {
-        content
+        let shared = content
             .environment(logStore)
             .environment(stack)
             .environment(calls)
@@ -64,9 +80,16 @@ struct RetiOSApp: App {
             .environment(bleMesh)
             .environment(rnode)
             .environment(notifs)
+        #if os(iOS)
+        return shared
             .environment(pageStore)
             .modelContainer(container)
             .rnsTheme()
+        #else
+        return shared
+            .modelContainer(container)
+            .rnsTheme()
+        #endif
     }
 
     var body: some Scene {
