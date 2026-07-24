@@ -32,6 +32,18 @@ packages:
   NomadNetSwift:
     url: https://github.com/SullivanPrell/NomadNetSwift.git
     from: 1.1.2
+  # The Micron (.mu) Tree-sitter grammar, for real syntax highlighting in the
+  # Pages editor. Plain portable C, no UIKit dependency — unlike Runestone
+  # below, it is NOT destinationFilters-restricted and should compile for the
+  # macOS destination too.
+  #
+  # Local path for now, while iterating: switch to the tagged GitHub URL
+  # (mirroring the four in-house packages above) once the integration is
+  # verified end-to-end. See tree-sitter-micron/README.md for the grammar
+  # itself and its other editor integrations (VS Code, Zed, Vim, Neovim).
+  TreeSitterMicron:
+    path: ../../micron-utils/tree-sitter-micron
+
   # Source editor for the Micron page editor (Pages screen). UIKit-only — its
   # Package.swift declares `platforms: [.iOS(.v14)]` and its sources are
   # unguarded `import UIKit`, so it is linked with `destinationFilters: [iOS]`
@@ -159,6 +171,10 @@ targets:
         product: LXST
       - package: NomadNetSwift
         product: NomadNet
+      # Plain portable C — deliberately no destinationFilters, unlike Runestone
+      # right below. Compiles for both iOS and macOS destinations.
+      - package: TreeSitterMicron
+        product: TreeSitterMicron
       # iOS ONLY. Runestone is UIKit-based and this is one multi-destination
       # target that also builds a native (non-Catalyst) Mac app, so linking it
       # unconditionally fails the macOS compile with "no such module 'UIKit'".
