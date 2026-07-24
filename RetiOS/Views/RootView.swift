@@ -154,7 +154,9 @@ private extension View {
 private struct SidebarRootView: View {
     @Environment(StackController.self) private var stack
     @Environment(NotificationManager.self) private var notifs
+    @Environment(CallsController.self) private var calls
     @State private var selection: AppTab? = AppTab.launchSelection
+    @State private var sidebarHeight: CGFloat = 0
 
     // On macOS, Settings lives in its own ⌘, Preferences window (see RetiOSApp),
     // so it's dropped from the sidebar. iPad keeps it (no Settings scene there).
@@ -174,6 +176,13 @@ private struct SidebarRootView: View {
             }
             .listStyle(.sidebar)
             .navigationTitle("RetiOS")
+            .background {
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { sidebarHeight = geo.size.height }
+                        .onChange(of: geo.size.height) { _, new in sidebarHeight = new }
+                }
+            }
             // iOS only — see `sidebarToolbar`.
             #if os(iOS)
             .toolbar { sidebarToolbar }
@@ -204,14 +213,31 @@ private struct SidebarRootView: View {
     /// all. So the hash is treated as genuinely optional — shown whole when it
     /// fits, dropped when it doesn't, and always available via the tooltip.
     private var stackStatusBar: some View {
-        ViewThatFits(in: .horizontal) {
-            statusRow(includeHash: true)
-            statusRow(includeHash: false)
+        ViewThatFits(in: .vertical) {
+            VStack(alignment: .leading, spacing: 12) {
+                ViewThatFits(in: .horizontal) {
+                    statusRow(includeHash: true)
+                    statusRow(includeHash: false)
+                }
+                announceSection
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ViewThatFits(in: .horizontal) {
+                        statusRow(includeHash: true)
+                        statusRow(includeHash: false)
+                    }
+                    announceSection
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+            .scrollIndicators(.hidden)
         }
-        // 16 pt was an iOS-phone inset; the Mac sidebar adds its own margins,
-        // so stacking another 16 on top just wasted scarce width.
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .frame(maxHeight: max(sidebarHeight / 3, 50))
         .rnsBarMaterial()
         .help(stack.identity.map { "Identity \($0.hexHash)" } ?? "Reticulum stack")
     }
@@ -239,6 +265,48 @@ private struct SidebarRootView: View {
             }
         }
     }
+    
+    private var announceSection: some View {
+        Section("Announce") {
+            // LXMF messaging
+            Toggle(isOn: Binding(
+                get: { stack.lxmfAnnounceEnabled },
+                set: { stack.setLXMFAnnounce($0) }
+            )) {
+                Label("LXMF Messaging", systemImage: "bubble.left.and.bubble.right")
+            }
+            .disabled(!stack.isRunning)
+
+            if let hash = stack.lxmfDeliveryHash {
+                AddressActionRow(
+                    label: "Messaging address",
+                    fullHex: hash.map { String(format: "%02x", $0) }.joined(),
+                    isRunning: stack.isRunning,
+                    onAnnounce: { stack.announceLXMFNow() }
+                )
+            }
+
+            // LXST voice calls
+            Toggle(isOn: Binding(
+                get: { calls.lxstAnnounceEnabled },
+                set: { calls.setLXSTAnnounce($0) }
+            )) {
+                Label("LXST Voice Calls", systemImage: "phone.arrow.up.right")
+            }
+            .disabled(!stack.isRunning)
+
+            if let hash = calls.lxstCallHash {
+                AddressActionRow(
+                    label: "Call address",
+                    fullHex: hash.map { String(format: "%02x", $0) }.joined(),
+                    isRunning: stack.isRunning,
+                    onAnnounce: { calls.announceLXSTNow() }
+                )
+            }
+        }
+        .rnsRow()
+    }
+
 
     // MARK: Toolbar
 
