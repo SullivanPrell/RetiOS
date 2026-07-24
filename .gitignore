@@ -6,6 +6,9 @@ build/
 .dd/
 .dd-mac/
 .dd-ios/
+# Local Apple Developer Team ID, read by scripts/generate.sh. Personal, and this
+# repo is public — never commit it.
+.xcode-team
 .swiftpm/
 DerivedData/
 RetiOS.xcodeproj/

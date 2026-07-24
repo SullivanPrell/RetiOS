@@ -16,6 +16,31 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# Apple Developer Team ID. project.yml carries `DEVELOPMENT_TEAM:
+# "${DEVELOPMENT_TEAM}"`, which XcodeGen substitutes from the environment — but
+# ONLY if the variable is set at all. An unset variable is left in the project as
+# the literal string "${DEVELOPMENT_TEAM}", which is worse than blank, so it is
+# always exported here (empty if unknown, which is the open-source default and
+# exactly what the generated project used to contain).
+#
+# Why this exists: the team ID previously lived ONLY in project.pbxproj, which is
+# gitignored. `xcodegen generate` rewrites that file wholesale, so every
+# `make generate` silently reset signing to blank — a macOS or device build then
+# fails with "Signing for RetiOS requires a development team" until it is picked
+# again in Xcode. Keeping it in a gitignored file instead means regenerating is
+# idempotent, and no personal team ID lands in a public repo.
+#
+# Set yours once:  echo YOURTEAMID > .xcode-team
+if [[ -z "${DEVELOPMENT_TEAM:-}" && -f .xcode-team ]]; then
+  DEVELOPMENT_TEAM="$(tr -d '[:space:]' < .xcode-team)"
+fi
+export DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}"
+if [[ -n "$DEVELOPMENT_TEAM" ]]; then
+  echo "⚙️  Signing with team $DEVELOPMENT_TEAM"
+else
+  echo "⚙️  No DEVELOPMENT_TEAM set — simulator builds only (see scripts/generate.sh)"
+fi
+
 xcodegen generate
 
 SWIFTPM_DIR="RetiOS.xcodeproj/project.xcworkspace/xcshareddata/swiftpm"
