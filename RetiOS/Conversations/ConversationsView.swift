@@ -96,6 +96,11 @@ struct ConversationsView: View {
 
 private enum MessagesSection: Hashable { case conversations, contacts, peers }
 
+// Search on all three segments uses `rnsInlineSearch`, NOT `.searchable` — this
+// is a tab root under `rnsPinnedTitle`, which hides the navigation bar the iOS
+// search field would have to live in. See `rnsInlineSearch` for the full
+// diagnosis; it fails silently, so it is worth knowing before "fixing" it back.
+
 // MARK: - Conversation list
 
 /// One row's worth of conversation state, fully resolved off the model objects.
@@ -172,13 +177,15 @@ private struct ConversationList: View {
     let summaries: [ConversationSummary]
     @Environment(\.modelContext) private var context
     @Query private var peers: [PeerEntity]
+    @State private var searchText = ""
 
     var body: some View {
         if summaries.isEmpty {
             emptyState
         } else {
             let nameByHash = nameLookup()
-            List(summaries) { item in
+            let visible = filtered(nameByHash)
+            List(visible) { item in
                 NavigationLink(value: item.peerHash) {
                     ConversationRow(summary: item, displayName: nameByHash[item.peerHash])
                 }
@@ -202,7 +209,22 @@ private struct ConversationList: View {
             }
             .rnsContentListStyle()
             .rnsScreenBackground()
+            .overlay {
+                if visible.isEmpty && !searchText.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
+                }
+            }
+            .rnsInlineSearch(text: $searchText)
         }
+    }
+
+    /// Same match rule as the sibling Peers and Contacts lists: display name or
+    /// hash, case-insensitively. Matching on the hash matters more here than in
+    /// those lists — a conversation with a peer that has never announced a name
+    /// has no other handle to search by.
+    private func filtered(_ names: [String: String]) -> [ConversationSummary] {
+        guard let q = RNSSearch.query(searchText) else { return summaries }
+        return summaries.filter { RNSSearch.matches(q, name: names[$0.peerHash], hash: $0.peerHash) }
     }
 
     /// Names for the peers we actually have conversations with. Restricting to
@@ -285,6 +307,14 @@ private struct ConversationRow: View, Equatable {
 private struct LXMFPeersContent: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \PeerEntity.lastSeen, order: .reverse) private var peers: [PeerEntity]
+    @State private var searchText = ""
+
+    /// Match on display name or hash, case-insensitively — the house rule from
+    /// Destinations ▸ Peers.
+    private var filtered: [PeerEntity] {
+        guard let q = RNSSearch.query(searchText) else { return peers }
+        return peers.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }
+    }
 
     var body: some View {
         if peers.isEmpty {
@@ -294,7 +324,7 @@ private struct LXMFPeersContent: View {
                 description: "Peers appear as their LXMF announces arrive across the mesh."
             )
         } else {
-            List(peers) { peer in
+            List(filtered) { peer in
                 NavigationLink(value: peer.destinationHash) {
                     LXMFPeerRow(peer: peer)
                 }
@@ -321,6 +351,12 @@ private struct LXMFPeersContent: View {
             }
             .rnsContentListStyle()
             .rnsScreenBackground()
+            .overlay {
+                if filtered.isEmpty && !searchText.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
+                }
+            }
+            .rnsInlineSearch(text: $searchText)
         }
     }
 }
@@ -354,6 +390,15 @@ private struct ContactsContent: View {
     @Environment(\.modelContext) private var context
     @Query(filter: #Predicate<PeerEntity> { $0.isContact == true },
            sort: \PeerEntity.displayName) private var contacts: [PeerEntity]
+    @State private var searchText = ""
+
+    /// The user asked for search on the *peers* lists, but a contact list is the
+    /// same shape and sits one segment away; omitting it here would be the more
+    /// surprising inconsistency. Same match rule as the sibling lists.
+    private var filtered: [PeerEntity] {
+        guard let q = RNSSearch.query(searchText) else { return contacts }
+        return contacts.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }
+    }
 
     var body: some View {
         if contacts.isEmpty {
@@ -363,7 +408,7 @@ private struct ContactsContent: View {
                 description: "Save a peer as a contact, or tap + to add one by destination hash."
             )
         } else {
-            List(contacts) { contact in
+            List(filtered) { contact in
                 NavigationLink(value: contact.destinationHash) {
                     ContactRow(contact: contact)
                 }
@@ -390,6 +435,12 @@ private struct ContactsContent: View {
             }
             .rnsContentListStyle()
             .rnsScreenBackground()
+            .overlay {
+                if filtered.isEmpty && !searchText.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
+                }
+            }
+            .rnsInlineSearch(text: $searchText)
         }
     }
 }

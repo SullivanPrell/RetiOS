@@ -714,6 +714,99 @@ struct RNSHashField: View {
 /// passing `[(label, value)]` plus a binding; this renders the standard system
 /// segmented control — the HIG-native choice — instead of a custom underline
 /// tab bar that had to hand-roll its own colors, animation, and a11y traits.
+/// The one matching rule every peer search in the app uses.
+///
+/// Two things it fixes, both of which were copy-pasted into six filters:
+///
+/// **Hashes match by PREFIX, not substring.** A destination hash is 32 lowercase
+/// hex characters, so `contains("a")` is true for ~87% of all hashes
+/// (1 − (15/16)^32) — typing the first letter of a name returned nearly the
+/// entire list, with the accidental matches indistinguishable from the real one
+/// because the matched region is usually inside the middle that `truncatedHash`
+/// hides. Prefix matching is also what Reticulum addressing and every other hash
+/// affordance in this app already imply (`PeerEntity.shortHash` is `prefix(8)`).
+///
+/// **The query is trimmed.** A trailing space — trivially produced by iOS
+/// autocorrect or a paste — made every match fail, which reads as "no results"
+/// rather than as a typo.
+enum RNSSearch {
+
+    /// Normalised query, or `nil` when there is effectively nothing to search
+    /// for (empty, or only whitespace). `nil` means "show everything".
+    static func query(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// True when `query` (already normalised) matches this row.
+    ///
+    /// - Parameters:
+    ///   - name: display name, if the row has one.
+    ///   - hashes: every address the row can be found by. Matched by prefix.
+    static func matches(_ query: String, name: String?, hashes: [String?]) -> Bool {
+        if let name, name.lowercased().contains(query) { return true }
+        return hashes.contains { $0?.lowercased().hasPrefix(query) == true }
+    }
+
+    static func matches(_ query: String, name: String?, hash: String) -> Bool {
+        matches(query, name: name, hashes: [hash])
+    }
+}
+
+/// The field `rnsInlineSearch` stacks above a list. See that modifier for why
+/// these screens cannot use `.searchable`.
+///
+/// `prompt` is a `LocalizedStringKey`, not a `String`, for the same reason
+/// `RNSHashField` documents: a `String` parameter binds `TextField` to its
+/// deliberately non-localized `StringProtocol` overload and silently drops the
+/// prompt out of the localization table. A literal at the call site still
+/// converts implicitly.
+struct RNSInlineSearchField: View {
+    let prompt: LocalizedStringKey
+    @Binding var text: String
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(Color.rnsTextSecondary)
+                .accessibilityHidden(true)
+            TextField(prompt, text: $text)
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+                .rnsNoAutocapitalization()
+                .submitLabel(.search)
+                .focused($focused)
+                .accessibilityLabel(Text(prompt))
+            if !text.isEmpty {
+                Button { text = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.rnsTextMuted)
+                        // The glyph is ~17pt. Pad the hit region to the HIG
+                        // minimum without growing the field, the same way the
+                        // NomadNet URL bar's chevrons do.
+                        .frame(minWidth: 44, minHeight: 30)
+                        .contentShape(Rectangle())
+                }
+                // .plain so the glyph does not pick up bordered button chrome
+                // inside the field on macOS.
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.rnsSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        // The whole capsule focuses the field, not just the ~1pt of text inside
+        // it. `.searchable` gives this for free; an app-drawn field does not,
+        // and tapping the magnifier or the padding doing nothing reads as broken.
+        .contentShape(Rectangle())
+        .onTapGesture { focused = true }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+}
+
 struct RNSSectionPicker<T: Hashable>: View {
     struct Tab: Identifiable {
         let id: Int
@@ -797,6 +890,49 @@ extension View {
         #else
         self.listStyle(.plain)
         #endif
+    }
+
+    /// Stacks a search field above a list, for screens where `.searchable`
+    /// cannot work.
+    ///
+    /// **Use `.searchable` when the screen has a navigation bar** — that is the
+    /// system control and it is what `DestinationsView`, `InterfaceDirectoryView`
+    /// and `LogsView` correctly use.
+    ///
+    /// This exists for the **tab roots**, which do not have one — and where
+    /// `.searchable` fails *silently*:
+    ///
+    /// - **iOS** — `rnsPinnedTitle` draws the tab's large title itself and calls
+    ///   `.toolbar(.hidden, for: .navigationBar)`. Every iOS
+    ///   `SearchFieldPlacement` resolves into the navigation bar (`.automatic`
+    ///   and `.toolbar` both land in `.navigationBarDrawer`), so with the bar
+    ///   hidden there is nowhere for the field to go and nothing renders.
+    ///   Apple's own note on `SearchFieldPlacement` — "Depending on the
+    ///   containing view hierarchy, SwiftUI might not be able to fulfill your
+    ///   request" — is the entire diagnostic: no warning, no field.
+    /// - **macOS** — the field *would* render, in the window toolbar, which on
+    ///   these screens already carries `rnsSectionPicker`'s principal segmented
+    ///   control plus a primary action. A third item is exactly what collapses a
+    ///   Mac toolbar into the "»" overflow chevron that `rnsPinnedTitle`'s own
+    ///   comment documents fighting.
+    ///
+    /// So the field is drawn in-content on both platforms — the same
+    /// app-drawn-bar idiom as the NomadNet URL bar — which also keeps the three
+    /// peer lists looking identical. The *matching semantics* at each call site
+    /// should still follow the house pattern: a `filtered` array matching name
+    /// or hash case-insensitively, plus a `ContentUnavailableView.search`
+    /// overlay applied to the list **before** this modifier, so the no-results
+    /// state cannot cover the field and strand the user.
+    ///
+    /// The `maxWidth/maxHeight: .infinity` on `self` mirrors `rnsSectionPicker`:
+    /// without it the list shrinks to its intrinsic height inside the `VStack`
+    /// and floats vertically centred.
+    func rnsInlineSearch(text: Binding<String>,
+                         prompt: LocalizedStringKey = "Name or hash") -> some View {
+        VStack(spacing: 0) {
+            RNSInlineSearchField(prompt: prompt, text: text)
+            self.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
     /// Attaches a section switcher to a screen, placed the way each platform

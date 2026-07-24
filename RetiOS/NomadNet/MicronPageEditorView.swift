@@ -1,8 +1,14 @@
+#if os(iOS)
+
 import SwiftUI
 import NomadNet
 
 // The Micron page editor: source on one side, the app's real renderer on the
 // other.
+//
+// iOS/iPadOS only, because `MicronSourceEditor` is — it wraps Runestone, which
+// is UIKit-only. See the header of MicronSourceEditor.swift for the full
+// constraint and for what a Mac version would take.
 //
 // The preview is deliberately `MicronView(nodes: MicronParser.parse(text))` —
 // the exact call the Browse tab makes (NomadNetBrowserView.pageContent). Any
@@ -389,11 +395,11 @@ struct MicronPageEditorView: View {
 
     // MARK: - Insertion
 
-    /// Appends at the end of the document. The editor surfaces do not expose a
-    /// selection range yet — Runestone has one, SwiftUI's TextEditor does not on
-    /// macOS 14 — so a selection-aware wrap would work on one platform only.
-    /// `caretBack` is accepted now so callers already express intent for when
-    /// that lands.
+    /// Appends at the end of the document. `MicronSourceEditor` does not expose
+    /// the selection range yet — Runestone has one, but plumbing it back out
+    /// through the representable is its own piece of work — so a selection-aware
+    /// wrap is not possible here. `caretBack` is accepted now so callers already
+    /// express intent for when that lands.
     private func insert(_ snippet: String, caretBack: Int = 0) {
         _ = caretBack
         text += snippet
@@ -542,3 +548,5 @@ struct MicronFieldBuilderSheet: View {
         }
     }
 }
+
+#endif

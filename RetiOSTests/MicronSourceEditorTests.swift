@@ -3,9 +3,13 @@ import XCTest
 
 /// Locks down the *tinting policy* of the Micron source editor.
 ///
-/// Not a rendering test — the surface itself is a `UIViewRepresentable` on iOS
-/// and a `TextEditor` on macOS, neither of which is meaningfully assertable in
-/// a unit test. What is worth pinning is the design rule behind the colour,
+/// Not a rendering test — the surface itself is a `UIViewRepresentable` over
+/// Runestone and exists on **iOS/iPadOS only** (Runestone is UIKit-only), which
+/// is not meaningfully assertable in a unit test anyway. It is also precisely
+/// why `MicronTintRole` and `MicronTokenKind.micronTintRole` live *outside* the
+/// `#if os(iOS)` in MicronSourceEditor.swift: this suite builds for the macOS
+/// destination too, and the tinting *policy* is platform-independent even
+/// though the editor is not. What is worth pinning is the design rule,
 /// because it is the one thing that silently degrades: every time a new token
 /// kind is added to `MicronTokenKind`, the tempting move is to give it a tint,
 /// and the failure mode of "tint everything" is a page where the majority of

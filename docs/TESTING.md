@@ -17,14 +17,37 @@ Always regenerate after editing `project.yml` or adding source files:
 
 ```bash
 cd RetiOS
-xcodegen generate
-```
-
-This writes `RetiOS.xcodeproj`. Open it in Xcode:
-
-```bash
+make generate     # xcodegen + install the pinned Package.resolved + your Team ID
 open RetiOS.xcodeproj
 ```
+
+See [docs/BUILDING.md](BUILDING.md) for why this is not a bare `xcodegen generate`.
+
+---
+
+## 1a. Automated suites
+
+```bash
+make test    # scripts/test.sh — RetiOSTests on an iOS Simulator
+make uitest  # scripts/uitest.sh — RetiOSUITests (catches @Environment injection traps)
+make ci      # scripts/ci.sh — the exact build GitHub Actions runs
+```
+
+`RetiOSTests` is 159 XCTest cases across seven suites, all pure-logic (no stack, no
+network):
+
+| Suite | Covers |
+|-------|--------|
+| `MicronSyntaxTests` | The Micron lexer's token ranges and every linter diagnostic |
+| `MicronPageStoreTests` | Page CRUD, name validation, path-escape refusal, root relocation |
+| `MicronAuthoringTests` | Link/field snippet construction for the builder sheets |
+| `MicronSourceEditorTests` | The editor's tinting policy — prose token kinds must stay untinted |
+| `NetworkGraphTests` | Network-visualizer graph building |
+| `RNSDateTests` | Timestamp formatting |
+| `RetiOSTests` | Smoke test |
+
+Both `make test` and `make uitest` pin `ARCHS=arm64`: the vendored xcframeworks
+carry no `x86_64` simulator slice, so an unpinned build fails to link.
 
 ---
 
@@ -58,32 +81,30 @@ The stack starts automatically on launch and prints log lines to the Xcode conso
 
 ### 3a. Code signing
 
-`project.yml` ships with an empty `DEVELOPMENT_TEAM`, so the repo carries no
-team ID. Pick one of:
+The repo carries no team ID: `project.yml` holds `DEVELOPMENT_TEAM:
+"${DEVELOPMENT_TEAM}"`, which `scripts/generate.sh` fills in from the gitignored
+`.xcode-team` file.
 
-- Open `RetiOS.xcodeproj`, select the **RetiOS** target, **Signing &
-  Capabilities**, enable **Automatically manage signing**, and choose your
-  **Team**; or
-- set `DEVELOPMENT_TEAM` to your 10-character Team ID in `project.yml` and
-  re-run `xcodegen generate`.
-
-See [docs/SETUP.md](SETUP.md) for the full certificate / provisioning walkthrough.
-
-### 3b. Privacy usage strings (required before first run)
-
-The app will crash on launch if it tries to access Bluetooth or the microphone without the corresponding `Info.plist` keys. Add them to `project.yml` under the `info` section:
-
-```yaml
-targets:
-  RetiOS:
-    info:
-      path: RetiOS/Info.plist
-      properties:
-        NSBluetoothAlwaysUsageDescription: "RetiOS uses Bluetooth to communicate with RNode LoRa hardware."
-        NSMicrophoneUsageDescription: "RetiOS uses the microphone for voice calls over the mesh."
+```bash
+echo AB12CD34EF > .xcode-team   # your 10-character Team ID
+make generate
 ```
 
-Then `xcodegen generate` again. The keys appear in the generated `Info.plist` and Xcode will prompt the user on first use.
+Setting the team in Xcode's **Signing & Capabilities** works for the current
+session but is lost at the next `make generate`, which rewrites the project. See
+[docs/BUILDING.md § Signing](BUILDING.md#4-signing) and [docs/SETUP.md](SETUP.md)
+for the full certificate / provisioning walkthrough.
+
+### 3b. Privacy usage strings
+
+Already configured — the Bluetooth, microphone, local-network, and location usage
+strings live in `project.yml` under the app target's `info.properties`, and
+`make generate` writes them into `RetiOS/Info.plist`.
+
+If you add a new one, add it **to `project.yml`**: XcodeGen regenerates that plist
+wholesale on every run, so a key typed into the plist (or added through Xcode's UI)
+disappears at the next generate. The app traps on launch if it touches Bluetooth or
+the microphone with the key missing.
 
 ### 3c. Trust the developer certificate on device
 
@@ -118,11 +139,6 @@ Work through these after each significant change.
 - [ ] **Identity details** row navigates to the Identity detail view
 - [ ] **Known destinations** increments as announces arrive from the mesh
 
-### Peers tab
-
-- [ ] Empty state renders without crash ("Peers appear here…")
-- [ ] No crash on tab switch while stack is starting
-
 ### Messages tab
 
 - [ ] Empty state renders without crash ("No conversations yet")
@@ -133,14 +149,21 @@ Work through these after each significant change.
 - [ ] Tapping a conversation row opens the thread view with message bubbles
 - [ ] Outbound bubbles are blue (right-aligned); inbound are grey (left-aligned)
 - [ ] Sending a second message in a thread appends a new bubble and scrolls to bottom
+- [ ] In a thread with a peer who is not yet a contact, the **add as contact** control appears;
+      tapping it flips the peer to a contact and the control disappears
+- [ ] Reopening a thread with an existing contact shows no add-contact control
 
-### Peers tab
+### Peer lists (Messages ▸ Peers, Calls ▸ Peers, NomadNet ▸ Peers)
 
-- [ ] Empty state renders without crash ("No peers yet")
-- [ ] After a peer's LXMF announce arrives: peer row appears with hash and "last seen" time
-- [ ] If peer's announce includes a display name, it shows instead of the raw hash
-- [ ] Searching by name or partial hash filters the list
-- [ ] Swipe-left on a peer row shows **Remove** button; tapping it deletes the record
+Repeat for each of the three lists:
+
+- [ ] Empty state renders without crash
+- [ ] After an announce arrives: peer row appears with hash and "last seen" time
+- [ ] A display name from the announce shows instead of the raw hash
+- [ ] The search field filters on display name **and** on a partial hash, case-insensitively
+- [ ] A search with no matches shows the "no results" state naming the search term,
+      and clearing the field restores the full list
+- [ ] Swipe-left on a peer row shows **Remove**; tapping it deletes the record
 
 ### Calls tab
 
@@ -150,6 +173,8 @@ Work through these after each significant change.
 - [ ] Submitting exactly 20 valid hex chars dismisses the sheet and transitions to `.calling`
 - [ ] If no mesh path exists, transitions to `.failed` with "No path to destination"
 - [ ] **End** / **Cancel** button always returns to idle
+- [ ] During or after a call with a peer who is not yet a contact, the **add as contact**
+      control appears and adding them makes them show up under Messages ▸ Contacts
 
 ### Interfaces view (Settings → Manage Interfaces or iPad sidebar)
 
@@ -176,6 +201,26 @@ Work through these after each significant change.
 - [ ] With a live mesh: entering a valid NomadNet node hash navigates and renders the Micron page
 - [ ] Links in the rendered page trigger navigation
 - [ ] Back/forward buttons become enabled after navigation and work correctly
+- [ ] The star in the URL bar is filled while viewing a favorited node and hollow otherwise
+- [ ] Tapping the star adds/removes the node from the **Favorites** section, and the state
+      survives navigating away and back
+- [ ] The star is disabled (or absent) when no page is loaded
+
+### NomadNet ▸ Pages (iPhone / iPad only — the section does not exist on macOS)
+
+- [ ] The section picker offers **Pages** on iOS/iPadOS and does **not** on macOS
+- [ ] Empty state renders, and the footer shows which folder is in use
+- [ ] Creating a page writes a real `.mu` file; it appears in Files under that folder
+- [ ] `index.mu` is marked as the node's home page; `sub/index.mu` is not
+- [ ] Rename, duplicate, and delete all behave, and rejected names (empty, containing
+      `/` or `..`, leading dot, `.allowed` suffix) show the inline error rather than writing
+- [ ] Import a `.mu` from Files, then export one back out
+- [ ] Relocating the pages folder to a different directory keeps the list working after
+      relaunch (the security-scoped bookmark is restored)
+- [ ] In the editor: typing colours tokens, the gutter shows line numbers, and the linter
+      flags a deliberately broken construct (e.g. an unterminated link)
+- [ ] Preview matches the Browse tab's rendering of the same file, at Fit / 80 / 132 columns
+- [ ] Edits are saved without an explicit save action; backgrounding the app flushes them
 
 ---
 
@@ -185,13 +230,14 @@ Work through these after each significant change.
 
 RetiOS always starts an embedded Reticulum instance with `AutoInterface` (UDP multicast on
 the local LAN). No external daemon is needed. To reach the wider internet mesh, add a TCP
-gateway inside `StackController.bringUp()` after the AutoInterface start:
+gateway from the **Interfaces** section (**Add TCP Gateway** — host and port); it is
+registered, started, and persisted across launches. I2P, RNode, and Yggdrasil interfaces
+are added the same way.
 
-```swift
-let tcpGW = TCPClientInterface(name: "TCP Gateway", host: "your.gateway.host", port: 4242)
-stack.transport.register(interface: tcpGW)
-try tcpGW.start()
-```
+Note that on *signed* device builds, AutoInterface's link-local multicast discovery is
+unavailable — the multicast entitlement is deliberately not requested (see
+`RetiOS/RetiOS.entitlements`), so a TCP or Yggdrasil interface is how such a build reaches
+peers. Simulator builds are unaffected.
 
 ### macOS
 
@@ -221,12 +267,15 @@ What does and doesn't work depends on where you run:
 
 | Capability | Simulator | Device | Mac |
 |------------|-----------|--------|-----|
-| Networking (AutoInterface / TCP / I2P) | ✅ | ✅ | ✅ |
+| Networking (TCP / I2P) | ✅ | ✅ | ✅ |
+| AutoInterface (multicast LAN discovery) | ✅ | ⚠️ signed builds need the multicast entitlement — see YGGDRASIL.md | ✅ |
 | Messages (LXMF) / NomadNet | ✅ | ✅ | ✅ |
 | LXST voice calls | links only (no audio HW) | ✅ | ✅ |
 | RNode (BLE) | ❌ CoreBluetooth unavailable | ✅ | ✅ (with adapter) |
 | BLE mesh | ❌ | ✅ | ✅ |
+| NomadNet ▸ Pages (Micron editor) | ✅ | ✅ | ❌ not shipped — Runestone is UIKit-only |
 
 Known limitations are tracked in [CHANGELOG.md](../CHANGELOG.md) — currently:
 I2P **inbound** (`connectable`) listening is not yet implemented (outbound peer
-dialing works), and the Map tab is an early version.
+dialing works), the Map tab is an early version, and Micron page authoring is
+iOS/iPadOS-only.

@@ -38,7 +38,11 @@ BIN="$APP/Contents/MacOS/RetiOS"
 # honours. Without it only Tools' default Paths segment was ever photographed,
 # so the Ping and Visualizer panes — the two with reported visual defects — had
 # no coverage here at all.
-SCREENS=(messages calls nomadNet nomadNet:pages map interfaces tools tools:ping tools:visualizer)
+# NOTE: no `nomadNet:pages` here — the Micron page editor is iOS/iPadOS only
+# (Runestone is UIKit-only), so `NomadSection` has no `.pages` case on macOS.
+# Asking for it would silently photograph Browse instead of failing, which is
+# worse than not asking.
+SCREENS=(messages calls nomadNet map interfaces tools tools:ping tools:visualizer)
 
 step() { printf '\n\033[1;36m▸ %s\033[0m\n' "$1"; }
 

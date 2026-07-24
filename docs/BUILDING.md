@@ -17,12 +17,24 @@ is **generated from `project.yml`** by [XcodeGen](https://github.com/yonaskolb/X
 ```sh
 git clone https://github.com/SullivanPrell/RetiOS.git
 cd RetiOS
-xcodegen generate          # writes RetiOS.xcodeproj from project.yml
+make generate              # = scripts/generate.sh
 open RetiOS.xcodeproj
 ```
 
-Re-run `xcodegen generate` after editing `project.yml` or adding/removing source
+Re-run `make generate` after editing `project.yml` or adding/removing source
 files.
+
+> **Use `make generate`, not a bare `xcodegen generate`.**
+> `scripts/generate.sh` does two things on top of XcodeGen that a bare run does
+> not, and both are easy to miss:
+>
+> 1. It copies the committed `./Package.resolved` into
+>    `RetiOS.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/`, so Xcode and
+>    `xcodebuild` resolve the exact package versions CI builds against instead of
+>    whatever "latest" happens to be. (The generated project is gitignored, so the
+>    canonical lockfile lives at the repo root.)
+> 2. It exports `DEVELOPMENT_TEAM` for XcodeGen's `${DEVELOPMENT_TEAM}`
+>    substitution — see [Signing](#4-signing).
 
 > `project.yml` writes the app's `Info.plist` from its `info.properties` block on
 > every generate (it overwrites, it does not merge). Add new Info.plist keys to
@@ -30,9 +42,38 @@ files.
 
 ## 3. Dependencies
 
-RetiOS consumes the four ReticulumSwift-stack packages. By default `project.yml`
-references their **published GitHub releases**, so the app builds standalone — no
-sibling checkouts required.
+`project.yml` references **published GitHub releases**, so the app builds
+standalone — no sibling checkouts required. Exact versions are pinned in
+`./Package.resolved`; `make update` (`scripts/update-packages.sh`) is the only
+supported way to move the pin.
+
+| Package | Linked for | Purpose |
+|---------|-----------|---------|
+| ReticulumSwift | all | The RNS stack: transport, interfaces, identity, crypto |
+| LXMFSwift | all | LXMF messaging |
+| LXSTSwift | all | LXST voice calls |
+| NomadNetSwift | all | Micron parsing/rendering, node directory, RRC |
+| [Runestone](https://github.com/simonbs/Runestone) | **iOS/iPadOS only** | Code-editor surface for the Micron page editor (MIT — see [NOTICE](../NOTICE)) |
+| tree-sitter | **iOS/iPadOS only** | Transitive dependency of Runestone |
+
+Plus the vendored `Frameworks/Yggdrasil.xcframework` (see [YGGDRASIL.md](../YGGDRASIL.md)).
+
+### Why Runestone is iOS-only
+
+Runestone is UIKit-only — its `Package.swift` declares `platforms: [.iOS(.v14)]`
+and its sources `import UIKit` unguarded — while RetiOS builds a **native
+(non-Catalyst) Mac app from the same multi-destination target**. Linking it
+unconditionally fails the macOS compile with *no such module 'UIKit'*.
+
+So `project.yml` links it with `destinationFilters: [iOS]`, which makes XcodeGen
+emit `platformFilters = (ios, );` on the build file. That is documented as a
+*linking* filter, but it also keeps Runestone out of the macOS **compile**: a Mac
+build produces no `Runestone.build` intermediate at all. Two consequences:
+
+- Every `Runestone` symbol in app code must sit behind `#if os(iOS)` — see the
+  header comment in `RetiOS/NomadNet/MicronSourceEditor.swift`.
+- Re-verify this behaviour if XcodeGen is upgraded; it is not a documented
+  guarantee.
 
 ### Developing the whole stack locally
 
@@ -40,20 +81,34 @@ To work on RetiOS and one or more packages at the same time, either:
 
 - **Switch `project.yml` to local paths** — check the package repos out as
   siblings and change the `packages:` entries from `url:`/`from:` to `path:`
-  (see the comment block at the top of `project.yml`), then `xcodegen generate`; or
+  (see the comment block at the top of `project.yml`), then `make generate`; or
 - **Override in Xcode** — File ▸ Add Package Dependencies… ▸ **Add Local…** and
   select the package folder. A local package overrides the remote reference for
   that build without editing `project.yml`.
 
 ## 4. Signing
 
-Builds need a Development Team. `project.yml` ships with an empty
-`DEVELOPMENT_TEAM` so the repo carries no one's team ID.
+Device and Mac builds need a Development Team. This repo is public, so no team ID
+is committed: `project.yml` carries the literal `DEVELOPMENT_TEAM:
+"${DEVELOPMENT_TEAM}"`, which XcodeGen substitutes from the environment, and
+`scripts/generate.sh` supplies that value.
 
-- In Xcode: select the **RetiOS** target ▸ **Signing & Capabilities** ▸ enable
-  **Automatically manage signing** ▸ choose your **Team**; or
-- set `DEVELOPMENT_TEAM` in `project.yml` to your 10-character Team ID and
-  regenerate.
+Set yours once, in the gitignored `.xcode-team` file:
+
+```sh
+echo AB12CD34EF > .xcode-team   # your 10-character Team ID
+make generate
+```
+
+Or export `DEVELOPMENT_TEAM` in the environment instead — it takes precedence
+over the file. With neither set, the team is empty and only Simulator builds work
+(CI builds this way, with `CODE_SIGNING_ALLOWED=NO`).
+
+> **Do not set the team in Xcode's UI alone.** It is written to
+> `project.pbxproj`, which is gitignored *and* rewritten wholesale by every
+> `xcodegen generate` — so the next regeneration silently reverts signing to
+> blank and the following device/Mac build fails with *"Signing for RetiOS
+> requires a development team"*. `.xcode-team` makes regenerating idempotent.
 
 Full certificate / provisioning / TestFlight / App Store walkthrough:
 [docs/SETUP.md](SETUP.md).
@@ -67,6 +122,18 @@ Full certificate / provisioning / TestFlight / App Store walkthrough:
 - **Mac**: select **My Mac**. RetiOS compiles as a genuine native Mac app
   (AppKit-hosted). On launch it probes `127.0.0.1:37428`; if a local `rnsd`
   daemon is running it attaches as a client, otherwise it runs an embedded stack.
+  The NomadNet **Pages** section is absent on macOS (see §3).
+
+## 6. Verify before pushing
+
+```sh
+make ci      # exactly what GitHub Actions runs: pinned-version iOS Simulator build
+make test    # RetiOSTests on an iOS Simulator
+make uitest  # XCUITest suite
+```
+
+`make ci` resolves with `-onlyUsePackageVersionsFromResolvedFile`, so a stale or
+drifting lockfile fails loudly instead of silently upgrading.
 
 See [docs/TESTING.md](TESTING.md) for the per-platform behavior matrix and the
 manual QA checklist.

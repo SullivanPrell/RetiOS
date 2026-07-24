@@ -245,6 +245,19 @@ final class CallsController {
         }
     }
 
+    /// The remote party's `Identity` for the call currently on the line.
+    ///
+    /// This is the *verified* public key from the link handshake, not something
+    /// reconstructed from a hash — so it is the only reliable way to address the
+    /// other party while a call is up. It matters because `callState.incoming`
+    /// carries an **identity** hash, which nothing in Reticulum is keyed by:
+    /// `Identity.recall` cannot look it up, and a peer who has not announced this
+    /// session cannot be resolved any other way. Exposed so the in-call
+    /// add-to-contacts action can derive their `lxmf.delivery` address exactly.
+    var activeCallRemoteIdentity: Identity? {
+        telephone?.activeCall?.remoteIdentity
+    }
+
     // MARK: - Inbound call
 
     func acceptIncomingCall() {

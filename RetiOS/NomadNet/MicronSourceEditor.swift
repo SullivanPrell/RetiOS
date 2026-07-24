@@ -4,27 +4,34 @@ import UIKit
 import Runestone
 #endif
 
-// MARK: - Platform asymmetry (read this before filing a bug)
+// MARK: - iOS/iPadOS only (read this before filing a bug)
 //
-// This is one view with two very different bodies, and the difference is not a
-// styling choice — it is a hard platform constraint:
+// The Micron source editor exists on iOS and iPadOS and nowhere else. That is
+// not an oversight and not a phased rollout — it is a hard platform constraint
+// that the Mac build is now honest about instead of papering over.
 //
-//   iOS   — Runestone's `TextView`, a code-editor surface with a line-number
-//           gutter, line-wrap control, a find interaction, and per-range
-//           background tints driven by the Micron lexer.
-//   macOS — a plain SwiftUI `TextEditor` in a monospaced face. No gutter, no
-//           colouring, no find bar.
+// The editor is Runestone's `TextView`: a code-editor surface with a
+// line-number gutter, line-wrap control, a find interaction, and per-range
+// background tints driven by the Micron lexer. Runestone is UIKit-only. It
+// subclasses `UIScrollView`, conforms to `UITextInput`, and its whole appearance
+// layer (`Theme`, `HighlightedRange`, `DefaultTheme`) is typed in
+// `UIFont`/`UIColor`. Its `Package.swift` declares `platforms: [.iOS(.v14)]` and
+// nothing else. It is linked here with XcodeGen `destinationFilters: [iOS]`
+// precisely so the Mac slice never tries to compile it — so **every** `Runestone`
+// symbol below must stay inside `#if os(iOS)`. Mac Catalyst would build it, but
+// RetiOS ships a native Mac target, not Catalyst.
 //
-// Why: Runestone is UIKit-only. It subclasses `UIScrollView`, conforms to
-// `UITextInput`, and its whole appearance layer (`Theme`, `HighlightedRange`,
-// `DefaultTheme`) is typed in `UIFont`/`UIColor`. Its `Package.swift` declares
-// `platforms: [.iOS(.v14)]` and nothing else. It is linked here with XcodeGen
-// `destinationFilters: [iOS]` precisely so the Mac slice never tries to compile
-// it — so **every** `Runestone` symbol below must stay inside `#if os(iOS)`.
-// Mac Catalyst would build it, but RetiOS ships a native Mac target, not
-// Catalyst.
+// This file used to carry a macOS branch: a plain SwiftUI `TextEditor` in a
+// monospaced face, with no gutter, no colouring and no find bar. It was removed
+// deliberately. A page author cannot tell whether markup is right without seeing
+// it separated from prose, so that surface was not a smaller version of the
+// editor — it was a worse tool wearing the same name. Rather than ship it, the
+// whole Pages section is compiled out of the Mac slice: `NomadSection` has no
+// `.pages` case there (see NomadNetContainerView), and PagesView.swift and
+// MicronPageEditorView.swift are `#if os(iOS)` in their entirety.
 //
-// What would close the gap, in increasing order of cost:
+// What would close the gap, in increasing order of cost — kept as the record of
+// what a Mac version would actually take, should anyone want to build one:
 //   1. Raise the macOS floor to 26 and use the attributed `TextEditor`
 //      (`Binding<AttributedString>`), which gives colouring — but still no
 //      gutter. Cheapest real improvement; blocked today by the macOS 14 floor.
@@ -35,39 +42,18 @@ import Runestone
 //      and Dynamic Type is a project of its own, and getting it *nearly* right
 //      is worse than not having it.
 //
-// The shape of the type is deliberate too: ONE concrete struct that switches in
-// `body`, not a protocol with two conformers. `body` is the sole call site and
-// already knows both concrete types, so an `associatedtype` would leak generics
-// into every screen that embeds an editor for zero benefit. Same pattern as
-// `platformImage` in Conversations/MessageThreadView.swift and the per-platform
-// branches throughout Design/RNSBrand.swift.
-
-/// A source editor for Micron (`.mu`) documents.
-///
-/// `tokens` is the lexer output for the *current* `text`. The view treats it as
-/// advisory decoration: ranges are clamped to the document before use, so a
-/// stale token array (one lex behind the keystroke) degrades to slightly wrong
-/// tints rather than a crash. Pass `[]` to disable tinting entirely.
-struct MicronSourceEditor: View {
-    @Binding var text: String
-    var tokens: [MicronToken] = []
-    var isEditable: Bool = true
-
-    var body: some View {
-        #if os(iOS)
-        RunestoneMicronEditor(text: $text, tokens: tokens, isEditable: isEditable)
-        #else
-        MacMicronEditor(text: $text, isEditable: isEditable)
-        #endif
-    }
-}
+// Either (2) or (3) is what "bring Pages to the Mac" means. Re-adding a bare
+// `TextEditor` is not.
 
 // MARK: - Tint roles
 //
-// Cross-platform on purpose: the *decision* about what deserves a tint is
-// design policy and is unit-testable without UIKit; only the colour it maps to
-// is platform-specific. Keeping the policy here means the Mac side can adopt it
-// later (see note 2 above) without re-deriving it.
+// Cross-platform on purpose, and this must stay that way: RetiOSTests builds for
+// both iOS and macOS (see project.yml) and MicronSourceEditorTests asserts over
+// these two symbols, so putting them behind `#if os(iOS)` breaks the Mac test
+// build. It is also the right split on the merits — the *decision* about what
+// deserves a tint is design policy and is unit-testable without UIKit; only the
+// colour it maps to is platform-specific. Keeping the policy here means a future
+// Mac editor (see note 2 above) can adopt it without re-deriving it.
 
 /// What a token means for the reader, for tinting purposes.
 ///
@@ -128,9 +114,15 @@ extension MicronTokenKind {
 
 #if os(iOS)
 
-// MARK: - iOS: Runestone
+// MARK: - The editor
 
-/// `UIViewRepresentable` over Runestone's `TextView`.
+/// A source editor for Micron (`.mu`) documents — a `UIViewRepresentable` over
+/// Runestone's `TextView`.
+///
+/// `tokens` is the lexer output for the *current* `text`. The view treats it as
+/// advisory decoration: ranges are clamped to the document before use, so a
+/// stale token array (one lex behind the keystroke) degrades to slightly wrong
+/// tints rather than a crash. Pass `[]` to disable tinting entirely.
 ///
 /// This is the first `*Representable` in RetiOS, so the lifecycle is spelled
 /// out rather than assumed:
@@ -148,10 +140,10 @@ extension MicronTokenKind {
 ///   `updateUIView(_:context:)` runs on every invalidation of the enclosing
 ///   view — which, for a bound `String`, means *every keystroke*. It must
 ///   therefore be cheap and, above all, idempotent.
-private struct RunestoneMicronEditor: UIViewRepresentable {
+struct MicronSourceEditor: UIViewRepresentable {
     @Binding var text: String
-    let tokens: [MicronToken]
-    let isEditable: Bool
+    var tokens: [MicronToken] = []
+    var isEditable: Bool = true
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text)
@@ -321,7 +313,7 @@ private struct RunestoneMicronEditor: UIViewRepresentable {
     }
 }
 
-// MARK: - iOS: token tints
+// MARK: - Token tints
 
 private enum MicronHighlight {
     /// Corner radius on the tint. Rounded rather than square because these
@@ -395,7 +387,7 @@ private enum MicronHighlight {
     }
 }
 
-// MARK: - iOS: theme
+// MARK: - Theme
 
 /// Runestone `Theme` wired to the RNS design tokens, so the editor sits in the
 /// app rather than next to it.
@@ -481,50 +473,6 @@ private final class MicronEditorTheme: Theme {
         @unknown default:
             return nil
         }
-    }
-}
-
-#else
-
-// MARK: - macOS: plain TextEditor
-
-/// The Mac editor. See the asymmetry note at the top of the file for why this
-/// is not a code editor.
-private struct MacMicronEditor: View {
-    @Binding var text: String
-    let isEditable: Bool
-
-    var body: some View {
-        Group {
-            if isEditable {
-                // `.plain` (macOS 14 / iOS 17, exactly the app's floor) strips
-                // the editor's own bezel and backing so the app's canvas shows
-                // through; `scrollContentBackground(.hidden)` covers the
-                // scroll view behind it. Without both, a read-only page sits in
-                // a sunken control-coloured well that reads as a disabled form
-                // field.
-                TextEditor(text: $text)
-                    .textEditorStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .font(.system(.body, design: .monospaced))
-                    .autocorrectionDisabled()
-            } else {
-                // Not `TextEditor(...).disabled(true)`. A disabled TextEditor
-                // dims its text *and* blocks selection, so a read-only source
-                // view could not be copied out of — the single most likely
-                // thing to want to do with one. A selectable `Text` is the
-                // honest read-only surface.
-                ScrollView([.vertical, .horizontal]) {
-                    Text(text)
-                        .font(.system(.body, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 12)
-                }
-            }
-        }
-        .background(Color.rnsCanvas)
     }
 }
 
