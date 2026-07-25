@@ -37,12 +37,11 @@ packages:
   # below, it is NOT destinationFilters-restricted and should compile for the
   # macOS destination too.
   #
-  # Local path for now, while iterating: switch to the tagged GitHub URL
-  # (mirroring the four in-house packages above) once the integration is
-  # verified end-to-end. See tree-sitter-micron/README.md for the grammar
-  # itself and its other editor integrations (VS Code, Zed, Vim, Neovim).
+  # See tree-sitter-micron/README.md for the grammar itself and its other
+  # editor integrations (VS Code, Zed, Vim, Neovim).
   TreeSitterMicron:
-    path: ../../micron-utils/tree-sitter-micron
+    url: https://github.com/SullivanPrell/tree-sitter-micron.git
+    from: 0.1.0
 
   # Source editor for the Micron page editor (Pages screen). UIKit-only — its
   # Package.swift declares `platforms: [.iOS(.v14)]` and its sources are

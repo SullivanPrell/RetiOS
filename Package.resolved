@@ -1,5 +1,5 @@
 {
-  "originHash" : "515cd6d2b648557758d6c2490fb76c002e33287a6b17be9c6f494595d9e1704f",
+  "originHash" : "a6bac9c60004ff1de87bd130f4cc127196a3cd3c82fab0797c5e58a57235a4b7",
   "pins" : [
     {
       "identity" : "lxmfswift",
@@ -53,6 +53,15 @@
       "state" : {
         "revision" : "98be227227af10cc7a269cb3ffb23686c0610b17",
         "version" : "0.20.9"
+      }
+    },
+    {
+      "identity" : "tree-sitter-micron",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SullivanPrell/tree-sitter-micron.git",
+      "state" : {
+        "revision" : "35fe426ca8a786f5619a4a2fc1717c36f7221520",
+        "version" : "0.1.0"
       }
     }
   ],
