@@ -3,7 +3,28 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
-## [Unreleased]
+## [0.3.8] — 2026-07-24
+
+### Added
+
+- **Real Tree-sitter syntax highlighting in the Pages (Micron) editor**,
+  replacing the previous tint-based approximation, via a new
+  `TreeSitterMicron` grammar package dependency. Also adds an announce entry
+  to the sidebar navigation.
+
+### Changed
+
+- **BLE mesh connection arbitration now compares a random per-session nonce
+  instead of the advertised device name** to decide which side of a pairing
+  dials out. The old scheme was fragile in two ways: a longer device name
+  could get silently dropped from the BLE advertisement entirely (CoreBluetooth
+  has almost no headroom left for a local name once the mesh's 128-bit service
+  UUID is also advertised), silently breaking the election; and a persistent
+  identifier — the tempting alternative — would have made a durable BLE
+  tracking fingerprint. A short, random, per-session value fixes the
+  byte-budget fragility without introducing one.
+
+## [0.3.7] — 2026-07-23
 
 ### Added
 
