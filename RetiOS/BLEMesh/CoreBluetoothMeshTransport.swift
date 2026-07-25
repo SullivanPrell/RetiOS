@@ -187,14 +187,95 @@ final class CoreBluetoothMeshTransport: NSObject {
     // CoreBluetooth went quiet — the same "an occasional redundant link
     // beats a permanent deadlock" trade-off `deferralTimeout` was already
     // built around.
-    private enum ConnectionDecision { case connect, `defer` }
+    //
+    // ATTEMPT #4 (current): election stopped comparing advertised *names*
+    // and switched to comparing a fixed-length random nonce instead. Two
+    // separate problems motivated this, on top of everything above:
+    //
+    //   1. The name-truncation failure mode (see ATTEMPT #1/#3) was never
+    //      actually fixed, only avoided by luck of which names happened to
+    //      be short enough — "sully-iphone" at 12 bytes was already past the
+    //      ~8-character ceiling this device's own headroom allows once the
+    //      128-bit service UUID is also advertised. Any user whose device
+    //      name (or a future longer default display name) doesn't fit
+    //      reintroduces the exact silent-drop-and-mismatch bug. A *fixed*
+    //      short length sized safely under that ceiling closes this off
+    //      structurally instead of hoping names stay short.
+    //   2. Interop with a from-scratch, non-Swift implementation of this
+    //      protocol (a real possibility raised in review — nothing about the
+    //      GATT scheme is Apple-specific) makes the risk worse, not just
+    //      persistent: a different BLE stack (WinRT, Android
+    //      `BluetoothLeAdvertiser`, BlueZ) builds and truncates its
+    //      advertisement payload differently, so two independently-written
+    //      implementations aren't even guaranteed to agree on how much name
+    //      headroom exists, let alone fall back identically when it's
+    //      exceeded.
+    //
+    // Deliberately a random per-session nonce, not a hash of the node's
+    // permanent Reticulum `Identity` — a stable identifier broadcast in the
+    // clear on every advertisement would be a durable tracking fingerprint
+    // (defeating BLE MAC randomization's entire purpose, since anyone
+    // passively scanning could correlate a specific identity's physical
+    // presence over time without ever connecting to it). The nonce never
+    // needed to carry meaning beyond breaking a tie, so a fresh random value
+    // per `start()` gets every property the old scheme needed — fixed
+    // length, deterministic symmetric comparison, negligible collision odds
+    // — with none of that cost.
+    //
+    // `CBAdvertisementDataLocalNameKey` remains the only place to put it:
+    // per Apple's documented behavior, `CBPeripheralManager.startAdvertising`
+    // on iOS accepts *only* `CBAdvertisementDataLocalNameKey` and
+    // `CBAdvertisementDataServiceUUIDsKey` — any other key (e.g. Service
+    // Data or Manufacturer Data, which would otherwise be the natural home
+    // for a compact binary payload) is rejected outright. So the nonce is
+    // hex-encoded and now *is* the advertised local name, in place of the
+    // human-readable display name the field used to carry — the display
+    // name is purely cosmetic now and never transmitted; peers show
+    // `peripheral.name` (the system-cached Bluetooth device name) in logs
+    // instead, exactly like the old code's foreign-peer fallback already
+    // did.
+    // `internal` (not `private`), like the two members below it, so
+    // `arbitrationDecision`'s return type is visible to `@testable import`.
+    enum ConnectionDecision: Equatable { case connect, `defer` }
+
+    /// Number of random bytes in the arbitration nonce, hex-encoded to
+    /// `2 * arbitrationNonceByteCount` characters for advertising. Six hex
+    /// characters matches "RetiOS" — a name already field-proven to survive
+    /// advertising intact alongside the 128-bit service UUID — rather than
+    /// pushing to the theoretical ~8-character ceiling with no margin left
+    /// for error.
+    private static let arbitrationNonceByteCount = 3
+
+    /// Generates this device's arbitration nonce for one meshing session —
+    /// see ATTEMPT #4 above for why a nonce replaced the advertised display
+    /// name. `internal` (not `private`) so it's directly unit-testable
+    /// without live CoreBluetooth.
+    static func makeArbitrationNonce() -> String {
+        (0..<arbitrationNonceByteCount)
+            .map { _ in String(format: "%02x", UInt8.random(in: .min ... .max)) }
+            .joined()
+    }
+
+    /// Pure comparison, no CoreBluetooth involved — directly unit-testable.
+    /// `ourNonce`/`peerNonce` are fixed-length lowercase-hex strings from
+    /// `makeArbitrationNonce()`. A missing peer nonce (a peer not running
+    /// this arbitration scheme) compares as the empty string, the smallest
+    /// possible value, so we always defer to it — this can't occur in
+    /// practice, since anything reaching this comparison already advertised
+    /// our exact custom service UUID to be discovered at all, but the
+    /// comparison still needs to resolve deterministically rather than
+    /// force-unwrapping.
+    static func arbitrationDecision(ourNonce: String, peerNonce: String) -> ConnectionDecision {
+        ourNonce < peerNonce ? .connect : .defer
+    }
 
     /// How long a deferring side waits for the winning peer to complete the
     /// connection before giving up and connecting itself anyway. Guards
     /// against a stuck mesh in the (rare) event the winning side's attempt
-    /// silently fails, both sides tie (identical advertised names — the one
-    /// case lexicographic comparison can't break), or only one side
-    /// understands arbitration — better an occasional redundant link (which
+    /// silently fails, both sides tie (identical nonces — vanishingly
+    /// unlikely at `arbitrationNonceByteCount` bytes, but the one case
+    /// comparison can't break), or only one side understands arbitration —
+    /// better an occasional redundant link (which
     /// `BLEMeshInterface`'s flood-and-suppress model absorbs for free, per
     /// its "Peer identity" doc comment) than two devices deadlocked forever
     /// each waiting on the other.
@@ -212,7 +293,7 @@ final class CoreBluetoothMeshTransport: NSObject {
     /// `connect` has no timeout of its own and can simply go silent forever.
     private static let connectTimeout: TimeInterval = 12
 
-    /// A peer whose election we lost (their advertised name sorted lower) —
+    /// A peer whose election we lost (their nonce sorted lower) —
     /// recorded so `recheckDeferrals` can self-heal if they never finish
     /// connecting to us within `deferralTimeout`. Carries the `CBPeripheral`
     /// (not just its identifier) because healing means dialing out
@@ -282,7 +363,7 @@ final class CoreBluetoothMeshTransport: NSObject {
     /// repeated `didDiscover` callbacks CoreBluetooth delivers while a
     /// peripheral remains in range.
     private var connectingPeripheralIDs: Set<UUID> = []
-    /// Peripherals we've yielded the connection to (their advertised name
+    /// Peripherals we've yielded the connection to (their nonce
     /// sorted lower, winning the election) — see `connectionDecision`,
     /// `recheckDeferrals`, and `DeferredPeer`'s doc comment.
     private var deferredPeripherals: [UUID: DeferredPeer] = [:]
@@ -294,7 +375,14 @@ final class CoreBluetoothMeshTransport: NSObject {
     private var central: CBCentralManager?
     private var peripheralManager: CBPeripheralManager?
     private let queue = DispatchQueue(label: "CoreBluetoothMeshTransport")
-    private let advertisedName: String
+    /// Cosmetic only — shown in this device's own log lines. Never
+    /// transmitted; see ATTEMPT #4 above for why the advertised local name
+    /// carries the arbitration nonce instead.
+    private let displayName: String
+    /// This session's arbitration key — see ATTEMPT #4 above. Generated
+    /// once per `init` (i.e. fresh every time `BLEMeshController.enable`
+    /// creates a new transport) and advertised verbatim as the local name.
+    private let arbitrationNonce: String = CoreBluetoothMeshTransport.makeArbitrationNonce()
 
     /// Periodic, `didDiscover`-independent liveness check for
     /// `deferredPeripherals` — see `recheckDeferrals` and ATTEMPT #3 above.
@@ -302,15 +390,13 @@ final class CoreBluetoothMeshTransport: NSObject {
 
     // MARK: - Init
 
-    /// - Parameter localName: advertised local name — shown to nearby peers
-    ///   exactly like `peripheral.name` surfaces in `RNodeScannerController`'s
-    ///   discovered-device list (here, in their `didDiscover` advertisement
-    ///   data, for any UI they choose to build on top of it). Also doubles as
-    ///   this device's connection-arbitration key — see "Connection
-    ///   arbitration" above for why piggybacking on it (rather than
-    ///   transmitting a dedicated ID) is what actually works.
+    /// - Parameter localName: this device's cosmetic display name, used only
+    ///   in its own log lines (e.g. "starting dual-role CoreBluetooth..."). No
+    ///   longer transmitted or used for arbitration — see ATTEMPT #4 above;
+    ///   peers instead see `peripheral.name`, the system-cached Bluetooth
+    ///   device name, in their own logs.
     init(localName: String) {
-        self.advertisedName = localName
+        self.displayName = localName
         super.init()
     }
 }
@@ -320,7 +406,7 @@ final class CoreBluetoothMeshTransport: NSObject {
 extension CoreBluetoothMeshTransport: BLEMeshTransport {
 
     func start() throws {
-        Reticulum.log("[BLEMesh] starting dual-role CoreBluetooth (advertising as \"\(advertisedName)\")", level: .info)
+        Reticulum.log("[BLEMesh] starting dual-role CoreBluetooth (display name \"\(displayName)\", arbitration nonce \(arbitrationNonce))", level: .info)
         central = CBCentralManager(delegate: self, queue: queue)
         peripheralManager = CBPeripheralManager(delegate: self, queue: queue)
 
@@ -546,19 +632,17 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
                         advertisementData: [String: Any],
                         rssi RSSI: NSNumber) {
         let peerID = peripheral.identifier.uuidString
-        // NOTE: deliberately *not* parsing any appended arbitration payload
-        // out of this — see "Connection arbitration" above for why anything
-        // beyond the plain advertised name doesn't survive the trip. If the
-        // custom local name didn't make it across (foreign/older peer, or a
-        // peripheral that simply never set one), `peripheral.name` — the
-        // system-cached Bluetooth device name — is the next best identity to
-        // log and arbitrate on; "unnamed" only as a last resort.
-        let peerDisplayName = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name ?? "unnamed"
+        // The advertised local name *is* the peer's arbitration nonce now —
+        // see ATTEMPT #4 above — never a human-readable name. For logging,
+        // `peripheral.name` (the system-cached Bluetooth device name) is the
+        // only identity left to show; "unnamed" only as a last resort.
+        let peerNonce = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? ""
+        let peerDisplayName = peripheral.name ?? "unnamed"
 
         lock.lock()
         let alreadyLinked = centralLinks[peerID] != nil
         let alreadyConnecting = connectingPeripheralIDs.contains(peripheral.identifier)
-        let decision = connectionDecision(for: peripheral, peerDisplayName: peerDisplayName)
+        let decision = connectionDecision(for: peripheral, peerNonce: peerNonce, peerDisplayName: peerDisplayName)
         if !alreadyLinked && !alreadyConnecting && decision == .connect {
             connectingPeripheralIDs.insert(peripheral.identifier)
             deferredPeripherals.removeValue(forKey: peripheral.identifier)
@@ -574,17 +658,17 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
             central.connect(peripheral, options: nil)
             scheduleConnectTimeout(for: peripheral)
         case .defer:
-            // Their name sorted lower and won the election for this pair —
+            // Their nonce sorted lower and won the election for this pair —
             // they'll connect to *us* (we're advertising + they're scanning
             // too). Logged at .info since this is the expected steady-state
             // for roughly half of all pairings, not an anomaly.
-            Reticulum.log("[BLEMesh] discovered peer \(Self.short(peerID))… (\"\(peerDisplayName)\", RSSI \(RSSI)) — yielding the connection to them (name sorts higher)", level: .info)
+            Reticulum.log("[BLEMesh] discovered peer \(Self.short(peerID))… (\"\(peerDisplayName)\", RSSI \(RSSI)) — yielding the connection to them (nonce sorts higher)", level: .info)
         }
     }
 
     /// Decides whether *we* should dial out to a newly discovered peer or
-    /// wait to be dialed — see "Connection arbitration" above. Must be
-    /// called with `lock` held; mutates `deferredPeripherals`.
+    /// wait to be dialed — see ATTEMPT #4 above. Must be called with `lock`
+    /// held; mutates `deferredPeripherals`.
     ///
     /// Note this no longer self-heals inline (ATTEMPT #2 did): that logic
     /// only ever ran when `didDiscover` fired again, which — per ATTEMPT
@@ -592,24 +676,24 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
     /// been reported under `allowDuplicates: false`. `recheckDeferrals`'
     /// timer now owns the self-heal exclusively, so a deferral recorded here
     /// is guaranteed to be revisited on a clock instead of a maybe-callback.
-    private func connectionDecision(for peripheral: CBPeripheral, peerDisplayName: String) -> ConnectionDecision {
+    private func connectionDecision(for peripheral: CBPeripheral, peerNonce: String, peerDisplayName: String) -> ConnectionDecision {
         let id = peripheral.identifier
+        let decision = Self.arbitrationDecision(ourNonce: arbitrationNonce, peerNonce: peerNonce)
 
-        // Our name sorts *strictly* lower — we win the election outright,
-        // dial out exactly like before arbitration existed. (Note this is
-        // deliberately asymmetric with the tie case below: exactly one side
-        // of any pair with distinct names satisfies this, and a tie must
-        // make *both* sides defer — see `deferralTimeout`'s doc comment for
-        // why "both connect" would be the one outcome to avoid.)
-        if advertisedName < peerDisplayName {
+        switch decision {
+        case .connect:
+            // Deliberately asymmetric with the tie case: exactly one side of
+            // any pair with distinct nonces gets `.connect` here, and a tie
+            // must make *both* sides defer — see `deferralTimeout`'s doc
+            // comment for why "both connect" would be the one outcome to
+            // avoid.
             deferredPeripherals.removeValue(forKey: id)
-            return .connect
+        case .defer:
+            if deferredPeripherals[id] == nil {
+                deferredPeripherals[id] = DeferredPeer(peripheral: peripheral, displayName: peerDisplayName, since: Date())
+            }
         }
-
-        if deferredPeripherals[id] == nil {
-            deferredPeripherals[id] = DeferredPeer(peripheral: peripheral, displayName: peerDisplayName, since: Date())
-        }
-        return .defer
+        return decision
     }
 
     /// Watchdog for a single `central.connect(_:)` attempt — see
@@ -853,10 +937,10 @@ extension CoreBluetoothMeshTransport: CBPeripheralManagerDelegate {
             Reticulum.log("[BLEMesh] failed to publish mesh service: \(error)", level: .error)
             return
         }
-        Reticulum.log("[BLEMesh] mesh service published — advertising as \"\(advertisedName)\"", level: .info)
+        Reticulum.log("[BLEMesh] mesh service published — advertising as \"\(displayName)\" (nonce \(arbitrationNonce))", level: .info)
         peripheral.startAdvertising([
             CBAdvertisementDataServiceUUIDsKey: [Self.meshSvcUUID],
-            CBAdvertisementDataLocalNameKey: advertisedName
+            CBAdvertisementDataLocalNameKey: arbitrationNonce
         ])
     }
 
