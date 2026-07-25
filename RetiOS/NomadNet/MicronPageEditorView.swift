@@ -67,10 +67,8 @@ struct MicronPageEditorView: View {
         }
     }
 
-    // Re-lexing and re-linting on every keystroke is fine at page scale — a
-    // Micron page is a document a human wrote, not a log file. Both passes are
-    // linear over the text.
-    private var tokens: [MicronToken] { MicronSyntax.tokens(in: text) }
+    // Re-linting on every keystroke is fine at page scale — a Micron page is a
+    // document a human wrote, not a log file. The pass is linear over the text.
     private var diagnostics: [MicronDiagnostic] { MicronLinter.diagnostics(in: text) }
 
     var body: some View {
@@ -152,7 +150,7 @@ struct MicronPageEditorView: View {
         VStack(spacing: 0) {
             // Read-only when the file could not be read, so an empty editor
             // cannot become an empty file.
-            MicronSourceEditor(text: $text, tokens: tokens, isEditable: !loadFailed)
+            MicronSourceEditor(text: $text, isEditable: !loadFailed)
             if loadFailed {
                 Label("This file could not be read as UTF-8 text and is shown empty. Editing is disabled so it is not overwritten.",
                       systemImage: "exclamationmark.triangle.fill")
