@@ -137,7 +137,11 @@ struct InterfacesView: View {
                 HStack {
                     Label("I2P Network", systemImage: "lock.shield")
                     Spacer()
-                    if stack.savedI2PConfig != nil {
+                    if stack.i2pRestartRequired {
+                        Label("Relaunch to apply", systemImage: "arrow.clockwise.circle.fill")
+                            .foregroundStyle(Color.rnsWarning)
+                            .font(.caption)
+                    } else if stack.savedI2PConfig != nil {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(Color.rnsSuccess)
                             .font(.caption)
@@ -491,6 +495,15 @@ struct I2PConfigSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                if stack.i2pRestartRequired {
+                    Section {
+                        Label("Saved. Quit and reopen RetiOS to apply these settings.",
+                              systemImage: "arrow.clockwise.circle.fill")
+                            .foregroundStyle(Color.rnsWarning)
+                    }
+                    .rnsRow()
+                }
+
                 configSection
                 peersSection
 
@@ -526,7 +539,7 @@ struct I2PConfigSheet: View {
         } header: {
             Text("Interface")
         } footer: {
-            Text("The embedded i2pd daemon starts automatically with Reticulum and provides an anonymous I2P tunnel. Add peer b32 addresses below to dial out — outbound connections are fully supported. Inbound accept is not yet implemented.")
+            Text("The embedded i2pd daemon starts automatically with Reticulum and provides an anonymous I2P tunnel. Add peer b32 addresses below to dial out — outbound connections are fully supported. Inbound accept is not yet implemented.\n\nChanges take effect the next time RetiOS starts: i2pd's router is set up once per launch and cannot be reconfigured while it runs.")
         }
         .rnsRow()
     }

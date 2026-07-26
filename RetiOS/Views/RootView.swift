@@ -215,22 +215,22 @@ private struct SidebarRootView: View {
     private var stackStatusBar: some View {
         ViewThatFits(in: .vertical) {
             VStack(alignment: .leading, spacing: 12) {
+                announceSection
                 ViewThatFits(in: .horizontal) {
                     statusRow(includeHash: true)
                     statusRow(includeHash: false)
                 }
-                announceSection
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    announceSection
                     ViewThatFits(in: .horizontal) {
                         statusRow(includeHash: true)
                         statusRow(includeHash: false)
                     }
-                    announceSection
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
