@@ -3,6 +3,48 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [0.3.9] — 2026-07-26
+
+### Changed
+
+- Package versions: ReticulumSwift 1.4.3 → **1.5.0**, LXMFSwift 1.1.4 → **1.2.0**,
+  LXSTSwift 1.1.4 → **1.2.0**. The I2P shutdown fix below depends on 1.5.0 — it
+  is the release that makes `I2PInterface.start()` fail loudly and refuses to
+  re-initialise i2pd's process-global router. Those releases also fix
+  multi-segment (>1 MB) resource transfers, which were broken end to end: large
+  NomadNet file fetches and large LXMF messages could not complete, and a split
+  request or response silently delivered only its last segment.
+- Sidebar status bar puts the announce controls above the status row, in both
+  layout branches.
+
+### Fixed
+
+- **Quitting on macOS crashed the app when I2P was configured.** RetiOS never
+  stopped the Reticulum stack: `StackController.tearDown()` had no callers, and
+  SwiftUI offers no termination hook, so ⌘Q went straight from
+  `-[NSApplication terminate:]` to `exit()`. That runs the C++ static
+  destructors of everything linked in — including the embedded i2pd's router
+  singletons — while a dozen i2pd threads were still using them, and one of them
+  reliably lost the race (`SIGSEGV` in `i2p::tunnel::Tunnels::ManagePendingTunnels`).
+  Beyond the crash report, i2pd never shut down cleanly, so its netDb went
+  unflushed and its leaseSets were left stale on the I2P network. There is now a
+  macOS application delegate that stops the stack before the process exits, off
+  the main thread so the quit doesn't beachball, with an 8-second deadline after
+  which the process leaves anyway. (iOS is unaffected — the system kills the app,
+  and a killed process runs no destructors.)
+- **I2P settings appeared to save but did nothing until the next launch.**
+  `saveI2PConfig` was documented as restarting the interface and only ever wrote
+  to `UserDefaults`. Restarting it in place is not actually possible — i2pd's
+  router is process-global and cannot be re-initialised once shut down — so the
+  behaviour stays, and the UI now says so: Interfaces ▸ I2P Network shows
+  "Relaunch to apply" after an edit, and the sheet explains why.
+- **A failed I2P start was silent.** It was invoked with `try?`, so the interface
+  stayed registered and looked live while nothing was connected. Failures are now
+  logged and the dead interface is deregistered.
+- **Removing the I2P interface froze the UI.** It stopped the interface inline on
+  the main thread, and stopping that one shuts down the whole embedded router.
+  The row now goes away immediately and i2pd shuts down in the background.
+
 ## [0.3.8] — 2026-07-24
 
 ### Added

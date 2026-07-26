@@ -1,9 +1,23 @@
 import SwiftUI
 import SwiftData
 import ReticulumSwift
+#if os(macOS)
+import AppKit
+#endif
 
 @main
 struct RetiOSApp: App {
+    // macOS quits by calling exit(), which runs the C++ static destructors of
+    // everything linked in — including the embedded i2pd's router singletons,
+    // while i2pd's own threads are still running on them. That race is a
+    // reproducible SIGSEGV on Quit (i2p::tunnel::Tunnels::Run reading a
+    // half-destroyed i2p::transport::transports). SwiftUI offers no termination
+    // hook of its own, so the shutdown lives in an NSApplicationDelegate.
+    // iOS needs no equivalent: the system SIGKILLs the app, and a killed
+    // process runs no destructors.
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor(MacAppDelegate.self) private var appDelegate
+    #endif
     // RNSLogStore is created first so it installs the log handler before bringUp().
     // @Observable model → owned with @State and shared via .environment (NOT
     // @StateObject/.environmentObject, which are the ObservableObject spelling).
@@ -96,6 +110,14 @@ struct RetiOSApp: App {
         WindowGroup {
             appEnvironment(RootView())
                 .task {
+                    #if os(macOS)
+                    // Before anything else: give the delegate the controller it
+                    // has to stop at Quit. Quitting earlier than this is safe —
+                    // nothing is running yet — and quitting *during* bringUp is
+                    // caught by I2PDaemon's own atexit backstop.
+                    appDelegate.stack = stack
+                    #endif
+
                     // Wire the notification manager to CallsController before
                     // bringing up the stack so no incoming calls are missed.
                     notifs.callsController = calls
@@ -231,3 +253,60 @@ struct RetiOSApp: App {
             .keyboardShortcut(key, modifiers: .command)
     }
 }
+
+// MARK: - macOS application delegate
+
+#if os(macOS)
+/// Exists for exactly one reason: to stop the Reticulum stack before the
+/// process exits.
+///
+/// `-[NSApplication terminate:]` ends in `exit()`, which runs every static
+/// destructor in the image. The embedded i2pd keeps its router (netDb,
+/// transports, tunnels) in dylib-scope C++ singletons served by a dozen of its
+/// own threads, so an exit that hasn't stopped i2pd first destroys those
+/// singletons *underneath* live threads — a use-after-destruction that shows up
+/// as a SIGSEGV in `i2p::tunnel::Tunnels::Run` on the way out. Stopping the
+/// stack first (`Reticulum.stop()` → `I2PInterface.stop()` → `C_StopI2P`) joins
+/// those threads while they're still healthy, and also lets i2pd flush its netDb
+/// and drop its leaseSets instead of leaving them stale on the I2P network.
+@MainActor
+final class MacAppDelegate: NSObject, NSApplicationDelegate {
+
+    /// Wired up by `RetiOSApp` when the scene appears. Weak: the controller is
+    /// owned by the `App`, and a delegate outliving it should not keep the whole
+    /// stack alive.
+    weak var stack: StackController?
+
+    /// How long a graceful stop gets before the process leaves anyway.
+    ///
+    /// The stop is bounded work (join i2pd's threads, write netDb, flush the
+    /// path table), but "bounded" is not "quick" on a cold disk, and no amount
+    /// of it justifies an app that won't quit.
+    private static let teardownDeadline: DispatchTimeInterval = .seconds(8)
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let work = stack?.beginTearDown() else { return .terminateNow }
+
+        // The deadline runs on its own queue and calls `_exit` directly, rather
+        // than being a main-queue timer that asks AppKit nicely: the case it
+        // exists for is precisely the one where the graceful path is wedged.
+        // `_exit` skips atexit handlers and static destructors, so the crash
+        // this whole delegate is here to prevent is unreachable from it too.
+        let deadline = DispatchWorkItem {
+            Reticulum.log("MacAppDelegate: stack shutdown exceeded its deadline — exiting anyway", level: .error)
+            _exit(0)
+        }
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + Self.teardownDeadline,
+                                                             execute: deadline)
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            work()
+            deadline.cancel()
+            DispatchQueue.main.async {
+                NSApp.reply(toApplicationShouldTerminate: true)
+            }
+        }
+        return .terminateLater
+    }
+}
+#endif

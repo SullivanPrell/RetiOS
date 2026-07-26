@@ -53,7 +53,8 @@ final class StackController {
     }
 
     /// Configuration for an I2P interface that survives app restarts.
-    struct SavedI2PConfig: Codable {
+    /// `Equatable` so `saveI2PConfig(_:)` can tell a real edit from a re-save.
+    struct SavedI2PConfig: Codable, Equatable {
         var name: String
         /// b32 peer addresses (e.g. "abc123…xyz.b32.i2p")
         var peers: [String]
@@ -93,6 +94,11 @@ final class StackController {
     private(set) var savedInterfaces: [SavedInterface] = []
     /// Saved I2P configuration (one I2PInterface, multiple peers).
     private(set) var savedI2PConfig: SavedI2PConfig?
+    /// `true` when the saved I2P config no longer matches what is running, and
+    /// only a relaunch can reconcile them. See `saveI2PConfig(_:)` for why the
+    /// interface can't just be restarted in place. Never persisted: a launch
+    /// applies whatever is saved, so it is false by construction at startup.
+    private(set) var i2pRestartRequired = false
     /// Saved Yggdrasil node preferences (system-VPN packet tunnel).
     private(set) var savedYggdrasilConfig: SavedYggdrasilConfig?
     /// Drives the Yggdrasil packet-tunnel extension and exposes live node status.
@@ -279,8 +285,17 @@ final class StackController {
                                             connectable: i2pConfig.connectable,
                                             peers: i2pConfig.peers)
                 stack.transport.register(interface: i2pIface)
-                try? i2pIface.start()
-                Reticulum.log("StackController: restored I2P interface '\(i2pConfig.name)' with \(i2pConfig.peers.count) peer(s)", level: .notice)
+                // Not `try?`: starting the daemon can now fail for a reason
+                // worth reading — i2pd's globals are process-wide and can't be
+                // re-initialised once shut down — and a silent failure here
+                // looks exactly like a peer that won't connect.
+                do {
+                    try i2pIface.start()
+                    Reticulum.log("StackController: restored I2P interface '\(i2pConfig.name)' with \(i2pConfig.peers.count) peer(s)", level: .notice)
+                } catch {
+                    stack.transport.deregister(interface: i2pIface)
+                    Reticulum.log("StackController: I2P interface '\(i2pConfig.name)' failed to start: \(error)", level: .error)
+                }
             }
             #endif
 
@@ -428,20 +443,52 @@ final class StackController {
 
     // MARK: - I2P interface persistence
 
-    /// Save (or replace) the I2P configuration and restart the I2P interface if the stack is running.
+    /// Save (or replace) the I2P configuration. Takes effect at the next launch.
+    ///
+    /// The absence of a live restart here is deliberate, not an oversight: i2pd's
+    /// router is a set of process-global singletons, and `C_TerminateI2P` — which
+    /// stopping the interface has to call — leaves them unusable for the rest of
+    /// the process (`I2PDaemon` documents the constraint and now refuses the
+    /// re-init outright rather than corrupting them). So a swap in place could
+    /// only ever tear the old daemon down and fail to bring a new one up.
+    /// `i2pRestartRequired` exists so the UI can say that plainly instead of the
+    /// user watching an edit apparently do nothing.
     func saveI2PConfig(_ config: SavedI2PConfig) {
+        let changed = config != savedI2PConfig
         savedI2PConfig = config
         if let data = try? JSONEncoder().encode(config) {
             UserDefaults.standard.set(data, forKey: Self.savedI2PConfigKey)
         }
+        // Only nag when the edit really is stranded. Before bring-up there is
+        // nothing to reconcile — `bringUp()` reads the saved config on its way
+        // past — and re-saving identical settings changes nothing either way.
+        if changed && isRunning {
+            i2pRestartRequired = true
+        }
     }
 
     /// Remove the persisted I2P config and halt the running I2P interface (if any).
+    ///
+    /// Halting it terminates the embedded i2pd for the lifetime of the process
+    /// (see `saveI2PConfig(_:)`), so I2P stays gone until relaunch even if a new
+    /// config is added afterwards — `saveI2PConfig(_:)` flags that case.
     func removeI2PConfig() {
         let ifaceName = savedI2PConfig?.name ?? "I2P"
         savedI2PConfig = nil
         UserDefaults.standard.removeObject(forKey: Self.savedI2PConfigKey)
-        deregisterLiveInterface(named: ifaceName)
+        i2pRestartRequired = false
+
+        // Deliberately not `deregisterLiveInterface(named:)`, which stops the
+        // interface inline. Stopping this one shuts down the embedded i2pd —
+        // joining its router threads and flushing its netDb — which is far too
+        // slow to run while the user is looking at the list. Deregister first so
+        // the row disappears and Transport stops routing to it, then let the
+        // shutdown finish in the background.
+        guard let transport,
+              let iface = transport.interfaces.first(where: { $0.name == ifaceName }) else { return }
+        transport.deregister(interface: iface)
+        interfacesRevision &+= 1
+        DispatchQueue.global(qos: .userInitiated).async { iface.stop() }
     }
 
     private func loadSavedI2PConfig() {
@@ -641,10 +688,39 @@ final class StackController {
 
     // MARK: - Lifecycle
 
+    /// Tear the stack down and block until it is down.
+    /// Callers that must not block the main thread want `beginTearDown()`.
     func tearDown() {
-        reticulum?.stop()
-        isRunning = false
+        beginTearDown()?()
     }
+
+    /// Begin an orderly shutdown, handing back the blocking half of it.
+    ///
+    /// Split in two because the two halves belong on different threads.
+    /// Flipping the UI state is main-actor work; `Reticulum.stop()` is not — it
+    /// stops every registered interface and flushes paths, ratchets, known
+    /// destinations and the packet hashlist to disk, and for the embedded i2pd
+    /// it also joins i2pd's own router threads and writes out its netDb. That is
+    /// comfortably long enough to beachball a Quit, so the returned closure is
+    /// meant to run off the main thread while the caller waits asynchronously.
+    ///
+    /// Returns `nil` when there is nothing to stop, or when a teardown is
+    /// already under way — calling it twice must not run the stop twice.
+    ///
+    /// Skipping this entirely is what produced the macOS quit crash: `exit()`
+    /// destroys the embedded i2pd's C++ globals while its worker threads are
+    /// still running, and one of them segfaults on the way down.
+    @discardableResult
+    func beginTearDown() -> (() -> Void)? {
+        guard !isTearingDown, let rns = reticulum else { return nil }
+        isTearingDown = true
+        isRunning = false
+        return { rns.stop() }
+    }
+
+    /// Guards `beginTearDown()` against a second call (quit → cancel → quit, or
+    /// a test calling `tearDown()` after the app delegate already has).
+    @ObservationIgnored private var isTearingDown = false
 
     /// Set or clear the LXMF outbound propagation node.
     /// Pass a 32-character hex string to configure a node, or `nil` to clear.
