@@ -3,6 +3,39 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [0.4.0] — 2026-07-29
+
+### Fixed
+
+- **The app did not reconnect to the mesh after the laptop slept.** Reported
+  against 0.3.9, and fixed in the library: ReticulumSwift set no TCP keepalive on
+  the interfaces it dials, because `NWConnection`'s defaults have it off where
+  Python RNS sets `SO_KEEPALIVE` plus the probe timers on every socket it opens.
+  A peer that vanished *without sending FIN* — the laptop-sleep case, and equally
+  a NAT dropping its mapping — therefore left the connection `.ready` forever: no
+  event fired, the interface kept reporting "Up", and everything sent through it
+  was silently discarded. `TCPClientInterface` also had no reconnect at all, so
+  even a clean disconnect took the interface permanently offline with nothing in
+  the log.
+
+- **Configured TCP interfaces were invisible in status output.** Every
+  `TCPClientInterface` named itself with the form Python reserves for a
+  server-spawned sub-interface, which `rnstatus` deliberately hides — so
+  interfaces that were online and passing traffic did not appear in any status
+  report, in either implementation. Fixing the name also aligns `Interface.hash`
+  (which is `fullHash` of the display name) with a Python daemon on the same
+  network.
+
+Both are ReticulumSwift `bugs/013`, along with four more found alongside them:
+the utilities ignoring `$HOME`, `UDPInterface` hardcoding `0.0.0.0` instead of
+its configured `listen_ip`, a spawned client publishing a non-RNS type name, and
+a half-decoded HDLC frame surviving into a reconnected session.
+
+### Changed
+
+- Package versions: ReticulumSwift 1.5.0 → **1.7.0**. That also brings in 1.6.0,
+  which added the nine `rn*` command-line utilities to the library.
+
 ## [0.3.9] — 2026-07-26
 
 ### Changed
