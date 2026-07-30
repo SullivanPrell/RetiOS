@@ -300,17 +300,33 @@ private struct ComposeBar: View {
 
 // MARK: - Delivery icon
 
+/// The message's real transport state, which since `bugs/014` is a claim the network actually
+/// backed rather than one made the instant `send()` returned.
+///
+/// `.delivered` now means the recipient proved receipt. `.sending` means in flight and not yet
+/// proved — a state a message can legitimately sit in for a while. `.outbound` means queued,
+/// including after a delivery timeout returned it for another attempt, and is deliberately
+/// distinguished from `.sending`: a retry the user cannot see reads as a message that silently
+/// stopped moving.
 private func deliveryIcon(state: Int16) -> some View {
     Group {
         switch state {
-        case 0x08: // delivered
+        case 0x08: // delivered — the recipient proved it
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(Color.rnsSuccess)
                 .accessibilityLabel("Delivered")
-        case 0x04: // sent
+        case 0x04: // sent (opportunistic: handed off, no proof possible)
             Image(systemName: "checkmark")
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("Sent")
+        case 0x02: // sending — in flight, awaiting the recipient's proof
+            Image(systemName: "arrow.up.circle")
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Sending")
+        case 0x01: // outbound — queued, or returned here by a delivery timeout
+            Image(systemName: "clock.arrow.circlepath")
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Queued for delivery")
         case 0xFF: // failed
             Image(systemName: "exclamationmark.circle")
                 .foregroundStyle(Color.rnsError)
@@ -318,7 +334,7 @@ private func deliveryIcon(state: Int16) -> some View {
         default:
             Image(systemName: "clock")
                 .foregroundStyle(.secondary)
-                .accessibilityLabel("Sending")
+                .accessibilityLabel("Pending")
         }
     }
     .font(.caption2)

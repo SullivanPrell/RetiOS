@@ -3,6 +3,27 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [Unreleased] — 0.5.0
+
+### Changed — behaviour you will notice
+
+- **A message is marked delivered only when the recipient's device proves it
+  received it.** Until now the checkmark appeared the instant the message was
+  handed to the network — before anything had left the device, and regardless of
+  whether it ever arrived. A message dropped by the very next hop showed as
+  delivered, and the recipient never saw it.
+
+  What changes on screen: messages now sit in a "sending" state for as long as
+  the network actually takes, and the checkmark means the message genuinely
+  arrived. On a slow or lossy link that wait can be several seconds. If no proof
+  comes back the message is returned to the queue and retried, which is now shown
+  (a "queued for delivery" clock) rather than being invisible.
+
+  **This will read as a regression if you are not expecting it** — messages that
+  used to be confirmed instantly are not. The old confirmation was not telling
+  you anything: it reported success it had not achieved. ReticulumSwift
+  `bugs/014`.
+
 ## [0.4.0] — 2026-07-29
 
 ### Fixed

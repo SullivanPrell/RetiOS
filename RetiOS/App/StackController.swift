@@ -882,10 +882,21 @@ final class StackController {
         context.insert(entity)
         try? context.save()
 
-        msg.onDelivery = { [weak self] delivered in
+        // Every transition, not just the terminal one.
+        //
+        // Delivery is proof-gated as of ReticulumSwift 1.8.0 / `bugs/014`: a message dwells in
+        // `.sending` for as long as the network actually takes, and drops back to `.outbound`
+        // when a proof does not come back, to be retried. Wired only to `onDelivery`, the UI
+        // showed a clock that never changed and a retry that was invisible — the message simply
+        // stopped moving with no explanation.
+        //
+        // Previously `onDelivery` fired synchronously from `send()`, so the checkmark appeared
+        // instantly and always, whether or not anyone received the message. That is the
+        // behaviour change users will notice, and it is the point (R3).
+        msg.onStateChange = { [weak self] message in
             Task { @MainActor [weak self] in
                 self?.updateDeliveryState(messageHash: msgHashStr,
-                                          state: delivered.state,
+                                          state: message.state,
                                           context: context)
             }
         }
