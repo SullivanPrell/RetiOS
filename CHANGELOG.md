@@ -3,7 +3,21 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
-## [Unreleased] — 0.5.0
+## [0.5.0] — proof-gated delivery, and the packages that make it true
+
+### Changed — under the hood
+
+- **ReticulumSwift 1.8.0 and LXMFSwift 1.3.0.** Between them they close thirteen
+  defects found by the 2026-07-29 audit and while fixing it, including three that
+  affected this app directly: paper messages (the QR share sheet) carried the
+  message in cleartext; a link whose MTU had been negotiated upward could not send
+  any packet at all, so large NomadNet pages never loaded; and a crash during
+  ordinary link teardown could take the app down with it.
+
+- **Interface identity.** The stack now routes by the interface object rather than
+  its name. Saved paths whose interface identity changed are dropped on first
+  launch after upgrading and relearned from announces — expect the first minute on
+  a new build to rediscover peers.
 
 ### Changed — behaviour you will notice
 
