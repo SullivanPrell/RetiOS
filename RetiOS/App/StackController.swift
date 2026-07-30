@@ -35,20 +35,51 @@ final class StackController {
         let port: UInt16
         var kind: SavedInterfaceKind = .tcp
 
-        init(name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp) {
+        /// IFAC segment credentials, matching a config file's `network_name` and `passphrase`.
+        ///
+        /// An interface on an IFAC-protected segment without them comes up, reports Up, and passes
+        /// nothing: every frame it sends is unflagged and dropped by the peer, and every frame it
+        /// receives is flagged and dropped locally. RetiOS builds its interfaces in code rather
+        /// than from a config file, so `bugs/015`'s fix in `synthesizeInterfaces` does not reach
+        /// them — these carry the same two values to the same entry point.
+        var networkName: String?
+        var passphrase: String?
+
+        init(name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp,
+             networkName: String? = nil, passphrase: String? = nil) {
             self.name = name
             self.host = host
             self.port = port
             self.kind = kind
+            self.networkName = networkName
+            self.passphrase = passphrase
         }
 
-        enum CodingKeys: String, CodingKey { case name, host, port, kind }
+        enum CodingKeys: String, CodingKey {
+            case name, host, port, kind, networkName, passphrase
+        }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             name = try c.decode(String.self, forKey: .name)
             host = try c.decode(String.self, forKey: .host)
             port = try c.decode(UInt16.self, forKey: .port)
             kind = try c.decodeIfPresent(SavedInterfaceKind.self, forKey: .kind) ?? .tcp
+            // Absent in interfaces saved before this release — decoded as nil, which is "no IFAC".
+            networkName = try c.decodeIfPresent(String.self, forKey: .networkName)
+            passphrase = try c.decodeIfPresent(String.self, forKey: .passphrase)
+        }
+
+        /// The two keys as a config block, so IFAC is installed through the same entry point
+        /// `Reticulum.synthesizeInterfaces` uses rather than by a second derivation here.
+        var ifacConfigBlock: ReticulumConfig.InterfaceConfig {
+            var parameters: [String: String] = [:]
+            if let networkName, !networkName.isEmpty { parameters["network_name"] = networkName }
+            if let passphrase, !passphrase.isEmpty { parameters["passphrase"] = passphrase }
+            return ReticulumConfig.InterfaceConfig(name: name,
+                                                  type: kind == .backbone ? "BackboneInterface"
+                                                                          : "TCPClientInterface",
+                                                  enabled: true,
+                                                  parameters: parameters)
         }
     }
 
@@ -267,6 +298,10 @@ final class StackController {
                 case .backbone:
                     iface = BackboneInterface(name: saved.name, host: saved.host, port: saved.port)
                 }
+                // Before register/start, matching `Reticulum.py:975`: the IFAC key has to be
+                // installed before the first frame moves, or this interface's opening announce
+                // goes out unprotected and the peer drops it (`bugs/015`).
+                Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
                 stack.transport.register(interface: iface)
                 try? iface.start()
                 Reticulum.log("StackController: restored saved interface '\(saved.name)'", level: .notice)
@@ -396,11 +431,13 @@ final class StackController {
     // MARK: - Interface persistence
 
     /// Persist a user-added client interface so it is restored next launch.
-    func saveInterface(name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp) {
+    func saveInterface(name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp,
+                       networkName: String? = nil, passphrase: String? = nil) {
         // Single assignment avoids two separate objectWillChange notifications.
         var updated = savedInterfaces
         updated.removeAll { $0.name == name }
-        updated.append(SavedInterface(name: name, host: host, port: port, kind: kind))
+        updated.append(SavedInterface(name: name, host: host, port: port, kind: kind,
+                                      networkName: networkName, passphrase: passphrase))
         savedInterfaces = updated
         persistSavedInterfaces()
     }
@@ -408,7 +445,8 @@ final class StackController {
     /// Register and start a client interface of the given kind immediately,
     /// then persist it for restoration on next launch. Used by both the
     /// manual "Add TCP Gateway" sheet and the public-directory quick-add.
-    func addAndSaveInterface(name: String, host: String, port: UInt16, kind: SavedInterfaceKind) throws {
+    func addAndSaveInterface(name: String, host: String, port: UInt16, kind: SavedInterfaceKind,
+                             networkName: String? = nil, passphrase: String? = nil) throws {
         guard let transport else {
             throw StackError.notRunning
         }
@@ -421,11 +459,16 @@ final class StackController {
         case .backbone:
             iface = BackboneInterface(name: name, host: normalizedHost, port: port)
         }
+        // Before register/start — see the restore path above and `bugs/015`.
+        let saved = SavedInterface(name: name, host: normalizedHost, port: port, kind: kind,
+                                   networkName: networkName, passphrase: passphrase)
+        Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
         transport.register(interface: iface)
         interfacesRevision &+= 1
         do {
             try iface.start()
-            saveInterface(name: name, host: normalizedHost, port: port, kind: kind)
+            saveInterface(name: name, host: normalizedHost, port: port, kind: kind,
+                          networkName: networkName, passphrase: passphrase)
         } catch {
             transport.halt(interfaceName: name)
             throw error

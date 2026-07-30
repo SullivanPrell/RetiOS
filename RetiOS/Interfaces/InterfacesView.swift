@@ -370,6 +370,8 @@ struct AddInterfaceSheet: View {
     @State private var host = ""
     @State private var port: String
     @State private var name: String
+    @State private var networkName = ""
+    @State private var passphrase = ""
     @State private var errorMessage: String?
     @FocusState private var portFocused: Bool
 
@@ -409,6 +411,25 @@ struct AddInterfaceSheet: View {
                     } else {
                         Text(mode.footerText)
                     }
+                }
+                .rnsRow()
+
+                // IFAC — the segment credentials. Optional, and left blank for the public
+                // network. An interface on an IFAC-protected segment *without* them comes up,
+                // reports Up and passes nothing, so the fields exist rather than the setting
+                // being unreachable from the app.
+                Section {
+                    TextField("Network name", text: $networkName,
+                              prompt: Text("optional, e.g. internal_1"))
+                        .autocorrectionDisabled()
+                        .rnsNoAutocapitalization()
+                    SecureField("Passphrase", text: $passphrase, prompt: Text("optional"))
+                } header: {
+                    Text("Interface Access Code")
+                } footer: {
+                    Text("Set both to join an IFAC-protected segment. They must match the "
+                         + "`network_name` and `passphrase` on the peer exactly. Leave blank for "
+                         + "the public network.")
                 }
                 .rnsRow()
 
@@ -466,13 +487,25 @@ struct AddInterfaceSheet: View {
         case .tcp, .yggdrasil:
             iface = TCPClientInterface(name: trimName, host: trimHost, port: portNum)
         }
+
+        let trimNetwork = networkName.trimmingCharacters(in: .whitespaces)
+        let trimPassphrase = passphrase.trimmingCharacters(in: .whitespaces)
+        // Before register/start, so the key is installed before the interface's opening announce
+        // — see `bugs/015` and `Reticulum.py:975`.
+        let saved = StackController.SavedInterface(
+            name: trimName, host: trimHost, port: portNum, kind: mode.savedKind,
+            networkName: trimNetwork.isEmpty ? nil : trimNetwork,
+            passphrase: trimPassphrase.isEmpty ? nil : trimPassphrase)
+        Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
+
         // Via the controller (not `transport` directly) so the Interfaces list,
         // which has no way to observe `Transport`, is invalidated. See
         // `StackController.interfacesRevision`.
         stack.registerLiveInterface(iface)
         do {
             try iface.start()
-            stack.saveInterface(name: trimName, host: trimHost, port: portNum, kind: mode.savedKind)
+            stack.saveInterface(name: trimName, host: trimHost, port: portNum, kind: mode.savedKind,
+                                networkName: saved.networkName, passphrase: saved.passphrase)
             dismiss()
         } catch {
             transport.halt(interfaceName: trimName)
