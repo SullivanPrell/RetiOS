@@ -3,6 +3,41 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [0.5.0] — proof-gated delivery, and the packages that make it true
+
+### Changed — under the hood
+
+- **ReticulumSwift 1.8.0 and LXMFSwift 1.3.0.** Between them they close thirteen
+  defects found by the 2026-07-29 audit and while fixing it, including three that
+  affected this app directly: paper messages (the QR share sheet) carried the
+  message in cleartext; a link whose MTU had been negotiated upward could not send
+  any packet at all, so large NomadNet pages never loaded; and a crash during
+  ordinary link teardown could take the app down with it.
+
+- **Interface identity.** The stack now routes by the interface object rather than
+  its name. Saved paths whose interface identity changed are dropped on first
+  launch after upgrading and relearned from announces — expect the first minute on
+  a new build to rediscover peers.
+
+### Changed — behaviour you will notice
+
+- **A message is marked delivered only when the recipient's device proves it
+  received it.** Until now the checkmark appeared the instant the message was
+  handed to the network — before anything had left the device, and regardless of
+  whether it ever arrived. A message dropped by the very next hop showed as
+  delivered, and the recipient never saw it.
+
+  What changes on screen: messages now sit in a "sending" state for as long as
+  the network actually takes, and the checkmark means the message genuinely
+  arrived. On a slow or lossy link that wait can be several seconds. If no proof
+  comes back the message is returned to the queue and retried, which is now shown
+  (a "queued for delivery" clock) rather than being invisible.
+
+  **This will read as a regression if you are not expecting it** — messages that
+  used to be confirmed instantly are not. The old confirmation was not telling
+  you anything: it reported success it had not achieved. ReticulumSwift
+  `bugs/014`.
+
 ## [0.4.0] — 2026-07-29
 
 ### Fixed
