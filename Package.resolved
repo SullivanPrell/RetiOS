@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SullivanPrell/NomadNetSwift.git",
       "state" : {
-        "revision" : "9a0f4cfdf9f991fe720b68add0856f9ea6aa1907",
-        "version" : "1.1.3"
+        "revision" : "45f78f3a6ad53e2e967ba568770de92be670fbbb",
+        "version" : "1.2.0"
       }
     },
     {
