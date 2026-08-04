@@ -22,7 +22,7 @@ options:
 packages:
   ReticulumSwift:
     url: https://github.com/SullivanPrell/ReticulumSwift.git
-    from: 1.10.1
+    from: 1.10.2
   LXMFSwift:
     url: https://github.com/SullivanPrell/LXMFSwift.git
     from: 1.7.0
