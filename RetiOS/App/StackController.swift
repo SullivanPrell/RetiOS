@@ -807,12 +807,33 @@ final class StackController {
         propagationSyncProgress = 0
     }
 
-    /// Mirror the router's (non-observable) transfer state into /// properties twice a second until the sync reaches a terminal state.
+    /// App-side deadline for a propagation sync poll. Deliberately above the library's own
+    /// stall net (`LXMRouter.cleanLinks(syncStallTimeout:)`, 240 s), so the library gets to
+    /// report the failure it detects and this deadline only fires when the library's
+    /// protections did not (`swift_devel/bugs/020`, design D5: a caller that can only stop
+    /// when its callee behaves is the same class of fault, one level up).
+    static let syncPollTimeout: TimeInterval = 300
+
+    /// Whether the sync poll task is live. For the test target, which must be able to assert
+    /// the loop *exited* rather than merely published a state.
+    var isSyncPolling: Bool { syncPollTask != nil }
+
     private func startSyncPolling() {
+        guard let router = lxmfRouter else { return }
+        startSyncPolling(router: router, timeout: Self.syncPollTimeout)
+    }
+
+    /// Mirror the router's (non-observable) transfer state into observable properties twice a
+    /// second until the sync reaches a terminal state — or until `timeout`, after which the
+    /// underlying request is cancelled and the sync is reported failed. The parameters exist so
+    /// a test can drive the loop against a router that never terminates without waiting out the
+    /// production bound.
+    func startSyncPolling(router: LXMRouter, timeout: TimeInterval) {
         syncPollTask?.cancel()
+        let deadline = Date().addingTimeInterval(timeout)
         syncPollTask = Task { [weak self] in
             while !Task.isCancelled {
-                guard let self, let router = self.lxmfRouter else { return }
+                guard let self else { return }
                 // Assign only on change: notifies on every assignment,
                 // equal or not, so writing both unconditionally invalidated every
                 // observing view twice a second for the whole sync.
@@ -821,10 +842,21 @@ final class StackController {
                 if self.propagationSyncState != state { self.propagationSyncState = state }
                 if self.propagationSyncProgress != progress { self.propagationSyncProgress = progress }
                 if state == .done || state == .failed {
+                    self.syncPollTask = nil
+                    return
+                }
+                if Date() >= deadline {
+                    // The library never reached a terminal state. Stop its work as a user
+                    // cancel would, but report the truth: this sync did not complete.
+                    router.cancelPropagationNodeRequests()
+                    self.propagationSyncState = .failed
+                    self.syncPollTask = nil
                     return
                 }
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
+            // Cancelled from outside: whoever cancelled owns `syncPollTask` — a replacement
+            // poll may already be in the slot, so this task must not touch it.
         }
     }
 
