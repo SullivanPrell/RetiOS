@@ -23,6 +23,16 @@ final class BLERNodeTransport: NSObject {
     // RNodeTransport requirement
     var byteHandler: ((Data) -> Void)?
 
+    /// RNodeTransport requirement: the interface's device-loss surface.
+    ///
+    /// Required by the protocol rather than defaulted, because a transport that cannot report
+    /// loss leaves its interface Up over a dead radio forever (`bugs/058`). CoreBluetooth
+    /// already delivers the signal — a write attempted on a disconnected peripheral, or a
+    /// notify that fails — so this is a matter of forwarding what the framework says instead of
+    /// dropping it. `RNodeInterface` reacts by going offline and redialling, which is what the
+    /// scanner previously did by hand for disconnects it happened to observe.
+    var onTransportError: ((Error) -> Void)?
+
     private let peripheral: CBPeripheral
     private let txChar: CBCharacteristic  // notify: RNode → phone
     private let rxChar: CBCharacteristic  // write:  phone → RNode
@@ -58,7 +68,9 @@ extension BLERNodeTransport: RNodeTransport {
     /// write each chunk without response for maximum throughput.
     func write(_ data: Data) throws {
         guard peripheral.state == .connected else {
-            throw BLETransportError.notConnected
+            let error = BLETransportError.notConnected
+            onTransportError?(error)
+            throw error
         }
         writeQueue.sync {
             let mtu = self.peripheral.maximumWriteValueLength(for: .withoutResponse)
@@ -90,6 +102,20 @@ extension BLERNodeTransport: CBPeripheralDelegate {
                     error: Error?) {
         if let err = error {
             Reticulum.log("[BLERNodeTransport] notify enable failed: \(err)", level: .error)
+            // Without the notify subscription the radio can never deliver a byte, so this is
+            // device loss even though the connection is nominally up.
+            onTransportError?(err)
+        }
+    }
+
+    /// The peripheral told us a characteristic write failed. On a link that has gone away
+    /// CoreBluetooth reports it here rather than by throwing from `writeValue`.
+    func peripheral(_ peripheral: CBPeripheral,
+                    didWriteValueFor characteristic: CBCharacteristic,
+                    error: Error?) {
+        if let err = error {
+            Reticulum.log("[BLERNodeTransport] write failed: \(err)", level: .error)
+            onTransportError?(err)
         }
     }
 }
