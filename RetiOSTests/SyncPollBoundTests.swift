@@ -52,15 +52,15 @@ final class SyncPollBoundTests: XCTestCase {
     }
 
     func testTheBoundOutlivesTheLibrarysOwnStallNet() {
-        // 240 is `LXMRouter.propagationSyncStallTimeout`, hard-coded because the pinned
-        // LXMFSwift (1.6.0) predates the symbol. When the pin reaches 1.7.0, replace the
-        // literal with the constant so the two cannot drift.
-        XCTAssertGreaterThan(StackController.syncPollTimeout, 240,
+        XCTAssertGreaterThan(StackController.syncPollTimeout,
+                             LXMRouter.propagationSyncStallTimeout,
                              """
                              the app's bound must sit above the library's stall net \
-                             (`cleanLinks(syncStallTimeout:)`, 240 s), so the library gets to \
-                             report the failure it detects and the app's deadline only fires \
-                             when the library's own protections did not
+                             (`cleanLinks(syncStallTimeout:)`), so the library gets to report \
+                             the failure it detects and the app's deadline only fires when the \
+                             library's own protections did not. Compared against the library's \
+                             own constant rather than a copy of its value: two numbers that \
+                             must stay ordered cannot be allowed to drift apart silently
                              """)
     }
 }
