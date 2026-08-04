@@ -22,7 +22,15 @@ before="$(mktemp)"
 [[ -f Package.resolved ]] && cp Package.resolved "$before" || : > "$before"
 
 step "xcodegen generate"
-xcodegen generate
+# Through generate.sh, NOT `xcodegen generate` directly: project.yml carries
+# `DEVELOPMENT_TEAM: "${DEVELOPMENT_TEAM}"` and only generate.sh resolves that
+# from the environment or the gitignored .xcode-team file. Calling xcodegen
+# straight through baked the literal string "${DEVELOPMENT_TEAM}" into
+# project.pbxproj, so every device build after a `make update` failed with
+# "Signing for ... requires a development team" until someone re-selected the
+# team in Xcode. Simulator and CI builds are unaffected (CODE_SIGNING_ALLOWED=NO),
+# which is why it went unnoticed.
+./scripts/generate.sh
 
 step "force a fresh resolve to the LATEST in-range package versions"
 # Re-clone the (tiny) git mirrors so SwiftPM sees newly published tags; keep the
