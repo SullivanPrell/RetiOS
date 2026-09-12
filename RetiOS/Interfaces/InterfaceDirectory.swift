@@ -17,11 +17,11 @@ enum InterfaceDirectory {
 
     private struct Response: Codable { let data: [Entry] }
 
-    private static let submittedURL = URL(string: "https://directory.rns.recipes/api/directory/submitted")!
+    private static let submittedPath = "https://directory.rns.recipes/api/directory/submitted"
 
     /// Fetches the currently-online, community-submitted directory entries.
     static func fetchOnline() async throws -> [Entry] {
-        var components = URLComponents(url: submittedURL, resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(string: submittedPath) else { throw URLError(.badURL) }
         components.queryItems = [URLQueryItem(name: "status", value: "online")]
         guard let url = components.url else { throw URLError(.badURL) }
 

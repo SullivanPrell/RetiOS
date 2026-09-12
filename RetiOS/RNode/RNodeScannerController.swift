@@ -260,8 +260,8 @@ extension RNodeScannerController: CBPeripheralDelegate {
 
     nonisolated func peripheral(_ peripheral: CBPeripheral,
                                 didDiscoverServices error: Error?) {
-        guard error == nil else {
-            let msg = error!.localizedDescription
+        if let error {
+            let msg = error.localizedDescription
             DispatchQueue.main.async { [weak self] in self?.state = .failed(msg) }
             return
         }
@@ -277,8 +277,8 @@ extension RNodeScannerController: CBPeripheralDelegate {
     nonisolated func peripheral(_ peripheral: CBPeripheral,
                                 didDiscoverCharacteristicsFor service: CBService,
                                 error: Error?) {
-        guard error == nil else {
-            let msg = error!.localizedDescription
+        if let error {
+            let msg = error.localizedDescription
             DispatchQueue.main.async { [weak self] in self?.state = .failed(msg) }
             return
         }

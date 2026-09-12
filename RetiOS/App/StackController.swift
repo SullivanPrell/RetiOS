@@ -959,7 +959,7 @@ final class StackController {
         await withCheckedContinuation { continuation in
             let endpoint = NWEndpoint.hostPort(
                 host: "127.0.0.1",
-                port: NWEndpoint.Port(rawValue: port)!
+                port: NWEndpoint.Port(rawValue: port) ?? .any
             )
             let conn = NWConnection(to: endpoint, using: .tcp)
             let q = DispatchQueue(label: "RetiOS.daemonProbe")

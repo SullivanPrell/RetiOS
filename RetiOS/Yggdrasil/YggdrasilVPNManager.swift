@@ -229,7 +229,7 @@ final class YggdrasilVPNManager {
     /// Ask the extension to dial its peers immediately.
     func retryPeers() {
         guard let session = manager?.connection as? NETunnelProviderSession else { return }
-        try? session.sendProviderMessage("retry".data(using: .utf8)!, responseHandler: nil)
+        try? session.sendProviderMessage(Data("retry".utf8), responseHandler: nil)
     }
 
     private func sendMessage(_ command: String, on session: NETunnelProviderSession) async -> Data? {
@@ -244,7 +244,7 @@ final class YggdrasilVPNManager {
                 responder.finish(nil)
             }
             do {
-                try session.sendProviderMessage(command.data(using: .utf8)!) { response in
+                try session.sendProviderMessage(Data(command.utf8)) { response in
                     Task { @MainActor in responder.finish(response) }
                 }
             } catch {
