@@ -4,7 +4,8 @@
 # committed lockfile (./Package.resolved). `make ci` runs the very same
 # scripts/ci.sh that GitHub Actions runs, so a green `make ci` means a green CI.
 
-.PHONY: ci test uitest mac-screens generate update help
+.PHONY: ci test uitest mac-screens generate update help \
+	fmt check swift-fmt swift-fmt-check update-licenses check-licenses lint-docs pre-commit
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -27,3 +28,27 @@ generate: ## Generate RetiOS.xcodeproj from project.yml + install the pinned loc
 
 update: ## Bump packages to the latest in-range versions, verify the build, rewrite Package.resolved
 	./scripts/update-packages.sh
+
+SWIFT     ?= swift
+SWIFT_SRC  = RetiOS RetiOSTests RetiOSUITests YggdrasilTunnel
+
+fmt: swift-fmt update-licenses ## Reformat sources in place and apply any missing license headers
+
+check: swift-fmt-check check-licenses lint-docs ## Verify formatting, headers and prose, changing nothing
+
+swift-fmt:
+	$(SWIFT) format --recursive --configuration .swift-format -i $(SWIFT_SRC)
+
+swift-fmt-check:
+	$(SWIFT) format lint --recursive --strict --configuration .swift-format-nolint $(SWIFT_SRC)
+
+update-licenses:
+	python3 scripts/license-headers.py $(SWIFT_SRC) scripts
+
+check-licenses:
+	python3 scripts/license-headers.py --check $(SWIFT_SRC) scripts
+
+lint-docs: ## Google developer documentation style, over comments and Markdown
+	vale $(SWIFT_SRC) docs *.md
+
+pre-commit: check ci ## Run the full local gate before pushing

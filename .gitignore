@@ -22,3 +22,4 @@ xcuserdata/
 
 # Coverage artifact dropped by ad-hoc xcodebuild runs
 default.profraw
+__pycache__/
