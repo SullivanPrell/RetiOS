@@ -70,6 +70,22 @@ See [docs/BUILDING.md](docs/BUILDING.md#developing-the-whole-stack-locally)—sw
 - Tests are XCTest, not swift-testing.
 - Style: [Google Swift Style Guide](https://google.github.io/swift/).
 
+## Style checks
+
+```sh
+make fmt      # swift format, license headers
+make check    # what CI runs: format, license headers, Vale prose lint
+```
+
+Vale lints Swift comments as prose, and finds them by scanning for `//`. A `//` inside
+a string literal therefore lints code, and acting on that finding would edit it. After
+a comment-only change, confirm the code is unchanged:
+
+```sh
+git status --porcelain | awk '{print $NF}' | grep '\.swift$' \
+    | xargs python3 .vale/tools/verify_code_unchanged.py
+```
+
 ## Submitting changes
 
 Branch from `main`, keep commits focused, and describe user-visible behavior.
