@@ -77,7 +77,8 @@ final class NomadNetController {
 
   @ObservationIgnored private var browser: NomadNetBrowser?
   @ObservationIgnored private var modelContext: ModelContext?
-  @ObservationIgnored private var appAdapter: NomadNetAppAdapter?  // keeps adapter alive (RRCManager holds weak ref)
+  // keeps adapter alive (RRCManager holds weak ref)
+  @ObservationIgnored private var appAdapter: NomadNetAppAdapter?
   @ObservationIgnored private var nodeAnnounceHandler: NomadNetNodeAnnounceHandler?
 
   // MARK: - Setup
@@ -312,7 +313,7 @@ final class NomadNetController {
       let msgDesc = FetchDescriptor<ChannelMessageEntity>(
         predicate: #Predicate { $0.channelHash == channelHash }
       )
-      (try? ctx.fetch(msgDesc))?.forEach { ctx.delete($0) }
+      for message in (try? ctx.fetch(msgDesc)) ?? [] { ctx.delete(message) }
       try? ctx.save()
     }
   }

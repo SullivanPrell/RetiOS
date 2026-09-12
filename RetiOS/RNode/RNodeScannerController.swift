@@ -205,7 +205,8 @@ extension RNodeScannerController: CBCentralManagerDelegate {
       guard let self else { return }
       switch central.state {
       case .poweredOn:
-        if case .scanning = self.state { self.beginScan() } else if case .idle = self.state {}  // wait for user tap
+        // wait for user tap
+        if case .scanning = self.state { self.beginScan() } else if case .idle = self.state {}
       case .poweredOff, .resetting:
         self.state = .idle
       case .unauthorized, .unsupported:

@@ -269,7 +269,7 @@ private struct ConversationList: View {
     let descriptor = FetchDescriptor<MessageEntity>(
       predicate: #Predicate { $0.conversationHash == peerHash }
     )
-    (try? context.fetch(descriptor))?.forEach { context.delete($0) }
+    for message in (try? context.fetch(descriptor)) ?? [] { context.delete(message) }
     try? context.save()
   }
 
