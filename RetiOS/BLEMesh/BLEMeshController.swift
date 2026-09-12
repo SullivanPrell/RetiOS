@@ -8,9 +8,9 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 //===----------------------------------------------------------------------===//
 
+import CoreBluetooth
 import Foundation
 import Observation
-import CoreBluetooth
 import ReticulumSwift
 
 // MARK: - BLEMeshController
@@ -38,190 +38,190 @@ import ReticulumSwift
 @Observable
 final class BLEMeshController: NSObject {
 
-    // MARK: - Published state
+  // MARK: - Published state
 
-    enum MeshState: Equatable {
-        case idle
-        case bluetoothUnavailable
-        case starting
-        case online
-        case failed(String)
+  enum MeshState: Equatable {
+    case idle
+    case bluetoothUnavailable
+    case starting
+    case online
+    case failed(String)
 
-        var label: String {
-            switch self {
-            case .idle:                  return "Off"
-            case .bluetoothUnavailable:  return "Bluetooth unavailable"
-            case .starting:              return "Starting…"
-            case .online:                return "Meshing"
-            case .failed(let reason):    return "Failed: \(reason)"
-            }
-        }
-
-        var isOnline: Bool {
-            if case .online = self { return true }
-            return false
-        }
+    var label: String {
+      switch self {
+      case .idle: return "Off"
+      case .bluetoothUnavailable: return "Bluetooth unavailable"
+      case .starting: return "Starting…"
+      case .online: return "Meshing"
+      case .failed(let reason): return "Failed: \(reason)"
+      }
     }
 
-    private(set) var state: MeshState = .idle
-    private(set) var peerCount: Int = 0
-    private(set) var meshInterface: BLEMeshInterface?
+    var isOnline: Bool {
+      if case .online = self { return true }
+      return false
+    }
+  }
 
-    /// Traffic counters mirrored from `BLEMeshInterface`.
-    ///
-    /// `BLEMeshInterface` is a plain library class, not observable, so a view
-    /// reading `iface.txPackets` directly registers no dependency and never
-    /// refreshes. Previously the rows only updated as a side effect of this
-    /// controller's per-second `peerCount` write; once that became
-    /// assign-on-change the counters froze on screen. Mirroring them into
-    /// observed properties makes the dependency explicit instead of incidental.
-    private(set) var txPackets: Int = 0
-    private(set) var txBytes: Int = 0
-    private(set) var rxPackets: Int = 0
-    private(set) var rxBytes: Int = 0
-    /// Called after this controller adds or removes its interface from
-    /// `Transport`.
-    ///
-    /// Wired to `StackController.noteInterfacesChanged()` so the
-    /// Interfaces screen refreshes—it lists `transport.interfaces`, which is
-    /// not observable and so cannot signal the change itself.
-    @ObservationIgnored var onInterfacesChanged: (() -> Void)?
+  private(set) var state: MeshState = .idle
+  private(set) var peerCount: Int = 0
+  private(set) var meshInterface: BLEMeshInterface?
 
-    private(set) var enableOnStart: Bool = {
-        UserDefaults.standard.bool(forKey: "bleMeshEnableOnStart")
-    }()
+  /// Traffic counters mirrored from `BLEMeshInterface`.
+  ///
+  /// `BLEMeshInterface` is a plain library class, not observable, so a view
+  /// reading `iface.txPackets` directly registers no dependency and never
+  /// refreshes. Previously the rows only updated as a side effect of this
+  /// controller's per-second `peerCount` write; once that became
+  /// assign-on-change the counters froze on screen. Mirroring them into
+  /// observed properties makes the dependency explicit instead of incidental.
+  private(set) var txPackets: Int = 0
+  private(set) var txBytes: Int = 0
+  private(set) var rxPackets: Int = 0
+  private(set) var rxBytes: Int = 0
+  /// Called after this controller adds or removes its interface from
+  /// `Transport`.
+  ///
+  /// Wired to `StackController.noteInterfacesChanged()` so the
+  /// Interfaces screen refreshes—it lists `transport.interfaces`, which is
+  /// not observable and so cannot signal the change itself.
+  @ObservationIgnored var onInterfacesChanged: (() -> Void)?
 
-    // MARK: - Private
+  private(set) var enableOnStart: Bool = {
+    UserDefaults.standard.bool(forKey: "bleMeshEnableOnStart")
+  }()
 
-    @ObservationIgnored private var bleTransport: CoreBluetoothMeshTransport?
-    @ObservationIgnored private var reticulumTransport: Transport?
-    @ObservationIgnored private var peerPollTask: Task<Void, Never>?
-    private static let enableOnStartKey = "bleMeshEnableOnStart"
+  // MARK: - Private
 
-    // MARK: - Public API
+  @ObservationIgnored private var bleTransport: CoreBluetoothMeshTransport?
+  @ObservationIgnored private var reticulumTransport: Transport?
+  @ObservationIgnored private var peerPollTask: Task<Void, Never>?
+  private static let enableOnStartKey = "bleMeshEnableOnStart"
 
-    func setup(transport: Transport) {
-        reticulumTransport = transport
+  // MARK: - Public API
+
+  func setup(transport: Transport) {
+    reticulumTransport = transport
+  }
+
+  func setEnableOnStart(_ enabled: Bool) {
+    enableOnStart = enabled
+    UserDefaults.standard.set(enabled, forKey: Self.enableOnStartKey)
+  }
+
+  /// Switches the mesh radio on: brings up dual-role CoreBluetooth
+  /// (advertise as peripheral + scan as central, both inside
+  /// `CoreBluetoothMeshTransport`), starts a fresh `BLEMeshInterface` over
+  /// it, and registers that interface with `Transport` so the wider
+  /// Reticulum stack can route through it.
+  ///
+  /// - Parameter localName: advertised name nearby peers see (for example, the
+  ///   node's display name)—purely cosmetic, has no protocol meaning.
+  func enable(localName: String) {
+    guard !state.isOnline, state != .starting else { return }
+    state = .starting
+
+    let transport = CoreBluetoothMeshTransport(localName: localName)
+    transport.radioStateHandler = { [weak self] cbState in
+      DispatchQueue.main.async { [weak self] in
+        self?.handleRadioStateChange(cbState)
+      }
     }
 
-    func setEnableOnStart(_ enabled: Bool) {
-        enableOnStart = enabled
-        UserDefaults.standard.set(enabled, forKey: Self.enableOnStartKey)
+    let iface = BLEMeshInterface(name: "ble-mesh", transport: transport)
+    do {
+      try iface.start()
+    } catch {
+      state = .failed(error.localizedDescription)
+      return
     }
 
-    /// Switches the mesh radio on: brings up dual-role CoreBluetooth
-    /// (advertise as peripheral + scan as central, both inside
-    /// `CoreBluetoothMeshTransport`), starts a fresh `BLEMeshInterface` over
-    /// it, and registers that interface with `Transport` so the wider
-    /// Reticulum stack can route through it.
-    ///
-    /// - Parameter localName: advertised name nearby peers see (for example, the
-    ///   node's display name)—purely cosmetic, has no protocol meaning.
-    func enable(localName: String) {
-        guard !state.isOnline, state != .starting else { return }
-        state = .starting
+    bleTransport = transport
+    meshInterface = iface
+    reticulumTransport?.register(interface: iface)
+    onInterfacesChanged?()
+    state = .online
+    startPeerPolling()
+  }
 
-        let transport = CoreBluetoothMeshTransport(localName: localName)
-        transport.radioStateHandler = { [weak self] cbState in
-            DispatchQueue.main.async { [weak self] in
-                self?.handleRadioStateChange(cbState)
-            }
-        }
+  /// Switches the mesh off: stops the interface, deregisters it, and tears
+  /// down all CoreBluetooth state (mirrors `RNodeScannerController.teardown`).
+  func disable() {
+    peerPollTask?.cancel()
+    peerPollTask = nil
 
-        let iface = BLEMeshInterface(name: "ble-mesh", transport: transport)
-        do {
-            try iface.start()
-        } catch {
-            state = .failed(error.localizedDescription)
-            return
-        }
-
-        bleTransport = transport
-        meshInterface = iface
-        reticulumTransport?.register(interface: iface)
-        onInterfacesChanged?()
-        state = .online
-        startPeerPolling()
+    if let iface = meshInterface {
+      iface.stop()
+      reticulumTransport?.deregister(interface: iface)
+      onInterfacesChanged?()
     }
 
-    /// Switches the mesh off: stops the interface, deregisters it, and tears
-    /// down all CoreBluetooth state (mirrors `RNodeScannerController.teardown`).
-    func disable() {
-        peerPollTask?.cancel()
-        peerPollTask = nil
-
-        if let iface = meshInterface {
-            iface.stop()
-            reticulumTransport?.deregister(interface: iface)
-            onInterfacesChanged?()
-        }
-
-        meshInterface = nil
-        bleTransport = nil
-        peerCount = 0
-        if state != .bluetoothUnavailable {
-            state = .idle
-        }
+    meshInterface = nil
+    bleTransport = nil
+    peerCount = 0
+    if state != .bluetoothUnavailable {
+      state = .idle
     }
+  }
 
-    // MARK: - Private helpers
+  // MARK: - Private helpers
 
-    private func handleRadioStateChange(_ cbState: CBManagerState) {
-        // Ignore stale callbacks from an already torn-down transport—`disable()`/a
-        // fresh `enable()` may have raced this notification.
-        guard bleTransport != nil else { return }
+  private func handleRadioStateChange(_ cbState: CBManagerState) {
+    // Ignore stale callbacks from an already torn-down transport—`disable()`/a
+    // fresh `enable()` may have raced this notification.
+    guard bleTransport != nil else { return }
 
-        switch cbState {
-        case .poweredOn:
-            if state == .starting { state = .online }
-        case .unauthorized, .unsupported:
-            state = .bluetoothUnavailable
-        case .poweredOff, .resetting:
-            // Mirrors RNodeScannerController's `case .poweredOff, .resetting:
-            // self.state = .idle`—the radio is gone, so the link is too;
-            // tear everything down rather than limping along with a half-dead
-            // interface. The user can switch meshing back on once Bluetooth
-            // returns (CoreBluetooth doesn't reliably resurrect existing
-            // managers across a full power cycle).
-            disable()
-        case .unknown:
-            break
-        @unknown default:
-            break
-        }
+    switch cbState {
+    case .poweredOn:
+      if state == .starting { state = .online }
+    case .unauthorized, .unsupported:
+      state = .bluetoothUnavailable
+    case .poweredOff, .resetting:
+      // Mirrors RNodeScannerController's `case .poweredOff, .resetting:
+      // self.state = .idle`—the radio is gone, so the link is too;
+      // tear everything down rather than limping along with a half-dead
+      // interface. The user can switch meshing back on once Bluetooth
+      // returns (CoreBluetooth doesn't reliably resurrect existing
+      // managers across a full power cycle).
+      disable()
+    case .unknown:
+      break
+    @unknown default:
+      break
     }
+  }
 
-    /// `BLEMeshInterface.peerCount` is a thread-safe snapshot, not a
-    /// publisher.
-    ///
-    /// Polling at UI-refresh cadence is the simplest correct way
-    /// to keep `peerCount` current—wiring up a bespoke
-    /// peer-table change notification through `BLEMeshTransport` would add
-    /// real protocol surface for what is purely a display nicety.
-    private func startPeerPolling() {
-        peerPollTask?.cancel()
-        peerPollTask = Task { [weak self] in
-            while let self, !Task.isCancelled {
-                guard self.state.isOnline, let iface = self.meshInterface else { return }
-                // Assign only on change. sends objectWillChange for
-                // EVERY assignment, equal or not—writing unconditionally
-                // re-rendered every view observing this controller once a
-                // second for as long as the mesh stayed online, even though the
-                // peer count almost never changes between ticks.
-                let count = iface.peerCount
-                if self.peerCount != count { self.peerCount = count }
+  /// `BLEMeshInterface.peerCount` is a thread-safe snapshot, not a
+  /// publisher.
+  ///
+  /// Polling at UI-refresh cadence is the simplest correct way
+  /// to keep `peerCount` current—wiring up a bespoke
+  /// peer-table change notification through `BLEMeshTransport` would add
+  /// real protocol surface for what is purely a display nicety.
+  private func startPeerPolling() {
+    peerPollTask?.cancel()
+    peerPollTask = Task { [weak self] in
+      while let self, !Task.isCancelled {
+        guard self.state.isOnline, let iface = self.meshInterface else { return }
+        // Assign only on change. sends objectWillChange for
+        // EVERY assignment, equal or not—writing unconditionally
+        // re-rendered every view observing this controller once a
+        // second for as long as the mesh stayed online, even though the
+        // peer count almost never changes between ticks.
+        let count = iface.peerCount
+        if self.peerCount != count { self.peerCount = count }
 
-                // Mirror the traffic counters too. Assign-on-change per field so
-                // an idle mesh still costs nothing, while a busy one keeps the
-                // readout live. See the property declarations for why the view
-                // cannot observe the interface directly.
-                if self.txPackets != iface.txPackets { self.txPackets = iface.txPackets }
-                if self.txBytes   != iface.txBytes   { self.txBytes   = iface.txBytes }
-                if self.rxPackets != iface.rxPackets { self.rxPackets = iface.rxPackets }
-                if self.rxBytes   != iface.rxBytes   { self.rxBytes   = iface.rxBytes }
+        // Mirror the traffic counters too. Assign-on-change per field so
+        // an idle mesh still costs nothing, while a busy one keeps the
+        // readout live. See the property declarations for why the view
+        // cannot observe the interface directly.
+        if self.txPackets != iface.txPackets { self.txPackets = iface.txPackets }
+        if self.txBytes != iface.txBytes { self.txBytes = iface.txBytes }
+        if self.rxPackets != iface.rxPackets { self.rxPackets = iface.rxPackets }
+        if self.rxBytes != iface.rxBytes { self.rxBytes = iface.rxBytes }
 
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
+        try? await Task.sleep(for: .seconds(1))
+      }
     }
+  }
 }

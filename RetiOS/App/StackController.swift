@@ -9,11 +9,11 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import Observation
-import Network
-import SwiftData
-import ReticulumSwift
 import LXMF
+import Network
+import Observation
+import ReticulumSwift
+import SwiftData
 
 /// Owns the Reticulum stack, LXMF router, and lifecycle for the app.
 ///
@@ -27,1028 +27,1078 @@ import LXMF
 @Observable
 final class StackController {
 
-    // MARK: - Saved interface model
+  // MARK: - Saved interface model
 
-    /// The wire-level interface type for a saved entry.
+  /// The wire-level interface type for a saved entry.
+  ///
+  /// Defaults to `.tcp` so existing persisted data (pre-multi-kind) decodes unchanged.
+  enum SavedInterfaceKind: String, Codable {
+    case tcp
+    case backbone
+    case yggdrasil  // TCP over an IPv6 Yggdrasil address—stored separately for icon/label
+  }
+
+  /// A user-added client interface whose config survives app restarts.
+  struct SavedInterface: Codable, Identifiable {
+    var id: String { name }
+    let name: String
+    let host: String
+    let port: UInt16
+    var kind: SavedInterfaceKind = .tcp
+
+    /// IFAC segment credentials, matching a config file's `network_name` and `passphrase`.
     ///
-    /// Defaults to `.tcp` so existing persisted data (pre-multi-kind) decodes unchanged.
-    enum SavedInterfaceKind: String, Codable {
-        case tcp
-        case backbone
-        case yggdrasil  // TCP over an IPv6 Yggdrasil address—stored separately for icon/label
+    /// An interface on an IFAC-protected segment without them comes up, reports Up, and passes
+    /// nothing: every frame it sends is unflagged and dropped by the peer, and every frame it
+    /// receives is flagged and dropped locally. RetiOS builds its interfaces in code rather
+    /// than from a config file, so `bugs/015`'s fix in `synthesizeInterfaces` does not reach
+    /// them—these carry the same two values to the same entry point.
+    var networkName: String?
+    var passphrase: String?
+
+    init(
+      name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp,
+      networkName: String? = nil, passphrase: String? = nil
+    ) {
+      self.name = name
+      self.host = host
+      self.port = port
+      self.kind = kind
+      self.networkName = networkName
+      self.passphrase = passphrase
     }
 
-    /// A user-added client interface whose config survives app restarts.
-    struct SavedInterface: Codable, Identifiable {
-        var id: String { name }
-        let name: String
-        let host: String
-        let port: UInt16
-        var kind: SavedInterfaceKind = .tcp
-
-        /// IFAC segment credentials, matching a config file's `network_name` and `passphrase`.
-        ///
-        /// An interface on an IFAC-protected segment without them comes up, reports Up, and passes
-        /// nothing: every frame it sends is unflagged and dropped by the peer, and every frame it
-        /// receives is flagged and dropped locally. RetiOS builds its interfaces in code rather
-        /// than from a config file, so `bugs/015`'s fix in `synthesizeInterfaces` does not reach
-        /// them—these carry the same two values to the same entry point.
-        var networkName: String?
-        var passphrase: String?
-
-        init(name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp,
-             networkName: String? = nil, passphrase: String? = nil) {
-            self.name = name
-            self.host = host
-            self.port = port
-            self.kind = kind
-            self.networkName = networkName
-            self.passphrase = passphrase
-        }
-
-        enum CodingKeys: String, CodingKey {
-            case name, host, port, kind, networkName, passphrase
-        }
-        init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            name = try c.decode(String.self, forKey: .name)
-            host = try c.decode(String.self, forKey: .host)
-            port = try c.decode(UInt16.self, forKey: .port)
-            kind = try c.decodeIfPresent(SavedInterfaceKind.self, forKey: .kind) ?? .tcp
-            // Absent in interfaces saved before this release—decoded as nil, which is "no IFAC".
-            networkName = try c.decodeIfPresent(String.self, forKey: .networkName)
-            passphrase = try c.decodeIfPresent(String.self, forKey: .passphrase)
-        }
-
-        /// The two keys as a config block, so IFAC is installed through the same entry point
-        /// `Reticulum.synthesizeInterfaces` uses rather than by a second derivation here.
-        var ifacConfigBlock: ReticulumConfig.InterfaceConfig {
-            var parameters: [String: String] = [:]
-            if let networkName, !networkName.isEmpty { parameters["network_name"] = networkName }
-            if let passphrase, !passphrase.isEmpty { parameters["passphrase"] = passphrase }
-            return ReticulumConfig.InterfaceConfig(name: name,
-                                                  type: kind == .backbone ? "BackboneInterface"
-                                                                          : "TCPClientInterface",
-                                                  enabled: true,
-                                                  parameters: parameters)
-        }
+    enum CodingKeys: String, CodingKey {
+      case name, host, port, kind, networkName, passphrase
+    }
+    init(from decoder: Decoder) throws {
+      let c = try decoder.container(keyedBy: CodingKeys.self)
+      name = try c.decode(String.self, forKey: .name)
+      host = try c.decode(String.self, forKey: .host)
+      port = try c.decode(UInt16.self, forKey: .port)
+      kind = try c.decodeIfPresent(SavedInterfaceKind.self, forKey: .kind) ?? .tcp
+      // Absent in interfaces saved before this release—decoded as nil, which is "no IFAC".
+      networkName = try c.decodeIfPresent(String.self, forKey: .networkName)
+      passphrase = try c.decodeIfPresent(String.self, forKey: .passphrase)
     }
 
-    /// Configuration for an I2P interface that survives app restarts.
-    /// `Equatable` so `saveI2PConfig(_:)` can tell a real edit from a re-save.
-    struct SavedI2PConfig: Codable, Equatable {
-        var name: String
-        /// The b32 addresses of peers, such as `abc123…xyz.b32.i2p`.
-        var peers: [String]
-        var connectable: Bool
-
-        init(name: String = "I2P", peers: [String] = [], connectable: Bool = false) {
-            self.name = name
-            self.peers = peers
-            self.connectable = connectable
-        }
+    /// The two keys as a config block, so IFAC is installed through the same entry point
+    /// `Reticulum.synthesizeInterfaces` uses rather than by a second derivation here.
+    var ifacConfigBlock: ReticulumConfig.InterfaceConfig {
+      var parameters: [String: String] = [:]
+      if let networkName, !networkName.isEmpty { parameters["network_name"] = networkName }
+      if let passphrase, !passphrase.isEmpty { parameters["passphrase"] = passphrase }
+      return ReticulumConfig.InterfaceConfig(
+        name: name,
+        type: kind == .backbone
+          ? "BackboneInterface"
+          : "TCPClientInterface",
+        enabled: true,
+        parameters: parameters)
     }
+  }
 
-    /// Editable Yggdrasil node preferences that survive app restarts.
-    ///
-    /// The node's
-    /// private key + full engine config live in the VPN profile (secure, not
-    /// UserDefaults); this record only carries the UI-editable settings and the
-    /// on/off flag. See `YggdrasilConfig` / `YggdrasilVPNManager`.
-    struct SavedYggdrasilConfig: Codable {
-        /// Whether the Yggdrasil node (system VPN packet tunnel) should run.
-        var enabled: Bool
-        /// Peer URIs to dial, for example, "tls://host:port", "quic://host:port".
-        var peers: [String]
-        /// Optional node name advertised over the mesh.
-        var nodeName: String
-        /// LAN peer discovery over IPv6 multicast (needs the multicast entitlement).
-        var multicastEnabled: Bool
+  /// Configuration for an I2P interface that survives app restarts.
+  /// `Equatable` so `saveI2PConfig(_:)` can tell a real edit from a re-save.
+  struct SavedI2PConfig: Codable, Equatable {
+    var name: String
+    /// The b32 addresses of peers, such as `abc123…xyz.b32.i2p`.
+    var peers: [String]
+    var connectable: Bool
 
-        init(enabled: Bool = false, peers: [String] = [],
-             nodeName: String = "", multicastEnabled: Bool = false) {
-            self.enabled = enabled
-            self.peers = peers
-            self.nodeName = nodeName
-            self.multicastEnabled = multicastEnabled
-        }
+    init(name: String = "I2P", peers: [String] = [], connectable: Bool = false) {
+      self.name = name
+      self.peers = peers
+      self.connectable = connectable
     }
+  }
 
-    /// All user-added interfaces restored on next launch.
-    private(set) var savedInterfaces: [SavedInterface] = []
-    /// Saved I2P configuration (one I2PInterface, multiple peers).
-    private(set) var savedI2PConfig: SavedI2PConfig?
-    /// `true` when the saved I2P config no longer matches what is running, and
-    /// only a relaunch can reconcile them.
-    ///
-    /// See `saveI2PConfig(_:)` for why the
-    /// interface can't just be restarted in place. Never persisted: a launch
-    /// applies whatever is saved, so it is false by construction at startup.
-    private(set) var i2pRestartRequired = false
-    /// Saved Yggdrasil node preferences (system-VPN packet tunnel).
-    private(set) var savedYggdrasilConfig: SavedYggdrasilConfig?
-    /// Drives the Yggdrasil packet-tunnel extension and exposes live node status.
-    ///
-    /// Observe this directly for address / peer updates.
-    let yggdrasilVPN = YggdrasilVPNManager()
+  /// Editable Yggdrasil node preferences that survive app restarts.
+  ///
+  /// The node's
+  /// private key + full engine config live in the VPN profile (secure, not
+  /// UserDefaults); this record only carries the UI-editable settings and the
+  /// on/off flag. See `YggdrasilConfig` / `YggdrasilVPNManager`.
+  struct SavedYggdrasilConfig: Codable {
+    /// Whether the Yggdrasil node (system VPN packet tunnel) should run.
+    var enabled: Bool
+    /// Peer URIs to dial, for example, "tls://host:port", "quic://host:port".
+    var peers: [String]
+    /// Optional node name advertised over the mesh.
+    var nodeName: String
+    /// LAN peer discovery over IPv6 multicast (needs the multicast entitlement).
+    var multicastEnabled: Bool
 
-    /// Bumped whenever `transport.interfaces` is mutated behind SwiftUI's back.
-    ///
-    /// `Transport` is not observable, so a view listing the live interfaces has
-    /// nothing to depend on. Under `ObservableObject` this was a blanket
-    /// `objectWillChange.send()`, which worked precisely *because* it was a
-    /// firehose—it invalidated every observer regardless of what they read.
-    /// `@Observable` has no equivalent: observers are notified only for the
-    /// properties they actually touched. So the dependency has to be explicit—`InterfacesView`
-    /// reads this counter alongside `transport.interfaces`.
-    private(set) var interfacesRevision: Int = 0
-
-    private static let savedInterfacesKey     = "savedTCPInterfaces"
-    private static let savedI2PConfigKey       = "savedI2PConfig"
-    private static let savedYggdrasilConfigKey = "savedYggdrasilConfig"
-    private static let propagationNodeKey      = "propagationNodeHash"
-
-    // MARK: - Stack state
-
-    private(set) var isRunning = false
-    /// Guards `bringUp` against re-entry (a second scene/window, or an
-    /// interleaving at an `await`) starting a duplicate stack over this one.
-    @ObservationIgnored private var isBringingUp = false
-    private(set) var identity: Identity?
-    private(set) var lxmfRouter: LXMRouter?
-    /// True when an external rnsd was joined rather than an embedded stack started.
-    private(set) var isClientMode = false
-    /// Hex string of the configured LXMF outbound propagation node, if any.
-    private(set) var propagationNodeHash: String?
-    /// Live state of an inbound propagation-node sync (mirrors the router's
-    /// state machine; polled while a sync runs since LXMRouter is not observable).
-    private(set) var propagationSyncState: PropagationTransferState = .idle
-    /// 0.0–1.0 progress of the current propagation sync.
-    private(set) var propagationSyncProgress: Double = 0
-    @ObservationIgnored private var syncPollTask: Task<Void, Never>?
-    /// 16-byte hash of the local lxmf.delivery destination (available after bringUp).
-    private(set) var lxmfDeliveryHash: Data?
-    /// Whether the local LXMF delivery address is actively announced to the mesh.
-    private(set) var lxmfAnnounceEnabled: Bool = {
-        UserDefaults.standard.object(forKey: "lxmfAnnounceEnabled") as? Bool ?? true
-    }()
-
-    private(set) var reticulum: Reticulum?
-    private(set) var transport: Transport?
-
-    /// Human-readable name for this node, included in LXMF announces.
-    ///
-    /// Peers see this name instead of a raw hash in their peer lists.
-    private(set) var nodeDisplayName: String = {
-        UserDefaults.standard.string(forKey: "nodeDisplayName") ?? ""
-    }()
-
-    @ObservationIgnored private var peerAnnounceHandler: LXMFPeerAnnounceHandler?
-    /// Coalesces inbound LXMF messages into batched SwiftData writes.
-    ///
-    /// Held so it
-    /// outlives `bringUp`—the router's callback captures it.
-    @ObservationIgnored private var messageIngest: LXMFMessageIngest?
-    @ObservationIgnored private var notificationManager: NotificationManager?
-    private static let lxmfAnnounceKey    = "lxmfAnnounceEnabled"
-    private static let nodeDisplayNameKey = "nodeDisplayName"
-
-    /// UI-test hook (DEBUG-only, never compiled into Release): bring the stack
-    /// up with **no interfaces registered**, so the app renders at full fidelity
-    ///—real identity, real router, real screens—while touching nothing on
-    /// the network.
-    ///
-    /// XCUITest relaunches the app for every test method. Without this, each
-    /// method re-joined AutoInterface's multicast group, redialled every saved
-    /// TCP/Backbone gateway, respawned the i2pd daemon and re-armed the
-    /// Yggdrasil VPN profile, then had all of it killed abruptly when the test
-    /// ended. That churn is disruptive to a real mesh the developer's machine
-    /// is part of, and it makes the tests slow and dependent on the network
-    /// being in a particular state. No interfaces means nothing reaches the
-    /// wire, which is exactly what a launch/reachability/appearance test wants.
-    ///
-    /// Set via `app.launchArguments += ["-stackOffline", "YES"]`—the argument
-    /// domain outranks persisted defaults, so it needs no test-only UI.
-    static var isOfflineUITestRun: Bool {
-        #if DEBUG
-        return UserDefaults.standard.bool(forKey: "stackOffline")
-        #else
-        return false
-        #endif
+    init(
+      enabled: Bool = false, peers: [String] = [],
+      nodeName: String = "", multicastEnabled: Bool = false
+    ) {
+      self.enabled = enabled
+      self.peers = peers
+      self.nodeName = nodeName
+      self.multicastEnabled = multicastEnabled
     }
+  }
 
-    func bringUp(modelContext: ModelContext, notificationManager: NotificationManager? = nil) async {
-        // Idempotent: never start a second stack over a running (or still
-        // starting) one. @MainActor makes this check-and-set race-free.
-        guard !isRunning, !isBringingUp else { return }
-        isBringingUp = true
-        defer { isBringingUp = false }
+  /// All user-added interfaces restored on next launch.
+  private(set) var savedInterfaces: [SavedInterface] = []
+  /// Saved I2P configuration (one I2PInterface, multiple peers).
+  private(set) var savedI2PConfig: SavedI2PConfig?
+  /// `true` when the saved I2P config no longer matches what is running, and
+  /// only a relaunch can reconcile them.
+  ///
+  /// See `saveI2PConfig(_:)` for why the
+  /// interface can't just be restarted in place. Never persisted: a launch
+  /// applies whatever is saved, so it is false by construction at startup.
+  private(set) var i2pRestartRequired = false
+  /// Saved Yggdrasil node preferences (system-VPN packet tunnel).
+  private(set) var savedYggdrasilConfig: SavedYggdrasilConfig?
+  /// Drives the Yggdrasil packet-tunnel extension and exposes live node status.
+  ///
+  /// Observe this directly for address / peer updates.
+  let yggdrasilVPN = YggdrasilVPNManager()
 
-        self.notificationManager = notificationManager
-        let storage = URL.documentsDirectory.appending(path: "reticulum", directoryHint: .isDirectory)
-        try? FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+  /// Bumped whenever `transport.interfaces` is mutated behind SwiftUI's back.
+  ///
+  /// `Transport` is not observable, so a view listing the live interfaces has
+  /// nothing to depend on. Under `ObservableObject` this was a blanket
+  /// `objectWillChange.send()`, which worked precisely *because* it was a
+  /// firehose—it invalidated every observer regardless of what they read.
+  /// `@Observable` has no equivalent: observers are notified only for the
+  /// properties they actually touched. So the dependency has to be explicit—`InterfacesView`
+  /// reads this counter alongside `transport.interfaces`.
+  private(set) var interfacesRevision: Int = 0
 
-        // Enable wire-compatible bz2 compression for Resource transfers. Without
-        // this, `Resource.compressor` stays `NoCompressor`, whose `decompress`
-        // returns nil—so any COMPRESSED resource sent by a Python peer (large
-        // NomadNet pages, large LXMF messages, RRC resources—all of which
-        // Python bz2-compresses) fails to assemble ("decompression failed"),
-        // tearing down the link ("Link closed before the page loaded"). Small
-        // single-packet responses are unaffected, which masked this. Set once,
-        // before any resource activity; idempotent across bring-up retries.
-        Resource.compressor = BZip2Compressor()
+  private static let savedInterfacesKey = "savedTCPInterfaces"
+  private static let savedI2PConfigKey = "savedI2PConfig"
+  private static let savedYggdrasilConfigKey = "savedYggdrasilConfig"
+  private static let propagationNodeKey = "propagationNodeHash"
 
-        let stack = Reticulum(configuration: .init(storagePath: storage))
-        do {
-            try stack.start()
+  // MARK: - Stack state
 
-            // Acquire the identity up front—before registering any interfaces
-            // or starting the Yggdrasil tunnel. A failure here (for example, a corrupt
-            // on-disk identity file) would otherwise jump to `catch` with the
-            // AutoInterface / saved gateways / I2P daemon / VPN already running
-            // and no handle to stop them, leaving the app wedged at "Starting…".
-            let id = try stack.loadOrCreateIdentity()
+  private(set) var isRunning = false
+  /// Guards `bringUp` against re-entry (a second scene/window, or an
+  /// interleaving at an `await`) starting a duplicate stack over this one.
+  @ObservationIgnored private var isBringingUp = false
+  private(set) var identity: Identity?
+  private(set) var lxmfRouter: LXMRouter?
+  /// True when an external rnsd was joined rather than an embedded stack started.
+  private(set) var isClientMode = false
+  /// Hex string of the configured LXMF outbound propagation node, if any.
+  private(set) var propagationNodeHash: String?
+  /// Live state of an inbound propagation-node sync (mirrors the router's
+  /// state machine; polled while a sync runs since LXMRouter is not observable).
+  private(set) var propagationSyncState: PropagationTransferState = .idle
+  /// 0.0–1.0 progress of the current propagation sync.
+  private(set) var propagationSyncProgress: Double = 0
+  @ObservationIgnored private var syncPollTask: Task<Void, Never>?
+  /// 16-byte hash of the local lxmf.delivery destination (available after bringUp).
+  private(set) var lxmfDeliveryHash: Data?
+  /// Whether the local LXMF delivery address is actively announced to the mesh.
+  private(set) var lxmfAnnounceEnabled: Bool = {
+    UserDefaults.standard.object(forKey: "lxmfAnnounceEnabled") as? Bool ?? true
+  }()
 
-            let offline = StackController.isOfflineUITestRun
-            if offline {
-                Reticulum.log("StackController: offline UI-test run — no interfaces will be registered",
-                              level: .notice)
-            }
+  private(set) var reticulum: Reticulum?
+  private(set) var transport: Transport?
 
-            #if os(macOS)
-            let useDaemon = offline ? false : await StackController.probeLocalDaemon()
-            #else
-            let useDaemon = false
-            #endif
+  /// Human-readable name for this node, included in LXMF announces.
+  ///
+  /// Peers see this name instead of a raw hash in their peer lists.
+  private(set) var nodeDisplayName: String = {
+    UserDefaults.standard.string(forKey: "nodeDisplayName") ?? ""
+  }()
 
-            if offline {
-                isClientMode = false
-            } else if useDaemon {
-                let localIf = LocalInterface()
-                stack.transport.register(interface: localIf)
-                try localIf.start()
-                isClientMode = true
-                Reticulum.log("StackController: connected to existing rnsd via LocalInterface", level: .notice)
-            } else {
-                #if canImport(Darwin)
-                let autoIf = AutoInterface(name: "AutoInterface")
-                stack.transport.register(interface: autoIf)
-                try autoIf.start()
-                #endif
-                isClientMode = false
-                Reticulum.log("StackController: started embedded Reticulum with AutoInterface", level: .notice)
-            }
+  @ObservationIgnored private var peerAnnounceHandler: LXMFPeerAnnounceHandler?
+  /// Coalesces inbound LXMF messages into batched SwiftData writes.
+  ///
+  /// Held so it
+  /// outlives `bringUp`—the router's callback captures it.
+  @ObservationIgnored private var messageIngest: LXMFMessageIngest?
+  @ObservationIgnored private var notificationManager: NotificationManager?
+  private static let lxmfAnnounceKey = "lxmfAnnounceEnabled"
+  private static let nodeDisplayNameKey = "nodeDisplayName"
 
-            if !offline {
-            // Restore user-added client interfaces from previous sessions.
-            loadSavedInterfaces()
-            #if DEBUG
-            // Integration-test hook (DEBUG-only, never compiled into Release):
-            // reticulum_integration's `make mobile-verify` launches the app with
-            // RETIOS_INTEROP_TCP=host:port so the stack dials a Python RNS
-            // TCPServer running on the host, proving Python↔mobile reachability.
-            seedInteropInterfaceFromEnvironment()
-            #endif
-            for saved in savedInterfaces {
-                let iface: any Interface
-                switch saved.kind {
-                case .tcp, .yggdrasil:
-                    iface = TCPClientInterface(name: saved.name, host: saved.host, port: saved.port)
-                case .backbone:
-                    iface = BackboneInterface(name: saved.name, host: saved.host, port: saved.port)
-                }
-                // Before register/start, matching `Reticulum.py:975`: the IFAC key has to be
-                // installed before the first frame moves, or this interface's opening announce
-                // goes out unprotected and the peer drops it (`bugs/015`).
-                Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
-                stack.transport.register(interface: iface)
-                try? iface.start()
-                Reticulum.log("StackController: restored saved interface '\(saved.name)'", level: .notice)
-            }
-
-            // Restore I2P configuration—requires CI2PD.xcframework.
-            // After running build_ci2pd_ios.sh the guard below is extended to include iOS.
-            loadSavedI2PConfig()
-            #if os(macOS) || os(iOS)
-            if let i2pConfig = savedI2PConfig, !i2pConfig.peers.isEmpty {
-                let daemon   = I2PDaemon()
-                let dataDir  = storage.appending(path: "i2pd", directoryHint: .isDirectory)
-                let i2pIface = I2PInterface(name: i2pConfig.name,
-                                            daemon: daemon,
-                                            dataDirectory: dataDir,
-                                            connectable: i2pConfig.connectable,
-                                            peers: i2pConfig.peers)
-                stack.transport.register(interface: i2pIface)
-                // Not `try?`: starting the daemon can now fail for a reason
-                // worth reading—i2pd's globals are process-wide and can't be
-                // re-initialised once shut down—and a silent failure here
-                // looks exactly like a peer that won't connect.
-                do {
-                    try i2pIface.start()
-                    Reticulum.log("StackController: restored I2P interface '\(i2pConfig.name)' with \(i2pConfig.peers.count) peer(s)", level: .notice)
-                } catch {
-                    stack.transport.deregister(interface: i2pIface)
-                    Reticulum.log("StackController: I2P interface '\(i2pConfig.name)' failed to start: \(error)", level: .error)
-                }
-            }
-            #endif
-
-            // Restore the Yggdrasil node (system-VPN packet tunnel). The engine
-            // runs in the YggdrasilTunnel extension; this step discovers any existing
-            // VPN profile and (re)start it if the user left it enabled. Once the
-            // tunnel is up the device carries a real Yggdrasil IPv6, and Reticulum
-            // rides over it via ordinary TCP/Backbone interfaces pointed at
-            // Yggdrasil addresses (the "Add Yggdrasil Peer" flow)—wire-compatible
-            // with Python RNS-over-Yggdrasil nodes.
-            #if os(macOS) || os(iOS)
-            loadSavedYggdrasilConfig()
-            await yggdrasilVPN.refreshManager()
-            if let ygg = savedYggdrasilConfig, ygg.enabled {
-                await startYggdrasilNode()
-                Reticulum.log("StackController: (re)started Yggdrasil node with \(ygg.peers.count) peer(s)", level: .notice)
-            }
-            #endif
-            }   // !offline
-
-            let router = LXMRouter(transport: stack.transport)
-            let lxmfPath = storage.appendingPathComponent("lxmf").path
-            try? FileManager.default.createDirectory(atPath: lxmfPath, withIntermediateDirectories: true)
-            router.storagePath = lxmfPath
-            router.messagePath = lxmfPath
-
-            let nameForAnnounce = nodeDisplayName.isEmpty ? nil : nodeDisplayName
-            if let delivery = try? router.register(identity: id, transport: stack.transport,
-                                                   displayName: nameForAnnounce) {
-                lxmfDeliveryHash = delivery.hash
-                if lxmfAnnounceEnabled, !offline {
-                    try? router.announce(destinationHash: delivery.hash)
-                }
-            }
-
-            // Restore previously configured propagation node.
-            if let savedHex = UserDefaults.standard.string(forKey: Self.propagationNodeKey),
-               let data = Data(hexString: savedHex) {
-                router.outboundPropagationNode = data
-                propagationNodeHash = savedHex
-            }
-
-            // Wire inbound message receipt → coalesced SwiftData insert.
-            //
-            // The router delivers one callback per message from a transport
-            // background thread, and a propagation-node sync replays the whole
-            // offline backlog back-to-back. Writing (and saving) per message on
-            // the main context re-ran every on-screen @Query per message, which
-            // is what hung the UI during the sync that runs on every launch.
-            // LXMFMessageIngest buffers off-actor and writes one batch per
-            // window, mirroring LXMFPeerAnnounceHandler.
-            let myHex = id.hash.map { String(format: "%02x", $0) }.joined()
-            let ingest = LXMFMessageIngest(container: modelContext.container,
-                                           myHash: myHex,
-                                           notificationManager: notificationManager)
-            self.messageIngest = ingest
-            router.onMessageReceived = { message in
-                ingest.enqueue(message)
-            }
-
-            // Register peer announce handler so the Peers tab fills in.
-            // It coalesces announce bursts into a single batched save per second,
-            // so heavy mesh traffic can't starve the UI / keyboard.
-            let peerHandler = LXMFPeerAnnounceHandler(container: modelContext.container)
-            stack.transport.register(announceHandler: peerHandler)
-            self.peerAnnounceHandler = peerHandler
-
-            self.identity = id
-            self.lxmfRouter = router
-            self.transport = stack.transport
-            self.reticulum = stack
-            self.isRunning = true
-
-            #if DEBUG
-            // Interop-test hook: when launched by `make mobile-verify`
-            // (RETIOS_INTEROP_TCP set), re-announce LXMF a few times after
-            // bring-up so the Python oracle reliably catches an announce once
-            // the seeded TCP link finishes connecting—the single startup
-            // announce above can race the link coming up. DEBUG-only, env-gated.
-            if ProcessInfo.processInfo.environment["RETIOS_INTEROP_TCP"] != nil {
-                Task { @MainActor [weak self] in
-                    for _ in 0..<20 where !Task.isCancelled {
-                        try? await Task.sleep(nanoseconds: 3_000_000_000)
-                        self?.announceLXMFNow()
-                    }
-                }
-            }
-            #endif
-        } catch {
-            Reticulum.log("StackController.bringUp failed: \(error)", level: .error)
-            self.isRunning = false
-            // Stop anything that started before the failure so interfaces and
-            // the RNS instance don't leak, and a later retry can start clean.
-            stack.stop()
-        }
-    }
-
-    // MARK: - Interface persistence
-
-    /// Persist a user-added client interface so it is restored next launch.
-    func saveInterface(name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp,
-                       networkName: String? = nil, passphrase: String? = nil) {
-        // Single assignment avoids two separate objectWillChange notifications.
-        var updated = savedInterfaces
-        updated.removeAll { $0.name == name }
-        updated.append(SavedInterface(name: name, host: host, port: port, kind: kind,
-                                      networkName: networkName, passphrase: passphrase))
-        savedInterfaces = updated
-        persistSavedInterfaces()
-    }
-
-    /// Register and start a client interface of the given kind immediately,
-    /// then persist it for restoration on next launch.
-    ///
-    /// Used by both the
-    /// manual "Add TCP Gateway" sheet and the public-directory quick-add.
-    func addAndSaveInterface(name: String, host: String, port: UInt16, kind: SavedInterfaceKind,
-                             networkName: String? = nil, passphrase: String? = nil) throws {
-        guard let transport else {
-            throw StackError.notRunning
-        }
-        // Strip square brackets from IPv6 literals (for example, "[2001:db8::1]" → "2001:db8::1").
-        let normalizedHost = Self.normalizeHost(host)
-        let iface: any Interface
-        switch kind {
-        case .tcp, .yggdrasil:
-            iface = TCPClientInterface(name: name, host: normalizedHost, port: port)
-        case .backbone:
-            iface = BackboneInterface(name: name, host: normalizedHost, port: port)
-        }
-        // Before register/start—see the restore path above and `bugs/015`.
-        let saved = SavedInterface(name: name, host: normalizedHost, port: port, kind: kind,
-                                   networkName: networkName, passphrase: passphrase)
-        Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
-        transport.register(interface: iface)
-        interfacesRevision &+= 1
-        do {
-            try iface.start()
-            saveInterface(name: name, host: normalizedHost, port: port, kind: kind,
-                          networkName: networkName, passphrase: passphrase)
-        } catch {
-            transport.halt(interfaceName: name)
-            throw error
-        }
-    }
-
-    /// Strip RFC 2732 square brackets from IPv6 address literals.
-    static func normalizeHost(_ host: String) -> String {
-        var h = host.trimmingCharacters(in: .whitespaces)
-        if h.hasPrefix("[") && h.hasSuffix("]") {
-            h = String(h.dropFirst().dropLast())
-        }
-        return h
-    }
-
-    // MARK: - I2P interface persistence
-
-    /// Save (or replace) the I2P configuration.
-    ///
-    /// Takes effect at the next launch.
-    ///
-    /// The absence of a live restart here is deliberate, not an oversight: i2pd's
-    /// router is a set of process-global singletons, and `C_TerminateI2P`—which
-    /// stopping the interface has to call—leaves them unusable for the rest of
-    /// the process (`I2PDaemon` documents the constraint and now refuses the
-    /// re-init outright rather than corrupting them). So a swap in place could
-    /// only ever tear the old daemon down and fail to bring a new one up.
-    /// `i2pRestartRequired` exists so the UI can say that plainly instead of the
-    /// user watching an edit apparently do nothing.
-    func saveI2PConfig(_ config: SavedI2PConfig) {
-        let changed = config != savedI2PConfig
-        savedI2PConfig = config
-        if let data = try? JSONEncoder().encode(config) {
-            UserDefaults.standard.set(data, forKey: Self.savedI2PConfigKey)
-        }
-        // Only nag when the edit really is stranded. Before bring-up there is
-        // nothing to reconcile—`bringUp()` reads the saved config on its way
-        // past—and re-saving identical settings changes nothing either way.
-        if changed && isRunning {
-            i2pRestartRequired = true
-        }
-    }
-
-    /// Remove the persisted I2P config and halt the running I2P interface (if any).
-    ///
-    /// Halting it terminates the embedded i2pd for the lifetime of the process
-    /// (see `saveI2PConfig(_:)`), so I2P stays gone until relaunch even if a new
-    /// config is added afterwards—`saveI2PConfig(_:)` flags that case.
-    func removeI2PConfig() {
-        let ifaceName = savedI2PConfig?.name ?? "I2P"
-        savedI2PConfig = nil
-        UserDefaults.standard.removeObject(forKey: Self.savedI2PConfigKey)
-        i2pRestartRequired = false
-
-        // Deliberately not `deregisterLiveInterface(named:)`, which stops the
-        // interface inline. Stopping this one shuts down the embedded i2pd—joining
-        // its router threads and flushing its netDb—which is far too
-        // slow to run while the user is looking at the list. Deregister first so
-        // the row disappears and Transport stops routing to it, then let the
-        // shutdown finish in the background.
-        guard let transport,
-              let iface = transport.interfaces.first(where: { $0.name == ifaceName }) else { return }
-        transport.deregister(interface: iface)
-        interfacesRevision &+= 1
-        DispatchQueue.global(qos: .userInitiated).async { iface.stop() }
-    }
-
-    private func loadSavedI2PConfig() {
-        guard let data = UserDefaults.standard.data(forKey: Self.savedI2PConfigKey),
-              let config = try? JSONDecoder().decode(SavedI2PConfig.self, from: data) else { return }
-        savedI2PConfig = config
-    }
-
-    // MARK: - Yggdrasil node persistence
-
-    /// Save the Yggdrasil node preferences and (re)start or stop the tunnel to
-    /// match.
-    ///
-    /// Starting reuses the node's existing key from the VPN profile if one
-    /// exists, so the node keeps its identity/address across edits and restarts.
-    func saveYggdrasilConfig(_ config: SavedYggdrasilConfig) async {
-        savedYggdrasilConfig = config
-        if let data = try? JSONEncoder().encode(config) {
-            UserDefaults.standard.set(data, forKey: Self.savedYggdrasilConfigKey)
-        }
-        if config.enabled {
-            await startYggdrasilNode()
-        } else {
-            yggdrasilVPN.stopTunnel()
-        }
-    }
-
-    /// Remove the persisted Yggdrasil preferences and delete the VPN profile
-    /// (which also discards the node key).
-    func removeYggdrasilConfig() async {
-        savedYggdrasilConfig = nil
-        UserDefaults.standard.removeObject(forKey: Self.savedYggdrasilConfigKey)
-        await yggdrasilVPN.removeTunnel()
-    }
-
-    private func loadSavedYggdrasilConfig() {
-        guard let data = UserDefaults.standard.data(forKey: Self.savedYggdrasilConfigKey),
-              let config = try? JSONDecoder().decode(SavedYggdrasilConfig.self, from: data) else { return }
-        savedYggdrasilConfig = config
-    }
-
-    /// Build the engine config from the saved preferences (preserving the
-    /// existing node key when a profile already exists) and start the tunnel.
-    private func startYggdrasilNode() async {
-        let saved = savedYggdrasilConfig ?? SavedYggdrasilConfig()
-
-        // Make sure NetworkExtension has actually been queried before deciding
-        // whether a profile (and thus a persisted node key) already exists.
-        if !yggdrasilVPN.didLoadManagers {
-            await yggdrasilVPN.refreshManager()
-        }
-
-        let config: YggdrasilConfig
-        if let existing = yggdrasilVPN.loadSavedConfig() {
-            // A profile exists and its config is readable—reuse it so the node
-            // keeps its identity / IPv6 address across restarts.
-            config = existing
-        } else if yggdrasilVPN.didLoadManagers && !yggdrasilVPN.isConfigured {
-            // NE answered and there is genuinely no profile: this
-            // is a true first run, so mint a fresh key.
-            config = YggdrasilConfig(multicastEnabled: saved.multicastEnabled)
-        } else {
-            // Either NE couldn't be queried, or a profile exists but its config
-            // is unreadable. Do NOT generate a new key—that would silently
-            // change the node's identity/address and break peers keyed to it.
-            // Fail closed and surface the error instead.
-            let detail = yggdrasilVPN.lastError.map { " (\($0))" } ?? ""
-            Reticulum.log("StackController: Yggdrasil profile unreadable — not regenerating node key\(detail)", level: .error)
-            return
-        }
-
-        config.peers = saved.peers
-        config.nodeName = saved.nodeName.isEmpty ? nil : saved.nodeName
-        config.setMulticastEnabled(saved.multicastEnabled)
-        await yggdrasilVPN.startTunnel(with: config)
-    }
-
-    enum StackError: LocalizedError {
-        case notRunning
-        var errorDescription: String? {
-            switch self {
-            case .notRunning: return "Stack is not running yet."
-            }
-        }
-    }
-
-    /// Remove a user-added interface: fully tears it down for the current session
-    /// and removes it from persistence so it is not restored next launch.
-    func removeInterface(named name: String) {
-        savedInterfaces.removeAll { $0.name == name }
-        persistSavedInterfaces()
-        deregisterLiveInterface(named: name)
-    }
-
-    /// Stop a live interface *and* remove it from `transport.interfaces`.
-    ///
-    /// This replaced a bare `transport.halt(interfaceName:)`, which—by design,
-    /// mirroring Python's `halt_interface`—only stops the interface but leaves
-    /// it *registered*. The Interfaces screen lists the live `transport.interfaces`,
-    /// so a halted-but-still-registered interface never left the list and its
-    /// "Remove" action (gated on `isSaved`, just cleared above) also
-    /// vanished: that was the "interface delete does nothing" bug, identical on
-    /// iOS and macOS because this is shared code. `Transport` is not an
-    /// `ObservableObject`, so mutating `interfaces` won't refresh SwiftUI on its
-    /// own—hence the explicit `interfacesRevision` bump.
-    private func deregisterLiveInterface(named name: String) {
-        guard let transport,
-              let iface = transport.interfaces.first(where: { $0.name == name }) else { return }
-        iface.stop()
-        transport.deregister(interface: iface)
-        interfacesRevision &+= 1
-    }
-
-    /// Register a newly built interface with the live transport, keeping the
-    /// Interfaces screen in sync.
-    ///
-    /// Every path that adds to `transport.interfaces`
-    /// must go through here (or call `noteInterfacesChanged()`)—see the
-    /// property's note on why an implicit refresh no longer exists.
-    func registerLiveInterface(_ iface: any Interface) {
-        transport?.register(interface: iface)
-        interfacesRevision &+= 1
-    }
-
-    /// Signal that `transport.interfaces` changed by a route that owns its own
-    /// registration (BLE Mesh and RNode each build and register their interface
-    /// from their own controller).
-    ///
-    /// Without this the Interfaces screen keeps
-    /// showing a stale Active list until the user navigates away and back:
-    /// enabling BLE Mesh adds a live interface the list never shows, and
-    /// disabling it leaves a ghost row.
-    func noteInterfacesChanged() {
-        interfacesRevision &+= 1
-    }
-
-    private func loadSavedInterfaces() {
-        guard let data = UserDefaults.standard.data(forKey: Self.savedInterfacesKey),
-              let saved = try? JSONDecoder().decode([SavedInterface].self, from: data) else { return }
-        savedInterfaces = saved
-    }
-
+  /// UI-test hook (DEBUG-only, never compiled into Release): bring the stack
+  /// up with **no interfaces registered**, so the app renders at full fidelity
+  ///—real identity, real router, real screens—while touching nothing on
+  /// the network.
+  ///
+  /// XCUITest relaunches the app for every test method. Without this, each
+  /// method re-joined AutoInterface's multicast group, redialled every saved
+  /// TCP/Backbone gateway, respawned the i2pd daemon and re-armed the
+  /// Yggdrasil VPN profile, then had all of it killed abruptly when the test
+  /// ended. That churn is disruptive to a real mesh the developer's machine
+  /// is part of, and it makes the tests slow and dependent on the network
+  /// being in a particular state. No interfaces means nothing reaches the
+  /// wire, which is exactly what a launch/reachability/appearance test wants.
+  ///
+  /// Set via `app.launchArguments += ["-stackOffline", "YES"]`—the argument
+  /// domain outranks persisted defaults, so it needs no test-only UI.
+  static var isOfflineUITestRun: Bool {
     #if DEBUG
-    /// Integration-test hook: if `RETIOS_INTEROP_TCP` (for example, "127.0.0.1:4242") is
-    /// present in the environment, add a transient TCP client interface dialing
-    /// that host so `bringUp` connects to a Python RNS TCPServer.
-    ///
-    /// Not persisted
-    /// (kept out of UserDefaults) and DEBUG-only, so it never affects Release
-    /// builds or a user's saved interfaces. Host must be IPv4/hostname (the
-    /// last ':' separates the port—bracketless IPv6 is intentionally unsupported).
-    private func seedInteropInterfaceFromEnvironment() {
-        guard let spec = ProcessInfo.processInfo.environment["RETIOS_INTEROP_TCP"],
-              let sep = spec.lastIndex(of: ":") else { return }
-        let host = String(spec[spec.startIndex..<sep])
-        guard !host.isEmpty, let port = UInt16(spec[spec.index(after: sep)...]) else { return }
-        guard !savedInterfaces.contains(where: { $0.host == host && $0.port == port }) else { return }
-        savedInterfaces.append(SavedInterface(name: "Interop TCP", host: host, port: port, kind: .tcp))
-        Reticulum.log("StackController: seeded interop TCP interface \(host):\(port) from RETIOS_INTEROP_TCP", level: .notice)
-    }
+    return UserDefaults.standard.bool(forKey: "stackOffline")
+    #else
+    return false
     #endif
+  }
 
-    private func persistSavedInterfaces() {
-        if let data = try? JSONEncoder().encode(savedInterfaces) {
-            UserDefaults.standard.set(data, forKey: Self.savedInterfacesKey)
+  func bringUp(modelContext: ModelContext, notificationManager: NotificationManager? = nil) async {
+    // Idempotent: never start a second stack over a running (or still
+    // starting) one. @MainActor makes this check-and-set race-free.
+    guard !isRunning, !isBringingUp else { return }
+    isBringingUp = true
+    defer { isBringingUp = false }
+
+    self.notificationManager = notificationManager
+    let storage = URL.documentsDirectory.appending(path: "reticulum", directoryHint: .isDirectory)
+    try? FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+
+    // Enable wire-compatible bz2 compression for Resource transfers. Without
+    // this, `Resource.compressor` stays `NoCompressor`, whose `decompress`
+    // returns nil—so any COMPRESSED resource sent by a Python peer (large
+    // NomadNet pages, large LXMF messages, RRC resources—all of which
+    // Python bz2-compresses) fails to assemble ("decompression failed"),
+    // tearing down the link ("Link closed before the page loaded"). Small
+    // single-packet responses are unaffected, which masked this. Set once,
+    // before any resource activity; idempotent across bring-up retries.
+    Resource.compressor = BZip2Compressor()
+
+    let stack = Reticulum(configuration: .init(storagePath: storage))
+    do {
+      try stack.start()
+
+      // Acquire the identity up front—before registering any interfaces
+      // or starting the Yggdrasil tunnel. A failure here (for example, a corrupt
+      // on-disk identity file) would otherwise jump to `catch` with the
+      // AutoInterface / saved gateways / I2P daemon / VPN already running
+      // and no handle to stop them, leaving the app wedged at "Starting…".
+      let id = try stack.loadOrCreateIdentity()
+
+      let offline = StackController.isOfflineUITestRun
+      if offline {
+        Reticulum.log(
+          "StackController: offline UI-test run — no interfaces will be registered",
+          level: .notice)
+      }
+
+      #if os(macOS)
+      let useDaemon = offline ? false : await StackController.probeLocalDaemon()
+      #else
+      let useDaemon = false
+      #endif
+
+      if offline {
+        isClientMode = false
+      } else if useDaemon {
+        let localIf = LocalInterface()
+        stack.transport.register(interface: localIf)
+        try localIf.start()
+        isClientMode = true
+        Reticulum.log(
+          "StackController: connected to existing rnsd via LocalInterface", level: .notice)
+      } else {
+        #if canImport(Darwin)
+        let autoIf = AutoInterface(name: "AutoInterface")
+        stack.transport.register(interface: autoIf)
+        try autoIf.start()
+        #endif
+        isClientMode = false
+        Reticulum.log(
+          "StackController: started embedded Reticulum with AutoInterface", level: .notice)
+      }
+
+      if !offline {
+        // Restore user-added client interfaces from previous sessions.
+        loadSavedInterfaces()
+        #if DEBUG
+        // Integration-test hook (DEBUG-only, never compiled into Release):
+        // reticulum_integration's `make mobile-verify` launches the app with
+        // RETIOS_INTEROP_TCP=host:port so the stack dials a Python RNS
+        // TCPServer running on the host, proving Python↔mobile reachability.
+        seedInteropInterfaceFromEnvironment()
+        #endif
+        for saved in savedInterfaces {
+          let iface: any Interface
+          switch saved.kind {
+          case .tcp, .yggdrasil:
+            iface = TCPClientInterface(name: saved.name, host: saved.host, port: saved.port)
+          case .backbone:
+            iface = BackboneInterface(name: saved.name, host: saved.host, port: saved.port)
+          }
+          // Before register/start, matching `Reticulum.py:975`: the IFAC key has to be
+          // installed before the first frame moves, or this interface's opening announce
+          // goes out unprotected and the peer drops it (`bugs/015`).
+          Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
+          stack.transport.register(interface: iface)
+          try? iface.start()
+          Reticulum.log("StackController: restored saved interface '\(saved.name)'", level: .notice)
         }
+
+        // Restore I2P configuration—requires CI2PD.xcframework.
+        // After running build_ci2pd_ios.sh the guard below is extended to include iOS.
+        loadSavedI2PConfig()
+        #if os(macOS) || os(iOS)
+        if let i2pConfig = savedI2PConfig, !i2pConfig.peers.isEmpty {
+          let daemon = I2PDaemon()
+          let dataDir = storage.appending(path: "i2pd", directoryHint: .isDirectory)
+          let i2pIface = I2PInterface(
+            name: i2pConfig.name,
+            daemon: daemon,
+            dataDirectory: dataDir,
+            connectable: i2pConfig.connectable,
+            peers: i2pConfig.peers)
+          stack.transport.register(interface: i2pIface)
+          // Not `try?`: starting the daemon can now fail for a reason
+          // worth reading—i2pd's globals are process-wide and can't be
+          // re-initialised once shut down—and a silent failure here
+          // looks exactly like a peer that won't connect.
+          do {
+            try i2pIface.start()
+            Reticulum.log(
+              "StackController: restored I2P interface '\(i2pConfig.name)' with \(i2pConfig.peers.count) peer(s)",
+              level: .notice)
+          } catch {
+            stack.transport.deregister(interface: i2pIface)
+            Reticulum.log(
+              "StackController: I2P interface '\(i2pConfig.name)' failed to start: \(error)",
+              level: .error)
+          }
+        }
+        #endif
+
+        // Restore the Yggdrasil node (system-VPN packet tunnel). The engine
+        // runs in the YggdrasilTunnel extension; this step discovers any existing
+        // VPN profile and (re)start it if the user left it enabled. Once the
+        // tunnel is up the device carries a real Yggdrasil IPv6, and Reticulum
+        // rides over it via ordinary TCP/Backbone interfaces pointed at
+        // Yggdrasil addresses (the "Add Yggdrasil Peer" flow)—wire-compatible
+        // with Python RNS-over-Yggdrasil nodes.
+        #if os(macOS) || os(iOS)
+        loadSavedYggdrasilConfig()
+        await yggdrasilVPN.refreshManager()
+        if let ygg = savedYggdrasilConfig, ygg.enabled {
+          await startYggdrasilNode()
+          Reticulum.log(
+            "StackController: (re)started Yggdrasil node with \(ygg.peers.count) peer(s)",
+            level: .notice)
+        }
+        #endif
+      }  // !offline
+
+      let router = LXMRouter(transport: stack.transport)
+      let lxmfPath = storage.appendingPathComponent("lxmf").path
+      try? FileManager.default.createDirectory(atPath: lxmfPath, withIntermediateDirectories: true)
+      router.storagePath = lxmfPath
+      router.messagePath = lxmfPath
+
+      let nameForAnnounce = nodeDisplayName.isEmpty ? nil : nodeDisplayName
+      if let delivery = try? router.register(
+        identity: id, transport: stack.transport,
+        displayName: nameForAnnounce)
+      {
+        lxmfDeliveryHash = delivery.hash
+        if lxmfAnnounceEnabled, !offline {
+          try? router.announce(destinationHash: delivery.hash)
+        }
+      }
+
+      // Restore previously configured propagation node.
+      if let savedHex = UserDefaults.standard.string(forKey: Self.propagationNodeKey),
+        let data = Data(hexString: savedHex)
+      {
+        router.outboundPropagationNode = data
+        propagationNodeHash = savedHex
+      }
+
+      // Wire inbound message receipt → coalesced SwiftData insert.
+      //
+      // The router delivers one callback per message from a transport
+      // background thread, and a propagation-node sync replays the whole
+      // offline backlog back-to-back. Writing (and saving) per message on
+      // the main context re-ran every on-screen @Query per message, which
+      // is what hung the UI during the sync that runs on every launch.
+      // LXMFMessageIngest buffers off-actor and writes one batch per
+      // window, mirroring LXMFPeerAnnounceHandler.
+      let myHex = id.hash.map { String(format: "%02x", $0) }.joined()
+      let ingest = LXMFMessageIngest(
+        container: modelContext.container,
+        myHash: myHex,
+        notificationManager: notificationManager)
+      self.messageIngest = ingest
+      router.onMessageReceived = { message in
+        ingest.enqueue(message)
+      }
+
+      // Register peer announce handler so the Peers tab fills in.
+      // It coalesces announce bursts into a single batched save per second,
+      // so heavy mesh traffic can't starve the UI / keyboard.
+      let peerHandler = LXMFPeerAnnounceHandler(container: modelContext.container)
+      stack.transport.register(announceHandler: peerHandler)
+      self.peerAnnounceHandler = peerHandler
+
+      self.identity = id
+      self.lxmfRouter = router
+      self.transport = stack.transport
+      self.reticulum = stack
+      self.isRunning = true
+
+      #if DEBUG
+      // Interop-test hook: when launched by `make mobile-verify`
+      // (RETIOS_INTEROP_TCP set), re-announce LXMF a few times after
+      // bring-up so the Python oracle reliably catches an announce once
+      // the seeded TCP link finishes connecting—the single startup
+      // announce above can race the link coming up. DEBUG-only, env-gated.
+      if ProcessInfo.processInfo.environment["RETIOS_INTEROP_TCP"] != nil {
+        Task { @MainActor [weak self] in
+          for _ in 0..<20 where !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            self?.announceLXMFNow()
+          }
+        }
+      }
+      #endif
+    } catch {
+      Reticulum.log("StackController.bringUp failed: \(error)", level: .error)
+      self.isRunning = false
+      // Stop anything that started before the failure so interfaces and
+      // the RNS instance don't leak, and a later retry can start clean.
+      stack.stop()
+    }
+  }
+
+  // MARK: - Interface persistence
+
+  /// Persist a user-added client interface so it is restored next launch.
+  func saveInterface(
+    name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp,
+    networkName: String? = nil, passphrase: String? = nil
+  ) {
+    // Single assignment avoids two separate objectWillChange notifications.
+    var updated = savedInterfaces
+    updated.removeAll { $0.name == name }
+    updated.append(
+      SavedInterface(
+        name: name, host: host, port: port, kind: kind,
+        networkName: networkName, passphrase: passphrase))
+    savedInterfaces = updated
+    persistSavedInterfaces()
+  }
+
+  /// Register and start a client interface of the given kind immediately,
+  /// then persist it for restoration on next launch.
+  ///
+  /// Used by both the
+  /// manual "Add TCP Gateway" sheet and the public-directory quick-add.
+  func addAndSaveInterface(
+    name: String, host: String, port: UInt16, kind: SavedInterfaceKind,
+    networkName: String? = nil, passphrase: String? = nil
+  ) throws {
+    guard let transport else {
+      throw StackError.notRunning
+    }
+    // Strip square brackets from IPv6 literals (for example, "[2001:db8::1]" → "2001:db8::1").
+    let normalizedHost = Self.normalizeHost(host)
+    let iface: any Interface
+    switch kind {
+    case .tcp, .yggdrasil:
+      iface = TCPClientInterface(name: name, host: normalizedHost, port: port)
+    case .backbone:
+      iface = BackboneInterface(name: name, host: normalizedHost, port: port)
+    }
+    // Before register/start—see the restore path above and `bugs/015`.
+    let saved = SavedInterface(
+      name: name, host: normalizedHost, port: port, kind: kind,
+      networkName: networkName, passphrase: passphrase)
+    Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
+    transport.register(interface: iface)
+    interfacesRevision &+= 1
+    do {
+      try iface.start()
+      saveInterface(
+        name: name, host: normalizedHost, port: port, kind: kind,
+        networkName: networkName, passphrase: passphrase)
+    } catch {
+      transport.halt(interfaceName: name)
+      throw error
+    }
+  }
+
+  /// Strip RFC 2732 square brackets from IPv6 address literals.
+  static func normalizeHost(_ host: String) -> String {
+    var h = host.trimmingCharacters(in: .whitespaces)
+    if h.hasPrefix("[") && h.hasSuffix("]") {
+      h = String(h.dropFirst().dropLast())
+    }
+    return h
+  }
+
+  // MARK: - I2P interface persistence
+
+  /// Save (or replace) the I2P configuration.
+  ///
+  /// Takes effect at the next launch.
+  ///
+  /// The absence of a live restart here is deliberate, not an oversight: i2pd's
+  /// router is a set of process-global singletons, and `C_TerminateI2P`—which
+  /// stopping the interface has to call—leaves them unusable for the rest of
+  /// the process (`I2PDaemon` documents the constraint and now refuses the
+  /// re-init outright rather than corrupting them). So a swap in place could
+  /// only ever tear the old daemon down and fail to bring a new one up.
+  /// `i2pRestartRequired` exists so the UI can say that plainly instead of the
+  /// user watching an edit apparently do nothing.
+  func saveI2PConfig(_ config: SavedI2PConfig) {
+    let changed = config != savedI2PConfig
+    savedI2PConfig = config
+    if let data = try? JSONEncoder().encode(config) {
+      UserDefaults.standard.set(data, forKey: Self.savedI2PConfigKey)
+    }
+    // Only nag when the edit really is stranded. Before bring-up there is
+    // nothing to reconcile—`bringUp()` reads the saved config on its way
+    // past—and re-saving identical settings changes nothing either way.
+    if changed && isRunning {
+      i2pRestartRequired = true
+    }
+  }
+
+  /// Remove the persisted I2P config and halt the running I2P interface (if any).
+  ///
+  /// Halting it terminates the embedded i2pd for the lifetime of the process
+  /// (see `saveI2PConfig(_:)`), so I2P stays gone until relaunch even if a new
+  /// config is added afterwards—`saveI2PConfig(_:)` flags that case.
+  func removeI2PConfig() {
+    let ifaceName = savedI2PConfig?.name ?? "I2P"
+    savedI2PConfig = nil
+    UserDefaults.standard.removeObject(forKey: Self.savedI2PConfigKey)
+    i2pRestartRequired = false
+
+    // Deliberately not `deregisterLiveInterface(named:)`, which stops the
+    // interface inline. Stopping this one shuts down the embedded i2pd—joining
+    // its router threads and flushing its netDb—which is far too
+    // slow to run while the user is looking at the list. Deregister first so
+    // the row disappears and Transport stops routing to it, then let the
+    // shutdown finish in the background.
+    guard let transport,
+      let iface = transport.interfaces.first(where: { $0.name == ifaceName })
+    else { return }
+    transport.deregister(interface: iface)
+    interfacesRevision &+= 1
+    DispatchQueue.global(qos: .userInitiated).async { iface.stop() }
+  }
+
+  private func loadSavedI2PConfig() {
+    guard let data = UserDefaults.standard.data(forKey: Self.savedI2PConfigKey),
+      let config = try? JSONDecoder().decode(SavedI2PConfig.self, from: data)
+    else { return }
+    savedI2PConfig = config
+  }
+
+  // MARK: - Yggdrasil node persistence
+
+  /// Save the Yggdrasil node preferences and (re)start or stop the tunnel to
+  /// match.
+  ///
+  /// Starting reuses the node's existing key from the VPN profile if one
+  /// exists, so the node keeps its identity/address across edits and restarts.
+  func saveYggdrasilConfig(_ config: SavedYggdrasilConfig) async {
+    savedYggdrasilConfig = config
+    if let data = try? JSONEncoder().encode(config) {
+      UserDefaults.standard.set(data, forKey: Self.savedYggdrasilConfigKey)
+    }
+    if config.enabled {
+      await startYggdrasilNode()
+    } else {
+      yggdrasilVPN.stopTunnel()
+    }
+  }
+
+  /// Remove the persisted Yggdrasil preferences and delete the VPN profile
+  /// (which also discards the node key).
+  func removeYggdrasilConfig() async {
+    savedYggdrasilConfig = nil
+    UserDefaults.standard.removeObject(forKey: Self.savedYggdrasilConfigKey)
+    await yggdrasilVPN.removeTunnel()
+  }
+
+  private func loadSavedYggdrasilConfig() {
+    guard let data = UserDefaults.standard.data(forKey: Self.savedYggdrasilConfigKey),
+      let config = try? JSONDecoder().decode(SavedYggdrasilConfig.self, from: data)
+    else { return }
+    savedYggdrasilConfig = config
+  }
+
+  /// Build the engine config from the saved preferences (preserving the
+  /// existing node key when a profile already exists) and start the tunnel.
+  private func startYggdrasilNode() async {
+    let saved = savedYggdrasilConfig ?? SavedYggdrasilConfig()
+
+    // Make sure NetworkExtension has actually been queried before deciding
+    // whether a profile (and thus a persisted node key) already exists.
+    if !yggdrasilVPN.didLoadManagers {
+      await yggdrasilVPN.refreshManager()
     }
 
-    // MARK: - Announce
-
-    /// Toggle LXMF address announce and persist the choice.
-    ///
-    /// When turning on, immediately sends an announce so peers learn the address right away.
-    func setLXMFAnnounce(_ enabled: Bool) {
-        lxmfAnnounceEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: Self.lxmfAnnounceKey)
-        if enabled, let hash = lxmfDeliveryHash {
-            try? lxmfRouter?.announce(destinationHash: hash)
-        }
+    let config: YggdrasilConfig
+    if let existing = yggdrasilVPN.loadSavedConfig() {
+      // A profile exists and its config is readable—reuse it so the node
+      // keeps its identity / IPv6 address across restarts.
+      config = existing
+    } else if yggdrasilVPN.didLoadManagers && !yggdrasilVPN.isConfigured {
+      // NE answered and there is genuinely no profile: this
+      // is a true first run, so mint a fresh key.
+      config = YggdrasilConfig(multicastEnabled: saved.multicastEnabled)
+    } else {
+      // Either NE couldn't be queried, or a profile exists but its config
+      // is unreadable. Do NOT generate a new key—that would silently
+      // change the node's identity/address and break peers keyed to it.
+      // Fail closed and surface the error instead.
+      let detail = yggdrasilVPN.lastError.map { " (\($0))" } ?? ""
+      Reticulum.log(
+        "StackController: Yggdrasil profile unreadable — not regenerating node key\(detail)",
+        level: .error)
+      return
     }
 
-    /// Send an immediate LXMF announce regardless of the persisted toggle state.
-    func announceLXMFNow() {
-        guard let hash = lxmfDeliveryHash else { return }
+    config.peers = saved.peers
+    config.nodeName = saved.nodeName.isEmpty ? nil : saved.nodeName
+    config.setMulticastEnabled(saved.multicastEnabled)
+    await yggdrasilVPN.startTunnel(with: config)
+  }
+
+  enum StackError: LocalizedError {
+    case notRunning
+    var errorDescription: String? {
+      switch self {
+      case .notRunning: return "Stack is not running yet."
+      }
+    }
+  }
+
+  /// Remove a user-added interface: fully tears it down for the current session
+  /// and removes it from persistence so it is not restored next launch.
+  func removeInterface(named name: String) {
+    savedInterfaces.removeAll { $0.name == name }
+    persistSavedInterfaces()
+    deregisterLiveInterface(named: name)
+  }
+
+  /// Stop a live interface *and* remove it from `transport.interfaces`.
+  ///
+  /// This replaced a bare `transport.halt(interfaceName:)`, which—by design,
+  /// mirroring Python's `halt_interface`—only stops the interface but leaves
+  /// it *registered*. The Interfaces screen lists the live `transport.interfaces`,
+  /// so a halted-but-still-registered interface never left the list and its
+  /// "Remove" action (gated on `isSaved`, just cleared above) also
+  /// vanished: that was the "interface delete does nothing" bug, identical on
+  /// iOS and macOS because this is shared code. `Transport` is not an
+  /// `ObservableObject`, so mutating `interfaces` won't refresh SwiftUI on its
+  /// own—hence the explicit `interfacesRevision` bump.
+  private func deregisterLiveInterface(named name: String) {
+    guard let transport,
+      let iface = transport.interfaces.first(where: { $0.name == name })
+    else { return }
+    iface.stop()
+    transport.deregister(interface: iface)
+    interfacesRevision &+= 1
+  }
+
+  /// Register a newly built interface with the live transport, keeping the
+  /// Interfaces screen in sync.
+  ///
+  /// Every path that adds to `transport.interfaces`
+  /// must go through here (or call `noteInterfacesChanged()`)—see the
+  /// property's note on why an implicit refresh no longer exists.
+  func registerLiveInterface(_ iface: any Interface) {
+    transport?.register(interface: iface)
+    interfacesRevision &+= 1
+  }
+
+  /// Signal that `transport.interfaces` changed by a route that owns its own
+  /// registration (BLE Mesh and RNode each build and register their interface
+  /// from their own controller).
+  ///
+  /// Without this the Interfaces screen keeps
+  /// showing a stale Active list until the user navigates away and back:
+  /// enabling BLE Mesh adds a live interface the list never shows, and
+  /// disabling it leaves a ghost row.
+  func noteInterfacesChanged() {
+    interfacesRevision &+= 1
+  }
+
+  private func loadSavedInterfaces() {
+    guard let data = UserDefaults.standard.data(forKey: Self.savedInterfacesKey),
+      let saved = try? JSONDecoder().decode([SavedInterface].self, from: data)
+    else { return }
+    savedInterfaces = saved
+  }
+
+  #if DEBUG
+  /// Integration-test hook: if `RETIOS_INTEROP_TCP` (for example, "127.0.0.1:4242") is
+  /// present in the environment, add a transient TCP client interface dialing
+  /// that host so `bringUp` connects to a Python RNS TCPServer.
+  ///
+  /// Not persisted
+  /// (kept out of UserDefaults) and DEBUG-only, so it never affects Release
+  /// builds or a user's saved interfaces. Host must be IPv4/hostname (the
+  /// last ':' separates the port—bracketless IPv6 is intentionally unsupported).
+  private func seedInteropInterfaceFromEnvironment() {
+    guard let spec = ProcessInfo.processInfo.environment["RETIOS_INTEROP_TCP"],
+      let sep = spec.lastIndex(of: ":")
+    else { return }
+    let host = String(spec[spec.startIndex..<sep])
+    guard !host.isEmpty, let port = UInt16(spec[spec.index(after: sep)...]) else { return }
+    guard !savedInterfaces.contains(where: { $0.host == host && $0.port == port }) else { return }
+    savedInterfaces.append(SavedInterface(name: "Interop TCP", host: host, port: port, kind: .tcp))
+    Reticulum.log(
+      "StackController: seeded interop TCP interface \(host):\(port) from RETIOS_INTEROP_TCP",
+      level: .notice)
+  }
+  #endif
+
+  private func persistSavedInterfaces() {
+    if let data = try? JSONEncoder().encode(savedInterfaces) {
+      UserDefaults.standard.set(data, forKey: Self.savedInterfacesKey)
+    }
+  }
+
+  // MARK: - Announce
+
+  /// Toggle LXMF address announce and persist the choice.
+  ///
+  /// When turning on, immediately sends an announce so peers learn the address right away.
+  func setLXMFAnnounce(_ enabled: Bool) {
+    lxmfAnnounceEnabled = enabled
+    UserDefaults.standard.set(enabled, forKey: Self.lxmfAnnounceKey)
+    if enabled, let hash = lxmfDeliveryHash {
+      try? lxmfRouter?.announce(destinationHash: hash)
+    }
+  }
+
+  /// Send an immediate LXMF announce regardless of the persisted toggle state.
+  func announceLXMFNow() {
+    guard let hash = lxmfDeliveryHash else { return }
+    try? lxmfRouter?.announce(destinationHash: hash)
+    Reticulum.log("StackController: ad-hoc LXMF announce sent", level: .notice)
+  }
+
+  /// Update the display name sent in LXMF announces and persist the choice.
+  ///
+  /// An immediate re-announce is sent so peers see the new name right away.
+  func setNodeDisplayName(_ name: String) {
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    nodeDisplayName = trimmed
+    UserDefaults.standard.set(trimmed, forKey: Self.nodeDisplayNameKey)
+
+    // Update the router's cached name so the next announce app data includes it.
+    if let hash = lxmfDeliveryHash {
+      lxmfRouter?.setDisplayName(
+        trimmed.isEmpty ? nil : trimmed,
+        forDestinationHash: hash)
+      // Re-announce immediately so the mesh reflects the change.
+      if lxmfAnnounceEnabled {
         try? lxmfRouter?.announce(destinationHash: hash)
-        Reticulum.log("StackController: ad-hoc LXMF announce sent", level: .notice)
+      }
     }
+  }
 
-    /// Update the display name sent in LXMF announces and persist the choice.
-    ///
-    /// An immediate re-announce is sent so peers see the new name right away.
-    func setNodeDisplayName(_ name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        nodeDisplayName = trimmed
-        UserDefaults.standard.set(trimmed, forKey: Self.nodeDisplayNameKey)
+  // MARK: - Lifecycle
 
-        // Update the router's cached name so the next announce app data includes it.
-        if let hash = lxmfDeliveryHash {
-            lxmfRouter?.setDisplayName(trimmed.isEmpty ? nil : trimmed,
-                                       forDestinationHash: hash)
-            // Re-announce immediately so the mesh reflects the change.
-            if lxmfAnnounceEnabled {
-                try? lxmfRouter?.announce(destinationHash: hash)
-            }
+  /// Tear the stack down and block until it is down.
+  ///
+  /// Callers that must not block the main thread want `beginTearDown()`.
+  func tearDown() {
+    beginTearDown()?()
+  }
+
+  /// Begin an orderly shutdown, handing back the blocking half of it.
+  ///
+  /// Split in two because the two halves belong on different threads.
+  /// Flipping the UI state is main-actor work; `Reticulum.stop()` is not—it
+  /// stops every registered interface and flushes paths, ratchets, known
+  /// destinations and the packet hashlist to disk, and for the embedded i2pd
+  /// it also joins i2pd's own router threads and writes out its netDb. That is
+  /// comfortably long enough to beachball a Quit, so the returned closure is
+  /// meant to run off the main thread while the caller waits asynchronously.
+  ///
+  /// Returns `nil` when there is nothing to stop, or when a teardown is
+  /// already under way—calling it twice must not run the stop twice.
+  ///
+  /// Skipping this entirely is what produced the macOS quit crash: `exit()`
+  /// destroys the embedded i2pd's C++ globals while its worker threads are
+  /// still running, and one of them segfaults on the way down.
+  @discardableResult
+  func beginTearDown() -> (() -> Void)? {
+    guard !isTearingDown, let rns = reticulum else { return nil }
+    isTearingDown = true
+    isRunning = false
+    return { rns.stop() }
+  }
+
+  /// Guards `beginTearDown()` against a second call (quit → cancel → quit, or
+  /// a test calling `tearDown()` after the app delegate already has).
+  @ObservationIgnored private var isTearingDown = false
+
+  /// Set or clear the LXMF outbound propagation node.
+  ///
+  /// Pass a 32-character hex string to configure a node, or `nil` to clear.
+  func setPropagationNode(_ hex: String?) {
+    guard let router = lxmfRouter else { return }
+    if let hex, !hex.isEmpty {
+      let clean = String(hex.filter { $0.isHexDigit }.prefix(32))
+      guard clean.count == 32, let data = Data(hexString: clean) else { return }
+      router.outboundPropagationNode = data
+      propagationNodeHash = clean
+      UserDefaults.standard.set(clean, forKey: Self.propagationNodeKey)
+    } else {
+      router.outboundPropagationNode = nil
+      propagationNodeHash = nil
+      UserDefaults.standard.removeObject(forKey: Self.propagationNodeKey)
+    }
+  }
+
+  // MARK: - Propagation node sync
+
+  /// Request any messages held for this node by the configured propagation node
+  /// (store-and-forward "post box" retrieval).
+  ///
+  /// Safe to call repeatedly;
+  /// no-ops if no node is configured or a sync is already running.
+  func syncFromPropagationNode() {
+    guard let router = lxmfRouter, let identity,
+      router.outboundPropagationNode != nil
+    else { return }
+    guard
+      propagationSyncState == .idle
+        || propagationSyncState == .done
+        || propagationSyncState == .failed
+    else { return }
+    router.requestMessagesFromPropagationNode(identity: identity)
+    Reticulum.log("StackController: propagation node sync requested", level: .notice)
+    startSyncPolling()
+  }
+
+  /// Cancel an in-progress propagation sync.
+  func cancelPropagationSync() {
+    lxmfRouter?.cancelPropagationNodeRequests()
+    syncPollTask?.cancel()
+    syncPollTask = nil
+    propagationSyncState = .idle
+    propagationSyncProgress = 0
+  }
+
+  /// App-side deadline for a propagation sync poll.
+  ///
+  /// Deliberately above the library's own
+  /// stall net (`LXMRouter.cleanLinks(syncStallTimeout:)`, 240 s), so the library gets to
+  /// report the failure it detects and this deadline only fires when the library's
+  /// protections did not (`swift_devel/bugs/020`, design D5: a caller that can only stop
+  /// when its callee behaves is the same class of fault, one level up).
+  static let syncPollTimeout: TimeInterval = 300
+
+  /// Whether the sync poll task is live.
+  ///
+  /// For the test target, which must be able to assert
+  /// the loop *exited* rather than merely published a state.
+  var isSyncPolling: Bool { syncPollTask != nil }
+
+  private func startSyncPolling() {
+    guard let router = lxmfRouter else { return }
+    startSyncPolling(router: router, timeout: Self.syncPollTimeout)
+  }
+
+  /// Mirror the router's (non-observable) transfer state into observable properties twice a
+  /// second until the sync reaches a terminal state—or until `timeout`, after which the
+  /// underlying request is cancelled and the sync is reported failed.
+  ///
+  /// The parameters exist so
+  /// a test can drive the loop against a router that never terminates without waiting out the
+  /// production bound.
+  func startSyncPolling(router: LXMRouter, timeout: TimeInterval) {
+    syncPollTask?.cancel()
+    let deadline = Date().addingTimeInterval(timeout)
+    syncPollTask = Task { [weak self] in
+      while !Task.isCancelled {
+        guard let self else { return }
+        // Assign only on change: notifies on every assignment,
+        // equal or not, so writing both unconditionally invalidated every
+        // observing view twice a second for the whole sync.
+        let state = router.propagationTransferState
+        let progress = router.propagationTransferProgress
+        if self.propagationSyncState != state { self.propagationSyncState = state }
+        if self.propagationSyncProgress != progress { self.propagationSyncProgress = progress }
+        if state == .done || state == .failed {
+          self.syncPollTask = nil
+          return
         }
-    }
-
-    // MARK: - Lifecycle
-
-    /// Tear the stack down and block until it is down.
-    ///
-    /// Callers that must not block the main thread want `beginTearDown()`.
-    func tearDown() {
-        beginTearDown()?()
-    }
-
-    /// Begin an orderly shutdown, handing back the blocking half of it.
-    ///
-    /// Split in two because the two halves belong on different threads.
-    /// Flipping the UI state is main-actor work; `Reticulum.stop()` is not—it
-    /// stops every registered interface and flushes paths, ratchets, known
-    /// destinations and the packet hashlist to disk, and for the embedded i2pd
-    /// it also joins i2pd's own router threads and writes out its netDb. That is
-    /// comfortably long enough to beachball a Quit, so the returned closure is
-    /// meant to run off the main thread while the caller waits asynchronously.
-    ///
-    /// Returns `nil` when there is nothing to stop, or when a teardown is
-    /// already under way—calling it twice must not run the stop twice.
-    ///
-    /// Skipping this entirely is what produced the macOS quit crash: `exit()`
-    /// destroys the embedded i2pd's C++ globals while its worker threads are
-    /// still running, and one of them segfaults on the way down.
-    @discardableResult
-    func beginTearDown() -> (() -> Void)? {
-        guard !isTearingDown, let rns = reticulum else { return nil }
-        isTearingDown = true
-        isRunning = false
-        return { rns.stop() }
-    }
-
-    /// Guards `beginTearDown()` against a second call (quit → cancel → quit, or
-    /// a test calling `tearDown()` after the app delegate already has).
-    @ObservationIgnored private var isTearingDown = false
-
-    /// Set or clear the LXMF outbound propagation node.
-    ///
-    /// Pass a 32-character hex string to configure a node, or `nil` to clear.
-    func setPropagationNode(_ hex: String?) {
-        guard let router = lxmfRouter else { return }
-        if let hex, !hex.isEmpty {
-            let clean = String(hex.filter { $0.isHexDigit }.prefix(32))
-            guard clean.count == 32, let data = Data(hexString: clean) else { return }
-            router.outboundPropagationNode = data
-            propagationNodeHash = clean
-            UserDefaults.standard.set(clean, forKey: Self.propagationNodeKey)
-        } else {
-            router.outboundPropagationNode = nil
-            propagationNodeHash = nil
-            UserDefaults.standard.removeObject(forKey: Self.propagationNodeKey)
+        if Date() >= deadline {
+          // The library never reached a terminal state. Stop its work as a user
+          // cancel would, but report the truth: this sync did not complete.
+          router.cancelPropagationNodeRequests()
+          self.propagationSyncState = .failed
+          self.syncPollTask = nil
+          return
         }
+        try? await Task.sleep(nanoseconds: 500_000_000)
+      }
+      // Cancelled from outside: whoever cancelled owns `syncPollTask`—a replacement
+      // poll may already be in the slot, so this task must not touch it.
+    }
+  }
+
+  enum SendError: Error, LocalizedError {
+    case unknownPeer
+    var errorDescription: String? {
+      "This peer's keys aren't known yet. They've been requested from the network — try again in a moment."
+    }
+  }
+
+  // MARK: - Send
+
+  /// Enqueue an outbound LXMF message and record it in SwiftData.
+  ///
+  /// Fails if the peer's identity has not been seen yet (no announce received).
+  func send(
+    content: String, title: String = "", to peerHash: Data,
+    context: ModelContext
+  ) throws {
+    // Throw rather than silently return: a bare `return` here made the
+    // compose UI report success even though nothing was sent (stack not up).
+    guard let router = lxmfRouter, let identity = identity else {
+      throw StackError.notRunning
     }
 
-    // MARK: - Propagation node sync
+    // Recall peer identity from the Transport announce store. If it isn't
+    // known yet, request a path so the identity can be resolved from the
+    // network (a shared-instance rnsd answers with a path response),
+    // then fail this attempt—a retry after the response arrives succeeds.
+    // Mirrors NomadNet's Conversation.send(), which now calls
+    // RNS.Transport.request_path(...) on an unknown destination instead of
+    // silently giving up.
+    guard let peerIdentity = Identity.recall(destinationHash: peerHash) else {
+      try? transport?.requestPath(for: peerHash)
+      throw SendError.unknownPeer
+    }
+    let source = try Destination(
+      identity: identity, direction: .in,
+      kind: .single, appName: "lxmf", aspects: ["delivery"])
+    let dest = try Destination(
+      identity: peerIdentity, direction: .in,
+      kind: .single, appName: "lxmf", aspects: ["delivery"])
+    let msg = LXMessage(
+      destination: dest, source: source,
+      content: content, title: title)
 
-    /// Request any messages held for this node by the configured propagation node
-    /// (store-and-forward "post box" retrieval).
-    ///
-    /// Safe to call repeatedly;
-    /// no-ops if no node is configured or a sync is already running.
-    func syncFromPropagationNode() {
-        guard let router = lxmfRouter, let identity,
-              router.outboundPropagationNode != nil else { return }
-        guard propagationSyncState == .idle
-                || propagationSyncState == .done
-                || propagationSyncState == .failed else { return }
-        router.requestMessagesFromPropagationNode(identity: identity)
-        Reticulum.log("StackController: propagation node sync requested", level: .notice)
-        startSyncPolling()
+    let myHex = identity.hash.map { String(format: "%02x", $0) }.joined()
+    let peerHex = peerHash.map { String(format: "%02x", $0) }.joined()
+    let msgHashStr = msg.hash?.map { String(format: "%02x", $0) }.joined() ?? UUID().uuidString
+    let entity = MessageEntity(
+      messageHash: msgHashStr,
+      conversationHash: peerHex,
+      senderHash: myHex,
+      recipientHash: peerHex,
+      title: title,
+      content: content,
+      timestamp: Date(timeIntervalSince1970: msg.timestamp ?? Date().timeIntervalSince1970),
+      isOutbound: true,
+      deliveryState: Int16(LXMessage.State.outbound.rawValue)
+    )
+    context.insert(entity)
+    try? context.save()
+
+    // Every transition, not just the terminal one.
+    //
+    // Delivery is proof-gated as of ReticulumSwift 1.8.0 / `bugs/014`: a message dwells in
+    // `.sending` for as long as the network actually takes, and drops back to `.outbound`
+    // when a proof does not come back, to be retried. Wired only to `onDelivery`, the UI
+    // showed a clock that never changed and a retry that was invisible—the message simply
+    // stopped moving with no explanation.
+    //
+    // Previously `onDelivery` fired synchronously from `send()`, so the checkmark appeared
+    // instantly and always, whether or not anyone received the message. That is the
+    // behaviour change users notice, and it is the point (R3).
+    msg.onStateChange = { [weak self] message in
+      Task { @MainActor [weak self] in
+        self?.updateDeliveryState(
+          messageHash: msgHashStr,
+          state: message.state,
+          context: context)
+      }
     }
 
-    /// Cancel an in-progress propagation sync.
-    func cancelPropagationSync() {
-        lxmfRouter?.cancelPropagationNodeRequests()
-        syncPollTask?.cancel()
-        syncPollTask = nil
-        propagationSyncState = .idle
-        propagationSyncProgress = 0
-    }
+    try router.send(msg)
+  }
 
-    /// App-side deadline for a propagation sync poll.
-    ///
-    /// Deliberately above the library's own
-    /// stall net (`LXMRouter.cleanLinks(syncStallTimeout:)`, 240 s), so the library gets to
-    /// report the failure it detects and this deadline only fires when the library's
-    /// protections did not (`swift_devel/bugs/020`, design D5: a caller that can only stop
-    /// when its callee behaves is the same class of fault, one level up).
-    static let syncPollTimeout: TimeInterval = 300
+  // MARK: - Private helpers
 
-    /// Whether the sync poll task is live.
-    ///
-    /// For the test target, which must be able to assert
-    /// the loop *exited* rather than merely published a state.
-    var isSyncPolling: Bool { syncPollTask != nil }
+  private func updateDeliveryState(
+    messageHash: String, state: LXMessage.State, context: ModelContext
+  ) {
+    let descriptor = FetchDescriptor<MessageEntity>(
+      predicate: #Predicate { $0.messageHash == messageHash }
+    )
+    guard let entity = try? context.fetch(descriptor).first else { return }
+    entity.deliveryState = Int16(state.rawValue)
+    try? context.save()
+  }
 
-    private func startSyncPolling() {
-        guard let router = lxmfRouter else { return }
-        startSyncPolling(router: router, timeout: Self.syncPollTimeout)
-    }
+  // Inbound message persistence moved to `LXMFMessageIngest`, which coalesces
+  // a burst (for example, a propagation-node backlog replay) into one batched write
+  // instead of one fetch + insert + save—and therefore one full @Query
+  // re-run—per message.
 
-    /// Mirror the router's (non-observable) transfer state into observable properties twice a
-    /// second until the sync reaches a terminal state—or until `timeout`, after which the
-    /// underlying request is cancelled and the sync is reported failed.
-    ///
-    /// The parameters exist so
-    /// a test can drive the loop against a router that never terminates without waiting out the
-    /// production bound.
-    func startSyncPolling(router: LXMRouter, timeout: TimeInterval) {
-        syncPollTask?.cancel()
-        let deadline = Date().addingTimeInterval(timeout)
-        syncPollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                guard let self else { return }
-                // Assign only on change: notifies on every assignment,
-                // equal or not, so writing both unconditionally invalidated every
-                // observing view twice a second for the whole sync.
-                let state    = router.propagationTransferState
-                let progress = router.propagationTransferProgress
-                if self.propagationSyncState != state { self.propagationSyncState = state }
-                if self.propagationSyncProgress != progress { self.propagationSyncProgress = progress }
-                if state == .done || state == .failed {
-                    self.syncPollTask = nil
-                    return
-                }
-                if Date() >= deadline {
-                    // The library never reached a terminal state. Stop its work as a user
-                    // cancel would, but report the truth: this sync did not complete.
-                    router.cancelPropagationNodeRequests()
-                    self.propagationSyncState = .failed
-                    self.syncPollTask = nil
-                    return
-                }
-                try? await Task.sleep(nanoseconds: 500_000_000)
-            }
-            // Cancelled from outside: whoever cancelled owns `syncPollTask`—a replacement
-            // poll may already be in the slot, so this task must not touch it.
+  // MARK: - macOS daemon probe
+
+  #if os(macOS)
+  private static func probeLocalDaemon(port: UInt16 = 37428) async -> Bool {
+    await withCheckedContinuation { continuation in
+      let endpoint = NWEndpoint.hostPort(
+        host: "127.0.0.1",
+        port: NWEndpoint.Port(rawValue: port) ?? .any
+      )
+      let conn = NWConnection(to: endpoint, using: .tcp)
+      let q = DispatchQueue(label: "RetiOS.daemonProbe")
+      var resolved = false
+
+      conn.stateUpdateHandler = { state in
+        guard !resolved else { return }
+        switch state {
+        case .ready:
+          resolved = true
+          conn.cancel()
+          continuation.resume(returning: true)
+        case .failed, .cancelled:
+          resolved = true
+          continuation.resume(returning: false)
+        default:
+          break
         }
+      }
+      q.asyncAfter(deadline: .now() + 1.0) {
+        guard !resolved else { return }
+        resolved = true
+        conn.cancel()
+        continuation.resume(returning: false)
+      }
+      conn.start(queue: q)
     }
-
-    enum SendError: Error, LocalizedError {
-        case unknownPeer
-        var errorDescription: String? {
-            "This peer's keys aren't known yet. They've been requested from the network — try again in a moment."
-        }
-    }
-
-    // MARK: - Send
-
-    /// Enqueue an outbound LXMF message and record it in SwiftData.
-    ///
-    /// Fails if the peer's identity has not been seen yet (no announce received).
-    func send(content: String, title: String = "", to peerHash: Data,
-              context: ModelContext) throws {
-        // Throw rather than silently return: a bare `return` here made the
-        // compose UI report success even though nothing was sent (stack not up).
-        guard let router = lxmfRouter, let identity = identity else {
-            throw StackError.notRunning
-        }
-
-        // Recall peer identity from the Transport announce store. If it isn't
-        // known yet, request a path so the identity can be resolved from the
-        // network (a shared-instance rnsd answers with a path response),
-        // then fail this attempt—a retry after the response arrives succeeds.
-        // Mirrors NomadNet's Conversation.send(), which now calls
-        // RNS.Transport.request_path(...) on an unknown destination instead of
-        // silently giving up.
-        guard let peerIdentity = Identity.recall(destinationHash: peerHash) else {
-            try? transport?.requestPath(for: peerHash)
-            throw SendError.unknownPeer
-        }
-        let source = try Destination(identity: identity, direction: .in,
-                                     kind: .single, appName: "lxmf", aspects: ["delivery"])
-        let dest = try Destination(identity: peerIdentity, direction: .in,
-                                   kind: .single, appName: "lxmf", aspects: ["delivery"])
-        let msg = LXMessage(destination: dest, source: source,
-                            content: content, title: title)
-
-        let myHex = identity.hash.map { String(format: "%02x", $0) }.joined()
-        let peerHex = peerHash.map { String(format: "%02x", $0) }.joined()
-        let msgHashStr = msg.hash?.map { String(format: "%02x", $0) }.joined() ?? UUID().uuidString
-        let entity = MessageEntity(
-            messageHash: msgHashStr,
-            conversationHash: peerHex,
-            senderHash: myHex,
-            recipientHash: peerHex,
-            title: title,
-            content: content,
-            timestamp: Date(timeIntervalSince1970: msg.timestamp ?? Date().timeIntervalSince1970),
-            isOutbound: true,
-            deliveryState: Int16(LXMessage.State.outbound.rawValue)
-        )
-        context.insert(entity)
-        try? context.save()
-
-        // Every transition, not just the terminal one.
-        //
-        // Delivery is proof-gated as of ReticulumSwift 1.8.0 / `bugs/014`: a message dwells in
-        // `.sending` for as long as the network actually takes, and drops back to `.outbound`
-        // when a proof does not come back, to be retried. Wired only to `onDelivery`, the UI
-        // showed a clock that never changed and a retry that was invisible—the message simply
-        // stopped moving with no explanation.
-        //
-        // Previously `onDelivery` fired synchronously from `send()`, so the checkmark appeared
-        // instantly and always, whether or not anyone received the message. That is the
-        // behaviour change users notice, and it is the point (R3).
-        msg.onStateChange = { [weak self] message in
-            Task { @MainActor [weak self] in
-                self?.updateDeliveryState(messageHash: msgHashStr,
-                                          state: message.state,
-                                          context: context)
-            }
-        }
-
-        try router.send(msg)
-    }
-
-    // MARK: - Private helpers
-
-    private func updateDeliveryState(messageHash: String, state: LXMessage.State, context: ModelContext) {
-        let descriptor = FetchDescriptor<MessageEntity>(
-            predicate: #Predicate { $0.messageHash == messageHash }
-        )
-        guard let entity = try? context.fetch(descriptor).first else { return }
-        entity.deliveryState = Int16(state.rawValue)
-        try? context.save()
-    }
-
-    // Inbound message persistence moved to `LXMFMessageIngest`, which coalesces
-    // a burst (for example, a propagation-node backlog replay) into one batched write
-    // instead of one fetch + insert + save—and therefore one full @Query
-    // re-run—per message.
-
-    // MARK: - macOS daemon probe
-
-    #if os(macOS)
-    private static func probeLocalDaemon(port: UInt16 = 37428) async -> Bool {
-        await withCheckedContinuation { continuation in
-            let endpoint = NWEndpoint.hostPort(
-                host: "127.0.0.1",
-                port: NWEndpoint.Port(rawValue: port) ?? .any
-            )
-            let conn = NWConnection(to: endpoint, using: .tcp)
-            let q = DispatchQueue(label: "RetiOS.daemonProbe")
-            var resolved = false
-
-            conn.stateUpdateHandler = { state in
-                guard !resolved else { return }
-                switch state {
-                case .ready:
-                    resolved = true
-                    conn.cancel()
-                    continuation.resume(returning: true)
-                case .failed, .cancelled:
-                    resolved = true
-                    continuation.resume(returning: false)
-                default:
-                    break
-                }
-            }
-            q.asyncAfter(deadline: .now() + 1.0) {
-                guard !resolved else { return }
-                resolved = true
-                conn.cancel()
-                continuation.resume(returning: false)
-            }
-            conn.start(queue: q)
-        }
-    }
-    #endif
+  }
+  #endif
 }
 
 // MARK: - Hex helper
 
-private extension Data {
-    init?(hexString: String) {
-        let hex = hexString.filter { $0.isHexDigit }
-        guard hex.count % 2 == 0 else { return nil }
-        var data = Data(capacity: hex.count / 2)
-        var idx = hex.startIndex
-        while idx < hex.endIndex {
-            let next = hex.index(idx, offsetBy: 2)
-            guard let byte = UInt8(hex[idx..<next], radix: 16) else { return nil }
-            data.append(byte)
-            idx = next
-        }
-        self = data
+extension Data {
+  fileprivate init?(hexString: String) {
+    let hex = hexString.filter { $0.isHexDigit }
+    guard hex.count % 2 == 0 else { return nil }
+    var data = Data(capacity: hex.count / 2)
+    var idx = hex.startIndex
+    while idx < hex.endIndex {
+      let next = hex.index(idx, offsetBy: 2)
+      guard let byte = UInt8(hex[idx..<next], radix: 16) else { return nil }
+      data.append(byte)
+      idx = next
     }
+    self = data
+  }
 }
