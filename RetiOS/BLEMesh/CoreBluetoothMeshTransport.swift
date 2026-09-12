@@ -630,7 +630,7 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager,
                         didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any],
-                        rssi RSSI: NSNumber) {
+                        rssi: NSNumber) {
         let peerID = peripheral.identifier.uuidString
         // The advertised local name *is* the peer's arbitration nonce now —
         // see ATTEMPT #4 above — never a human-readable name. For logging,
@@ -653,7 +653,7 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
 
         switch decision {
         case .connect:
-            Reticulum.log("[BLEMesh] discovered peer \(Self.short(peerID))… (\"\(peerDisplayName)\", RSSI \(RSSI)) — connecting", level: .info)
+            Reticulum.log("[BLEMesh] discovered peer \(Self.short(peerID))… (\"\(peerDisplayName)\", RSSI \(rssi)) — connecting", level: .info)
             peripheral.delegate = self
             central.connect(peripheral, options: nil)
             scheduleConnectTimeout(for: peripheral)
@@ -662,7 +662,7 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
             // they'll connect to *us* (we're advertising + they're scanning
             // too). Logged at .info since this is the expected steady-state
             // for roughly half of all pairings, not an anomaly.
-            Reticulum.log("[BLEMesh] discovered peer \(Self.short(peerID))… (\"\(peerDisplayName)\", RSSI \(RSSI)) — yielding the connection to them (nonce sorts higher)", level: .info)
+            Reticulum.log("[BLEMesh] discovered peer \(Self.short(peerID))… (\"\(peerDisplayName)\", RSSI \(rssi)) — yielding the connection to them (nonce sorts higher)", level: .info)
         }
     }
 

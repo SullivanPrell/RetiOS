@@ -54,12 +54,12 @@ final class LXMFMessageIngest {
     /// Serial queue owning `ingestContext`. A `ModelContext` is not thread-safe,
     /// so it is created lazily *on* this queue and only ever touched here.
     private let queue = DispatchQueue(label: "dev.sprell.retios.lxmf-ingest", qos: .utility)
-    private var _ingestContext: ModelContext?
+    private var cachedIngestContext: ModelContext?
     private var ingestContext: ModelContext {
         dispatchPrecondition(condition: .onQueue(queue))
-        if let c = _ingestContext { return c }
+        if let c = cachedIngestContext { return c }
         let c = ModelContext(container)
-        _ingestContext = c
+        cachedIngestContext = c
         return c
     }
 

@@ -210,10 +210,10 @@ extension RNodeScannerController: CBCentralManagerDelegate {
     nonisolated func centralManager(_ central: CBCentralManager,
                                     didDiscover peripheral: CBPeripheral,
                                     advertisementData: [String: Any],
-                                    rssi RSSI: NSNumber) {
+                                    rssi: NSNumber) {
         let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? "RNode"
         let device = DiscoveredDevice(id: peripheral.identifier, name: name,
-                                       rssi: RSSI.intValue, peripheral: peripheral)
+                                       rssi: rssi.intValue, peripheral: peripheral)
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if let idx = self.discovered.firstIndex(where: { $0.id == device.id }) {

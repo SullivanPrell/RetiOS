@@ -8,7 +8,7 @@ import NomadNet
 
 /// Thin adapter satisfying NomadNetworkAppProtocol for use by RRCManager.
 /// Holds strong references to the production Reticulum + Identity so that
-/// RRCHub._connectWorker() can reach the transport. RRCManager holds this
+/// RRCHub.connectWorker() can reach the transport. RRCManager holds this
 /// via a `weak var app` so there is no retain cycle.
 private final class NomadNetAppAdapter: NomadNetworkAppProtocol {
     let reticulum: Reticulum
@@ -63,9 +63,9 @@ final class NomadNetController {
     // MARK: Private
 
     @ObservationIgnored private var browser: NomadNetBrowser?
-    @ObservationIgnored private var _modelContext: ModelContext?
-    @ObservationIgnored private var _appAdapter: NomadNetAppAdapter?   // keeps adapter alive (RRCManager holds weak ref)
-    @ObservationIgnored private var _nodeAnnounceHandler: NomadNetNodeAnnounceHandler?
+    @ObservationIgnored private var modelContext: ModelContext?
+    @ObservationIgnored private var appAdapter: NomadNetAppAdapter?   // keeps adapter alive (RRCManager holds weak ref)
+    @ObservationIgnored private var nodeAnnounceHandler: NomadNetNodeAnnounceHandler?
 
     // MARK: - Setup
 
@@ -73,7 +73,7 @@ final class NomadNetController {
                reticulum: Reticulum,
                identity: Identity,
                modelContext: ModelContext) {
-        _modelContext = modelContext
+        self.modelContext = modelContext
 
         // Adapter feeds RRCHub with Reticulum transport + Identity.
         let storagePath = URL.documentsDirectory
@@ -81,7 +81,7 @@ final class NomadNetController {
         try? FileManager.default.createDirectory(at: storagePath, withIntermediateDirectories: true)
         let adapter = NomadNetAppAdapter(reticulum: reticulum, identity: identity,
                                          storagePath: storagePath)
-        _appAdapter = adapter
+        appAdapter = adapter
 
         // Create RRCManager and wire message / change callbacks.
         let manager = RRCManager(app: adapter)
@@ -113,7 +113,7 @@ final class NomadNetController {
         // with actual NomadNet nodes (separate from the LXMF peer list).
         let nodeHandler = NomadNetNodeAnnounceHandler(container: modelContext.container)
         transport.register(announceHandler: nodeHandler)
-        _nodeAnnounceHandler = nodeHandler
+        nodeAnnounceHandler = nodeHandler
 
         // Browser. Pass our identity so the browser can identify to nodes on the
         // link (parity with Python's Browser — lets nodes gate / personalise pages).
@@ -230,7 +230,7 @@ final class NomadNetController {
         hub.setAutoReconnect(true)
         hub.connect()
         // Upsert ChannelEntity so it appears in ChannelsView immediately.
-        if let ctx = _modelContext {
+        if let ctx = modelContext {
             let hexHash = hubHash.map { String(format: "%02x", $0) }.joined()
             let desc = FetchDescriptor<ChannelEntity>(
                 predicate: #Predicate { $0.channelHash == hexHash }
@@ -264,7 +264,7 @@ final class NomadNetController {
               let hashData = Data(hexString: channelHash) else { return }
         // Look up the stored destName so we find the right hub even with custom dest names.
         var destName: String = RRC.defaultDestName
-        if let ctx = _modelContext {
+        if let ctx = modelContext {
             let chanDesc = FetchDescriptor<ChannelEntity>(
                 predicate: #Predicate { $0.channelHash == channelHash }
             )
@@ -274,7 +274,7 @@ final class NomadNetController {
             manager.removeHub(hub)
         }
         // Remove the persisted ChannelEntity + its messages.
-        if let ctx = _modelContext {
+        if let ctx = modelContext {
             let chanDesc = FetchDescriptor<ChannelEntity>(
                 predicate: #Predicate { $0.channelHash == channelHash }
             )
@@ -299,7 +299,7 @@ final class NomadNetController {
     /// Persist an inbound RRC message to SwiftData and bump the channel unread count.
     private func handleRRCMessage(hub: RRCHub, msg: RRCMessage) {
         guard msg.kind == "msg" || msg.kind == "action",
-              let ctx = _modelContext else { return }
+              let ctx = modelContext else { return }
 
         let hubHex    = hub.hubHash.map { String(format: "%02x", $0) }.joined()
         let senderHex = msg.src?.map { String(format: "%02x", $0) }.joined() ?? ""
