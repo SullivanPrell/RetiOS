@@ -20,6 +20,7 @@ import ReticulumSwift
 /// Same 1-second coalescing strategy as LXMFPeerAnnounceHandler — see that file for the
 /// rationale. Announce bursts collapse into one batched SwiftData save per second.
 final class NomadNetNodeAnnounceHandler: AnnounceHandler {
+    /// The announce aspect this handler subscribes to.
     public var aspectFilter: String? { "nomadnetwork.node" }
 
     private let container: ModelContainer

@@ -425,6 +425,8 @@ private struct MicronScanner {
     /// are exactly what decides which characters survive into the page.
     ///
     /// - Parameters:
+    ///   - lo: first index of the range to scan.
+    ///   - hi: one past the last index of the range to scan.
     ///   - escaped: initial state of `makeOutput`'s `escape` flag, i.e. the
     ///     parser's `preEscape`. Remember it survives exactly one character.
     ///   - plainKind: token kind for plain-text runs, or nil to emit none.

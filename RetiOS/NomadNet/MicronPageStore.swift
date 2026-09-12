@@ -199,7 +199,9 @@ final class MicronPageStore {
     /// storage; tests inject a temporary directory here.
     @ObservationIgnored private let defaultRoot: URL
 
-    /// Non-nil while we hold a security scope *we* opened. Tracked separately so
+    /// Non-nil while we hold a security scope *we* opened.
+    ///
+    /// Tracked separately so
     /// we never call `stopAccessingSecurityScopedResource()` on a scope opened
     /// by someone else — the counts are per-process and unbalancing them leaks
     /// or prematurely revokes access.
@@ -740,7 +742,7 @@ final class MicronPageStore {
         }
     }
 
-    /// First free name in `directory`, trying `stem.ext`, then `stem-2.ext`, …
+    /// Returns the first free name in `directory`, trying `stem.ext`, then `stem-2.ext`.
     ///
     /// Throws rather than returning a colliding URL when the search is
     /// exhausted. It used to `break` with the last candidate it had tested —

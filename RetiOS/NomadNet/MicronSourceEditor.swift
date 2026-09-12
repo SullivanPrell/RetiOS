@@ -118,6 +118,8 @@ enum MicronCaptureStyling {
         "punctuation.special": MicronCaptureStyle(color: .textMuted, bold: false, italic: false),
     ]
 
+    /// Returns the style for `highlightName`, falling back through its dotted prefixes.
+    ///
     /// Longest dotted-prefix match, per Runestone's own documented pattern
     /// (`CreatingATheme.md`'s `findLongestMatch`) — e.g. a future
     /// `markup.link.label.something` capture would fall back through

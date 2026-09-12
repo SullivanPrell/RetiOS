@@ -550,7 +550,7 @@ enum RNSBarPlacement {
     case screenBottom
 }
 
-/// Applies `rnsBarMaterial`'s glass, resolving `.screenBottom` against the
+/// Applies the glass of `rnsBarMaterial`, resolving `.screenBottom` against the
 /// layout the bar is actually in.
 ///
 /// A `ViewModifier` rather than a plain `View` extension purely so it can read
@@ -765,8 +765,10 @@ enum RNSSearch {
     /// True when `query` (already normalised) matches this row.
     ///
     /// - Parameters:
+    ///   - query: the normalised search text.
     ///   - name: display name, if the row has one.
     ///   - hashes: every address the row can be found by. Matched by prefix.
+    /// - Returns: Whether the row matches.
     static func matches(_ query: String, name: String?, hashes: [String?]) -> Bool {
         if let name, name.lowercased().contains(query) { return true }
         return hashes.contains { $0?.lowercased().hasPrefix(query) == true }
@@ -1307,6 +1309,7 @@ public struct AddressActionRow: View {
 
     @State private var showCopied = false
 
+    /// Lays out the label, the truncated hash, and the two buttons.
     public var body: some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {

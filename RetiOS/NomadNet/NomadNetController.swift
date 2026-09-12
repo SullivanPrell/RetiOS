@@ -51,7 +51,9 @@ final class NomadNetController {
     private(set) var canGoBack = false
     private(set) var canGoForward = false
 
-    /// Whether we identify ("log in") to the *currently loaded* node. Reflects
+    /// Whether we identify ("log in") to the *currently loaded* node.
+    ///
+    /// Reflects
     /// the persisted per-node toggle and drives the URL-bar identify control.
     /// Mirrors Python NomadNet's per-node `should_identify_on_connect`.
     private(set) var identifyToNode = false

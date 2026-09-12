@@ -98,7 +98,7 @@ final class StackController {
     /// `Equatable` so `saveI2PConfig(_:)` can tell a real edit from a re-save.
     struct SavedI2PConfig: Codable, Equatable {
         var name: String
-        /// b32 peer addresses (e.g. "abc123…xyz.b32.i2p")
+        /// The b32 addresses of peers, such as `abc123…xyz.b32.i2p`.
         var peers: [String]
         var connectable: Bool
 

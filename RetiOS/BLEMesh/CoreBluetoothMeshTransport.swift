@@ -387,9 +387,11 @@ final class CoreBluetoothMeshTransport: NSObject {
     /// repeated `didDiscover` callbacks CoreBluetooth delivers while a
     /// peripheral remains in range.
     private var connectingPeripheralIDs: Set<UUID> = []
-    /// Peripherals we've yielded the connection to (their nonce
-    /// sorted lower, winning the election) — see `connectionDecision`,
-    /// `recheckDeferrals`, and `DeferredPeer`'s doc comment.
+    /// Peripherals we've yielded the connection to, their nonce having sorted
+    /// lower and so won the election.
+    ///
+    /// See `connectionDecision`, `recheckDeferrals`, and the doc comment of
+    /// `DeferredPeer`.
     private var deferredPeripherals: [UUID: DeferredPeer] = [:]
     private var txCharacteristic: CBMutableCharacteristic?
     private var serviceAdded = false
@@ -479,11 +481,12 @@ extension CoreBluetoothMeshTransport: BLEMeshTransport {
         peripheralManager = nil
     }
 
-    /// Routes to whichever GATT role currently links us to `peer`: write (as
-    /// central) or notify (as peripheral). `BLEMeshInterface` only ever calls
-    /// this with peer IDs it learned from `peerConnected`/`peerDataHandler`,
+    /// Routes to whichever GATT role currently links us to `peer`.
+    ///
+    /// Writes as central, or notifies as peripheral. `BLEMeshInterface` only ever
+    /// calls this with peer IDs it learned from `peerConnected`/`peerDataHandler`,
     /// but a disconnect can race the call — `unknownPeer`/`notConnected`
-    /// simply propagate to `BLEMeshInterface`'s `try?`, which drops the send
+    /// simply propagate to the `try?` in `BLEMeshInterface`, which drops the send
     /// for that one peer without disrupting the broadcast to the others.
     func send(_ data: Data, to peer: BLEMeshPeerID) throws {
         lock.lock()
@@ -505,8 +508,9 @@ extension CoreBluetoothMeshTransport: BLEMeshTransport {
 
 extension CoreBluetoothMeshTransport {
 
-    /// Splits `data` into pieces no larger than `mtu` — mirrors
-    /// `BLERNodeTransport.write`'s chunking. BLE GATT writes and
+    /// Splits `data` into pieces no larger than `mtu`.
+    ///
+    /// Mirrors the chunking in `BLERNodeTransport.write`. BLE GATT writes and
     /// notifications are both bound by the link's negotiated MTU; handing
     /// over an oversized payload would simply be dropped or truncated.
     private func chunked(_ data: Data, mtu: Int) -> [Data] {
@@ -730,8 +734,9 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
         return decision
     }
 
-    /// Watchdog for a single `central.connect(_:)` attempt — see
-    /// `connectTimeout`'s doc comment and ATTEMPT #3 above for why
+    /// Watchdog for a single `central.connect(_:)` attempt.
+    ///
+    /// See the doc comment of `connectTimeout` and ATTEMPT #3 above for why
     /// CoreBluetooth needs one imposed from outside: it has none of its own,
     /// and in the field simply went silent forever, calling neither
     /// `didConnect` nor `didFailToConnect`.

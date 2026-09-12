@@ -400,9 +400,14 @@ private enum CallPeerResolver {
     /// The remote party's `lxmf.delivery` destination hash (hex), or nil when the
     /// link to a real Identity cannot be proven.
     ///
-    /// - Parameter lxstPeerHashes: `lxst.telephony` hashes currently known from
-    ///   announces. Used to identify an inbound caller, who is reported by
-    ///   identity hash rather than by any destination hash.
+    /// - Parameters:
+    ///   - hash: the call's own destination hash.
+    ///   - lxstPeerHashes: `lxst.telephony` hashes currently known from
+    ///     announces. Used to identify an inbound caller, who is reported by
+    ///     identity hash rather than by any destination hash.
+    ///   - liveIdentity: the remote party's handshake-verified `Identity` when a
+    ///     call is on the line.
+    /// - Returns: The hash in hex, or `nil` when it cannot be resolved.
     static func lxmfDeliveryHex(forCallHash hash: Data,
                                 lxstPeerHashes: [String] = [],
                                 liveIdentity: Identity? = nil) -> String? {
@@ -521,14 +526,18 @@ private struct CallContactAction: View {
 
     private let lxmfHex: String?
 
-    /// - Parameter lxstPeerHashes: passed in rather than read from the
-    ///   environment because resolution has to happen *in the initialiser* — it
-    ///   supplies the `@Query` predicate, and environment values are not
-    ///   available until the view body runs.
-    /// - Parameter liveIdentity: the remote party's handshake-verified
-    ///   `Identity` when a call is on the line. Without it an inbound call from
-    ///   a peer whose announces we have not heard this session resolves to
-    ///   nothing — and an unknown caller is exactly the one worth saving.
+    /// Resolves the peer for the call up front, so the `@Query` predicate is set.
+    ///
+    /// - Parameters:
+    ///   - callHash: the call's own destination hash.
+    ///   - lxstPeerHashes: passed in rather than read from the
+    ///     environment because resolution has to happen *in the initialiser* — it
+    ///     supplies the `@Query` predicate, and environment values are not
+    ///     available until the view body runs.
+    ///   - liveIdentity: the remote party's handshake-verified
+    ///     `Identity` when a call is on the line. Without it an inbound call from
+    ///     a peer whose announces we have not heard this session resolves to
+    ///     nothing — and an unknown caller is exactly the one worth saving.
     init(callHash: Data, lxstPeerHashes: [String], liveIdentity: Identity? = nil) {
         let hex = CallPeerResolver.lxmfDeliveryHex(forCallHash: callHash,
                                                    lxstPeerHashes: lxstPeerHashes,

@@ -36,6 +36,7 @@ import LXMF
 /// screen, not just the ones showing peers. SwiftData merges the background
 /// save into the main context, so `@Query` views still update.
 final class LXMFPeerAnnounceHandler: AnnounceHandler {
+    /// The announce aspect this handler subscribes to.
     public var aspectFilter: String? { "lxmf.delivery" }
 
     /// Also receive path responses, so a peer whose path was requested (e.g. when
