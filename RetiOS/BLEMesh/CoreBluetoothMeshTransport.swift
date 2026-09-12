@@ -99,151 +99,65 @@ final class CoreBluetoothMeshTransport: NSObject {
 
   // MARK: - Connection arbitration
   //
-  // CoreBluetooth gives the two sides of a link no shared, symmetric way to
-  // recognize each other: `CBPeripheral.identifier`/`CBCentral.identifier`
-  // are independently assigned per role (see the "Peer identity" doc
-  // comment on the type), and `CBPeripheralManager` exposes no "local
-  // identifier" at all. Yet every device here runs *both* roles and
-  // scans+advertises continuously—so any two devices in range inevitably
-  // discover each other within milliseconds of one another and BOTH call
-  // `central.connect(_:)` at nearly the same instant. In practice that
-  // mutual cross-connection attempt deadlocks at least one side's radio:
-  // neither `didConnect` nor `didFailToConnect` ever fires—exactly the
-  // symptom reported ("discovered peer ... — connecting", then permanent
-  // silence, 0 packets/0 peers on both ends despite both successfully
-  // advertising and scanning).
+  // Every device here runs both the central and the peripheral role, scanning and
+  // advertising continuously, so two devices in range discover each other within
+  // milliseconds and both call `central.connect(_:)` at nearly the same instant. That
+  // mutual cross-connection deadlocks at least one side's radio: neither `didConnect` nor
+  // `didFailToConnect` fires, and the pair sits at 0 packets and 0 peers while both still
+  // advertise and scan.
   //
-  // The standard fix for dual-role BLE meshing is to elect a single
-  // initiator per pair so there's nothing left to race: on mutual
-  // discovery, only one side calls `connect(_:)`; the other waits to be
-  // connected to. Both keep advertising and scanning regardless, so the
-  // link still forms either way—just from exactly one direction.
+  // CoreBluetooth offers the two sides no symmetric way to recognize each other.
+  // `CBPeripheral.identifier` and `CBCentral.identifier` are assigned independently per
+  // role (see the "Peer identity" doc comment on the type), and `CBPeripheralManager`
+  // exposes no local identifier. Arbitration therefore elects one initiator per pair from
+  // advertised data: on mutual discovery one side calls `connect(_:)` and the other waits
+  // to be connected to. Both keep advertising and scanning, so the link forms either way,
+  // from exactly one direction.
   //
-  // ATTEMPT #1 (reverted): generate a random per-device ID, persist it,
-  // and append it to the advertised local name (`"<name>\u{1F}<hex id>"`)
-  // so peers could compare IDs and elect the numerically lower side. This
-  // built and ran, but made things *worse* in the field: appending even
-  // ~9 bytes pushed the local-name AD structure past whatever headroom
-  // `CBPeripheralManager` has left over once the 128-bit mesh service UUID
-  // (16 bytes alone) is also in the advertisement. The system responded by
-  // silently dropping `CBAdvertisementDataLocalNameKey` from the broadcast
-  // *entirely*—confirmed by comparing the two test runs' logs:
-  //   before the suffix: peers correctly saw "RetiOS" / "sully-iphone"
-  //   after adding it:   peers instead saw "Sullivan's MacBook Pro" /
-  //                      "Sully-iPhone"—the *system* Bluetooth device
-  //                      names, that is, `didDiscover`'s fallback to
-  //                      `peripheral.name` because `CBAdvertisementData-
-  //                      LocalNameKey` was simply absent from the payload.
-  // With the custom name gone, `parseAdvertisedName` always returned a
-  // `nil` ID, `connectionDecision`'s `guard let peerTieBreakID` always
-  // failed, and *both* sides fell through to `.connect`—that is, the exact
-  // mutual cross-connection deadlock arbitration was meant to prevent,
-  // just one layer further down.
+  // The election compares a fixed-length random nonce. Three constraints require that
+  // shape:
   //
-  // ATTEMPT #2: don't transmit anything new at all—there's no headroom
-  // to do so safely alongside a 128-bit service UUID, full stop. Instead,
-  // elect the initiator using data that's *already* proven to transmit
-  // intact: the plain advertised display name. Lexicographic string
-  // comparison is symmetric and deterministic—exactly one of
-  // `nameA < nameB` / `nameB < nameA` holds for any two distinct names—so
-  // "the side whose name sorts lower dials out" resolves identically
-  // from both ends without adding a single byte to either advertisement.
+  //   Advertisement headroom. The legacy 31-byte advertisement holds an 18-byte
+  //   128-bit-service-UUID structure and a 3-byte flags structure, leaving about 10
+  //   bytes, 2 of which are the name structure's own length and type: a ceiling of 8
+  //   characters. Past it, iOS drops `CBAdvertisementDataLocalNameKey` from the broadcast
+  //   silently, `didDiscover` falls back to `peripheral.name` (the system-cached
+  //   Bluetooth name), and the two sides compare different strings. A fixed length sized
+  //   under the ceiling closes that off; a device name cannot.
   //
-  // ATTEMPT #3 (current, additive—election logic itself is unchanged
-  // from #2): in the field, election picked exactly one initiator
-  // correctly—one side logged "connecting", the other "yielding the
-  // connection to them"—and the link *still* never formed: the
-  // "connecting" side fell silent forever, 0 packets/0 peers on both ends.
-  // Two independent liveness gaps were compounding:
+  //   Interoperability. Nothing about the GATT scheme is Apple-specific, and a WinRT,
+  //   Android or BlueZ stack builds and truncates its advertisement differently. Two
+  //   independent implementations need not agree on how much name headroom exists, nor
+  //   fall back identically once it is exceeded.
   //
-  //   1. `central.connect(_:)` has **no built-in timeout**. CoreBluetooth
-  //      can—and in the field, did—simply never call back: neither
-  //      `didConnect` nor `didFailToConnect` fired. That latches
-  //      `connectingPeripheralIDs` forever, so every subsequent
-  //      `didDiscover` for that peer is silently swallowed by the
-  //      `guard !alreadyConnecting`. (The likely trigger, visible by
-  //      comparing the two sides' logs side by side: "sully-iphone"—12
-  //      bytes—doesn't fit in the legacy 31-byte advertisement PDU
-  //      alongside the 18-byte 128-bit-service-UUID AD structure and
-  //      3-byte flags structure, leaving ~10 bytes of headroom—2 of
-  //      which are the name structure's own length+type, an 8-character
-  //      ceiling. "RetiOS"—6 bytes—just squeaks under it. So the
-  //      *winning* side here, the Mac, received the iPhone's advertisement
-  //      with `CBAdvertisementDataLocalNameKey` silently dropped—exactly
-  //      like ATTEMPT #1's postmortem—and fell back to `peripheral.name`,
-  //      the cached *system* Bluetooth name "Sully-iPhone". Lexicographic
-  //      comparison of "RetiOS"/"Sully-iPhone" happened to pick the same
-  //      winner "RetiOS"/"sully-iphone" would have—pure luck of where
-  //      capital vs. lowercase letters fall in ASCII—so the election
-  //      *looked* perfectly correct in this trace. The actual failure was
-  //      one layer further downstream: that winning side's `connect(_:)`
-  //      call against the resulting peripheral simply never resolved.)
-  //   2. `deferralTimeout`'s self-heal was only ever evaluated from inside
-  //      `didDiscover`—but `scanForPeripherals` runs with
-  //      `allowDuplicates: false` (the only sane choice for an always-on
-  //      background scan), under which CoreBluetooth typically does *not*
-  //      redeliver `didDiscover` for a peripheral it already reported. So
-  //      the side that yielded the election had no event left to ever
-  //      re-run `connectionDecision`—it would defer *forever*, blind to
-  //      the winner being stuck on (1).
+  //   Tracking. A hash of the node's permanent Reticulum `Identity` would be a durable
+  //   fingerprint broadcast in the clear, correlating an identity's physical presence to
+  //   any passive scanner without a connection and defeating BLE MAC randomization. A
+  //   fresh random value per `start()` is fixed-length, compares symmetrically and
+  //   collides negligibly, which is all a tie-break needs.
   //
-  // Fixed both with watchdogs that don't depend on any particular
-  // CoreBluetooth callback recurring: `scheduleConnectTimeout` cancels and
-  // releases a `connect(_:)` attempt that's produced neither success nor
-  // failure within `connectTimeout`, and `recheckDeferrals` is a periodic
-  // timer—wholly independent of `didDiscover`—that promotes a
-  // long-deferred peer to "connect ourselves" once `deferralTimeout`
-  // elapses. Together they guarantee forward progress no matter *why*
-  // CoreBluetooth went quiet—the same "an occasional redundant link
-  // beats a permanent deadlock" trade-off `deferralTimeout` was already
-  // built around.
+  // The nonce rides in the local name because `CBPeripheralManager.startAdvertising` on
+  // iOS accepts only `CBAdvertisementDataLocalNameKey` and
+  // `CBAdvertisementDataServiceUUIDsKey`, rejecting the Service Data and Manufacturer
+  // Data keys that would otherwise carry a compact binary payload. The display name is
+  // cosmetic and never transmitted; peers show `peripheral.name` in their logs.
   //
-  // ATTEMPT #4 (current): election stopped comparing advertised *names*
-  // and switched to comparing a fixed-length random nonce instead. Two
-  // separate problems motivated this, on top of everything above:
+  // Neither side's progress may depend on a CoreBluetooth callback recurring:
   //
-  //   1. The name-truncation failure mode (see ATTEMPT #1/#3) was never
-  //      actually fixed, only avoided by luck of which names happened to
-  //      be short enough—"sully-iphone" at 12 bytes was already past the
-  //      ~8-character ceiling this device's own headroom allows once the
-  //      128-bit service UUID is also advertised. Any user whose device
-  //      name (or a future longer default display name) doesn't fit
-  //      reintroduces the exact silent-drop-and-mismatch bug. A *fixed*
-  //      short length sized safely under that ceiling closes this off
-  //      structurally instead of hoping names stay short.
-  //   2. Interop with a from-scratch, non-Swift implementation of this
-  //      protocol (a real possibility raised in review—nothing about the
-  //      GATT scheme is Apple-specific) makes the risk worse, not just
-  //      persistent: a different BLE stack (WinRT, Android
-  //      `BluetoothLeAdvertiser`, BlueZ) builds and truncates its
-  //      advertisement payload differently, so two independently written
-  //      implementations aren't even guaranteed to agree on how much name
-  //      headroom exists, let alone fall back identically when it's
-  //      exceeded.
+  //   `central.connect(_:)` has no timeout, and can call back neither `didConnect` nor
+  //   `didFailToConnect`. That latches `connectingPeripheralIDs`, so every later
+  //   `didDiscover` for that peer falls out of the `guard !alreadyConnecting`.
+  //   `scheduleConnectTimeout` cancels and releases such an attempt after
+  //   `connectTimeout`.
   //
-  // Deliberately a random per-session nonce, not a hash of the node's
-  // permanent Reticulum `Identity`—a stable identifier broadcast in the
-  // clear on every advertisement would be a durable tracking fingerprint
-  // (defeating BLE MAC randomization's entire purpose, since anyone
-  // passively scanning could correlate a specific identity's physical
-  // presence over time without ever connecting to it). The nonce never
-  // needed to carry meaning beyond breaking a tie, so a fresh random value
-  // per `start()` gets every property the old scheme needed—fixed
-  // length, deterministic symmetric comparison, negligible collision odds
-  //—with none of that cost.
+  //   `scanForPeripherals` runs with `allowDuplicates: false`, the only sane choice for
+  //   an always-on background scan, under which CoreBluetooth does not redeliver
+  //   `didDiscover` for a peripheral it already reported. A side that yielded the
+  //   election would defer forever if `deferralTimeout` were evaluated only from
+  //   `didDiscover`, so `recheckDeferrals` owns that check on a timer instead.
   //
-  // `CBAdvertisementDataLocalNameKey` remains the only place to put it:
-  // per Apple's documented behavior, `CBPeripheralManager.startAdvertising`
-  // on iOS accepts *only* `CBAdvertisementDataLocalNameKey` and
-  // `CBAdvertisementDataServiceUUIDsKey`—any other key (for example, Service
-  // Data or Manufacturer Data, which would otherwise be the natural home
-  // for a compact binary payload) is rejected outright. So the nonce is
-  // hex-encoded and now *is* the advertised local name, in place of the
-  // human-readable display name the field used to carry—the display
-  // name is purely cosmetic now and never transmitted; peers show
-  // `peripheral.name` (the system-cached Bluetooth device name) in logs
-  // instead, exactly like the old code's foreign-peer fallback already
-  // did.
+  // Both take an occasional redundant link over a permanent deadlock, the trade-off
+  // `deferralTimeout` is already built around.
   // `internal` (not `private`), like the two members below it, so
   // `arbitrationDecision`'s return type is visible to `@testable import`.
   enum ConnectionDecision: Equatable { case connect, `defer` }
@@ -251,17 +165,14 @@ final class CoreBluetoothMeshTransport: NSObject {
   /// Number of random bytes in the arbitration nonce, hex-encoded to
   /// `2 * arbitrationNonceByteCount` characters for advertising.
   ///
-  /// Six hex
-  /// characters matches "RetiOS"—a name already field-proven to survive
-  /// advertising intact alongside the 128-bit service UUID—rather than
-  /// pushing to the theoretical ~8-character ceiling with no margin left
-  /// for error.
+  /// Six hex characters matches "RetiOS", a name that advertises intact alongside the
+  /// 128-bit service UUID, and leaves margin under the 8-character ceiling.
   private static let arbitrationNonceByteCount = 3
 
-  /// Generates this device's arbitration nonce for one meshing session—see
-  /// ATTEMPT #4 above for why a nonce replaced the advertised display
-  /// name. `internal` (not `private`) so it's directly unit-testable
-  /// without live CoreBluetooth.
+  /// Generates this device's arbitration nonce for one meshing session.
+  ///
+  /// `internal` rather than `private` so it is directly unit-testable without live
+  /// CoreBluetooth.
   static func makeArbitrationNonce() -> String {
     (0..<arbitrationNonceByteCount)
       .map { _ in String(format: "%02x", UInt8.random(in: .min ... .max)) }
@@ -297,16 +208,16 @@ final class CoreBluetoothMeshTransport: NSObject {
   /// each waiting on the other.
   private static let deferralTimeout: TimeInterval = 8
 
-  /// How often `recheckDeferrals` re-evaluates `deferredPeripherals`
-  /// against `deferralTimeout`—see ATTEMPT #3 above for why this can't
-  /// simply ride on `didDiscover` recurring.
+  /// How often `recheckDeferrals` re-evaluates `deferredPeripherals` against
+  /// `deferralTimeout`.
+  ///
+  /// It cannot ride on `didDiscover` recurring.
   private static let deferralRecheckInterval: TimeInterval = 2
 
   /// How long to wait for `didConnect`/`didFailToConnect` to fire after
   /// calling `central.connect(_:)` before cancelling the attempt
-  /// ourselves and giving the next `didDiscover` a clean slate to retry—see
-  /// ATTEMPT #3 above for the field evidence that CoreBluetooth's
-  /// `connect` has no timeout of its own and can simply go silent forever.
+  /// ourselves and giving the next `didDiscover` a clean slate to retry. `connect` has
+  /// no timeout of its own and can go silent indefinitely.
   private static let connectTimeout: TimeInterval = 12
 
   /// A peer that won the election (its nonce sorted lower)—recorded
@@ -402,30 +313,28 @@ final class CoreBluetoothMeshTransport: NSObject {
   private var central: CBCentralManager?
   private var peripheralManager: CBPeripheralManager?
   private let queue = DispatchQueue(label: "CoreBluetoothMeshTransport")
-  /// Cosmetic only—shown in this device's own log lines.
+  /// Cosmetic only, shown in this device's own log lines.
   ///
-  /// Never
-  /// transmitted; see ATTEMPT #4 above for why the advertised local name
-  /// carries the arbitration nonce instead.
+  /// Never transmitted: the advertised local name carries the arbitration nonce.
   private let displayName: String
-  /// This session's arbitration key—see ATTEMPT #4 above.
+  /// This session's arbitration key.
   ///
   /// Generated
   /// once per `init` (that is, fresh every time `BLEMeshController.enable`
   /// creates a new transport) and advertised verbatim as the local name.
   private let arbitrationNonce: String = CoreBluetoothMeshTransport.makeArbitrationNonce()
 
-  /// Periodic, `didDiscover`-independent liveness check for
-  /// `deferredPeripherals`—see `recheckDeferrals` and ATTEMPT #3 above.
+  /// Periodic, `didDiscover`-independent liveness check for `deferredPeripherals`.
+  ///
+  /// See `recheckDeferrals`.
   private var deferralCheckTimer: DispatchSourceTimer?
 
   // MARK: - Init
 
   /// - Parameter localName: this device's cosmetic display name, used only
   ///   in its own log lines (for example, "starting dual-role CoreBluetooth..."). No
-  ///   longer transmitted or used for arbitration—see ATTEMPT #4 above;
-  ///   peers instead see `peripheral.name`, the system-cached Bluetooth
-  ///   device name, in their own logs.
+  ///   longer transmitted or used for arbitration; peers instead see `peripheral.name`,
+  ///   the system-cached Bluetooth device name, in their own logs.
   init(localName: String) {
     self.displayName = localName
     super.init()
@@ -443,11 +352,10 @@ extension CoreBluetoothMeshTransport: BLEMeshTransport {
     central = CBCentralManager(delegate: self, queue: queue)
     peripheralManager = CBPeripheralManager(delegate: self, queue: queue)
 
-    // See ATTEMPT #3 above: `didDiscover` is not a reliable heartbeat
-    // for re-evaluating deferrals (CoreBluetooth doesn't redeliver it
-    // for already-seen peripherals under `allowDuplicates: false`), so
-    // `recheckDeferrals` needs its own clock, wholly independent of any
-    // delegate callback recurring.
+    // `didDiscover` is not a reliable heartbeat for re-evaluating deferrals:
+    // CoreBluetooth does not redeliver it for an already-seen peripheral under
+    // `allowDuplicates: false`. `recheckDeferrals` needs its own clock, independent of
+    // any delegate callback recurring.
     let timer = DispatchSource.makeTimerSource(queue: queue)
     timer.schedule(
       deadline: .now() + Self.deferralRecheckInterval, repeating: Self.deferralRecheckInterval)
@@ -676,8 +584,8 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
     rssi: NSNumber
   ) {
     let peerID = peripheral.identifier.uuidString
-    // The advertised local name *is* the peer's arbitration nonce now—see
-    // ATTEMPT #4 above—never a human-readable name. For logging,
+    // The advertised local name is the peer's arbitration nonce, never a human-readable
+    // name. For logging,
     // `peripheral.name` (the system-cached Bluetooth device name) is the
     // only identity left to show; "unnamed" only as a last resort.
     let peerNonce = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? ""
@@ -716,17 +624,14 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
   }
 
   /// Decides whether this device should dial out to a newly discovered peer or
-  /// wait to be dialed—see ATTEMPT #4 above.
+  /// wait to be dialed.
   ///
-  /// Must be called with `lock`
-  /// held; mutates `deferredPeripherals`.
+  /// Must be called with `lock` held; mutates `deferredPeripherals`.
   ///
-  /// Note this no longer self-heals inline (ATTEMPT #2 did): that logic
-  /// only ever ran when `didDiscover` fired again, which—per ATTEMPT
-  /// #3's finding—CoreBluetooth routinely never does once a peripheral's
-  /// been reported under `allowDuplicates: false`. `recheckDeferrals`'
-  /// timer now owns the self-heal exclusively, so a deferral recorded here
-  /// is guaranteed to be revisited on a clock instead of a maybe-callback.
+  /// The self-heal belongs to `recheckDeferrals`' timer, not here. Self-healing inline
+  /// runs only when `didDiscover` fires again, which CoreBluetooth routinely never does
+  /// once a peripheral has been reported under `allowDuplicates: false`, so a deferral
+  /// recorded here is revisited on a clock instead.
   private func connectionDecision(
     for peripheral: CBPeripheral, peerNonce: String, peerDisplayName: String
   ) -> ConnectionDecision {
@@ -752,10 +657,9 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
 
   /// Watchdog for a single `central.connect(_:)` attempt.
   ///
-  /// See the doc comment of `connectTimeout` and ATTEMPT #3 above for why
-  /// CoreBluetooth needs one imposed from outside: it has none of its own,
-  /// and in the field simply went silent forever, calling neither
-  /// `didConnect` nor `didFailToConnect`.
+  /// CoreBluetooth needs one imposed from outside: it has none of its own and can go
+  /// silent indefinitely, calling neither `didConnect` nor `didFailToConnect`. See the
+  /// doc comment of `connectTimeout`.
   ///
   /// Runs on `queue`—the same serial queue every delegate callback lands
   /// on—so there's no race with a legitimate `didConnect`/
@@ -787,9 +691,9 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
     }
   }
 
-  /// Periodic, `didDiscover`-independent self-heal for `deferredPeripherals`
-  ///—see ATTEMPT #3 above for why this can no longer live inside
-  /// `connectionDecision`.
+  /// Periodic, `didDiscover`-independent self-heal for `deferredPeripherals`.
+  ///
+  /// It cannot live inside `connectionDecision`, which runs only from `didDiscover`.
   ///
   /// Runs every `deferralRecheckInterval` on `queue`;
   /// promotes any peer that's been waiting past `deferralTimeout` to
