@@ -16,7 +16,7 @@ import Foundation
 // fields inside a `View` this logic was unreachable from a test, and it is
 // exactly the logic worth testing: the sheets emit markup on the user's behalf,
 // so a mistake here is a mistake in every page anyone writes with them. Two real
-// bugs were found by testing these — a link form Python NomadNet rejects
+// bugs were found by testing these—a link form Python NomadNet rejects
 // outright, and values that truncate the construct they sit in.
 //
 // Both types are value types with defaults, so a caller builds one, sets what it
@@ -60,7 +60,7 @@ struct MicronLinkSnippet: Equatable {
         case .page:
             // The leading ":" is required, not cosmetic. Python NomadNet's
             // `Browser.retrieve_url` splits the URL on ":" and, given a single
-            // component, demands exactly 32 hex characters — so a bare
+            // component, demands exactly 32 hex characters—so a bare
             // "/page/about.mu" raises ValueError("Malformed URL") for every
             // Python peer. ":/page/about.mu" takes the empty-first-component
             // branch, which resolves against the node being browsed.
@@ -97,7 +97,7 @@ struct MicronLinkSnippet: Equatable {
 /// Builds `` `<flags|name|value|*`data> ``.
 ///
 /// The flags segment carries an optional type marker (`^` radio, `?` checkbox,
-/// `!` masked — MicronParser tests them in that order and the first match wins)
+/// `!` masked—MicronParser tests them in that order and the first match wins)
 /// followed by an optional integer width, capped at 256 and defaulting to 24. A
 /// fourth `*` component pre-checks a checkbox. The backtick before the data is
 /// mandatory: without it MicronParser produces no field at all.
@@ -153,8 +153,8 @@ struct MicronFieldSnippet: Equatable {
 
         var parts: [String]
         if flags.isEmpty && !kind.usesValue && value.isEmpty {
-            // Nothing to qualify, so the whole descriptor is just the name —
-            // the form NomadNet's own guide uses for a plain text input.
+            // Nothing to qualify, so the whole descriptor is just the name—the
+            // form NomadNet's own guide uses for a plain text input.
             parts = [trimmed]
         } else {
             parts = [flags, trimmed]

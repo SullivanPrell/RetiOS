@@ -26,7 +26,7 @@ struct LogsView: View {
     }
 
     private var exportText: String {
-        // Export what's visible — respects an active search filter rather than
+        // Export what's visible—respects an active search filter rather than
         // silently sharing the full, unfiltered log.
         filtered.map(\.formatted).joined(separator: "\n")
     }
@@ -60,7 +60,7 @@ struct LogsView: View {
                     autoScroll.toggle()
                 } label: {
                     // NOTE: `arrow.down.to.line.slash` is not a real SF Symbol
-                    // name — passing it to `Image(systemName:)` makes the
+                    // name—passing it to `Image(systemName:)` makes the
                     // system log "No symbol named '...' found in system
                     // symbol set" *every time the view re-renders*, which
                     // (combined with the toolbar's other state changes)

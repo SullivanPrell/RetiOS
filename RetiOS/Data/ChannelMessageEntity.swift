@@ -17,7 +17,7 @@ import SwiftData
 /// `channelHash` links back to the parent `ChannelEntity.channelHash`.
 @Model
 final class ChannelMessageEntity {
-    /// Hub destination hash (hex) — foreign key to `ChannelEntity.channelHash`.
+    /// Hub destination hash (hex)—foreign key to `ChannelEntity.channelHash`.
     var channelHash: String
     /// RRC message ID (hex of `RRC.Envelope.id`).
     ///

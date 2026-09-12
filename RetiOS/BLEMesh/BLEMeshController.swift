@@ -15,8 +15,8 @@ import ReticulumSwift
 
 // MARK: - BLEMeshController
 
-/// Manages the BLE mesh radio lifecycle and `BLEMeshInterface` registration —
-/// the BLE-mesh counterpart to `RNodeScannerController`.
+/// Manages the BLE mesh radio lifecycle and `BLEMeshInterface` registration—the
+/// BLE-mesh counterpart to `RNodeScannerController`.
 ///
 /// ## Why this state machine looks different from RNode's
 ///
@@ -25,12 +25,12 @@ import ReticulumSwift
 /// scan list: scan → connect → discover services → discover characteristics
 /// → detect firmware → online.
 ///
-/// A BLE mesh has no such device to pick — every nearby phone running this
+/// A BLE mesh has no such device to pick—every nearby phone running this
 /// app *is* a peer, arriving and leaving on its own schedule. So there's
 /// nothing to "connect to": the user simply switches meshing on, and from
 /// then on `CoreBluetoothMeshTransport` discovers and links with whoever it
-/// finds, fully automatically. This controller's job shrinks accordingly —
-/// it owns enable/disable, surfaces Bluetooth-availability, and republishes
+/// finds, fully automatically. This controller's job shrinks accordingly—it
+/// owns enable/disable, surfaces Bluetooth-availability, and republishes
 /// `BLEMeshInterface.peerCount` for the UI. The actual peer table lives in
 /// `BLEMeshInterface`/`CoreBluetoothMeshTransport`, exactly as the RNode
 /// radio-config readout lives in `RNodeInterface`, not the scanner.
@@ -83,7 +83,7 @@ final class BLEMeshController: NSObject {
     /// `Transport`.
     ///
     /// Wired to `StackController.noteInterfacesChanged()` so the
-    /// Interfaces screen refreshes — it lists `transport.interfaces`, which is
+    /// Interfaces screen refreshes—it lists `transport.interfaces`, which is
     /// not observable and so cannot signal the change itself.
     @ObservationIgnored var onInterfacesChanged: (() -> Void)?
 
@@ -115,8 +115,8 @@ final class BLEMeshController: NSObject {
     /// it, and registers that interface with `Transport` so the wider
     /// Reticulum stack can route through it.
     ///
-    /// - Parameter localName: advertised name nearby peers will see (e.g. the
-    ///   node's display name) — purely cosmetic, has no protocol meaning.
+    /// - Parameter localName: advertised name nearby peers see (for example, the
+    ///   node's display name)—purely cosmetic, has no protocol meaning.
     func enable(localName: String) {
         guard !state.isOnline, state != .starting else { return }
         state = .starting
@@ -167,8 +167,8 @@ final class BLEMeshController: NSObject {
     // MARK: - Private helpers
 
     private func handleRadioStateChange(_ cbState: CBManagerState) {
-        // Ignore stale callbacks from a transport we've already torn down —
-        // `disable()`/a fresh `enable()` may have raced this notification.
+        // Ignore stale callbacks from an already torn-down transport—`disable()`/a
+        // fresh `enable()` may have raced this notification.
         guard bleTransport != nil else { return }
 
         switch cbState {
@@ -178,7 +178,7 @@ final class BLEMeshController: NSObject {
             state = .bluetoothUnavailable
         case .poweredOff, .resetting:
             // Mirrors RNodeScannerController's `case .poweredOff, .resetting:
-            // self.state = .idle` — the radio is gone, so the link is too;
+            // self.state = .idle`—the radio is gone, so the link is too;
             // tear everything down rather than limping along with a half-dead
             // interface. The user can switch meshing back on once Bluetooth
             // returns (CoreBluetooth doesn't reliably resurrect existing
@@ -195,7 +195,7 @@ final class BLEMeshController: NSObject {
     /// publisher.
     ///
     /// Polling at UI-refresh cadence is the simplest correct way
-    /// to keep `peerCount` current — wiring up a bespoke
+    /// to keep `peerCount` current—wiring up a bespoke
     /// peer-table change notification through `BLEMeshTransport` would add
     /// real protocol surface for what is purely a display nicety.
     private func startPeerPolling() {
@@ -204,7 +204,7 @@ final class BLEMeshController: NSObject {
             while let self, !Task.isCancelled {
                 guard self.state.isOnline, let iface = self.meshInterface else { return }
                 // Assign only on change. sends objectWillChange for
-                // EVERY assignment, equal or not — writing unconditionally
+                // EVERY assignment, equal or not—writing unconditionally
                 // re-rendered every view observing this controller once a
                 // second for as long as the mesh stayed online, even though the
                 // peer count almost never changes between ticks.

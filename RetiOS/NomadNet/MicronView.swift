@@ -123,7 +123,7 @@ private struct MicronSpansView: View {
     var body: some View {
         // NOTE: no trailing `Spacer` here. A `Spacer` would force the HStack to
         // always fill the available width with content pinned leading, which
-        // silently defeated the `.frame(alignment:)` below — Micron `.center`
+        // silently defeated the `.frame(alignment:)` below—Micron `.center`
         // and `.right` lines always rendered left. Letting the HStack size to
         // its intrinsic width lets the frame alignment actually place the line.
         HStack(alignment: .firstTextBaseline, spacing: 0) {
@@ -186,13 +186,13 @@ private struct MicronSpanView: View {
         return t
     }
 
-    /// Micron colour → SwiftUI, normalised by each case's actual value range.
+    /// Micron color → SwiftUI, normalised by each case's actual value range.
     ///
     /// The divisors used to be the number of hex *digits* (3 and 5) rather than
-    /// each component's maximum, so every colour saturated to white: `` `F888 ``
+    /// each component's maximum, so every color saturated to white: `` `F888 ``
     /// gave 8/3 = 2.67, clamped to 1.0. A 3-nibble component is one hex digit
     /// parsed `radix: 16`, so 0–15; a 6-digit component is two, so 0–255
-    /// (MicronParser.parseColor3/parseColor6). This misrendered every coloured
+    /// (MicronParser.parseColor3/parseColor6). This misrendered every colored
     /// page in the Browse tab, not just the editor's preview.
     private func micronColor(_ c: MicronColor) -> Color {
         switch c {

@@ -24,20 +24,20 @@ import ReticulumSwift
 //
 //   With 341 known paths over 3 interfaces, each interface fanned ~113
 //   destinations across a 110° sector at a ~177 pt radius. That is 3.0 pt of
-//   arc per node — against a 22 pt bubble and a ~78 pt label. A 7× overlap on
+//   arc per node—against a 22 pt bubble and a ~78 pt label. A 7× overlap on
 //   the circles alone, which rendered as two solid crescent-shaped smears of
 //   overlapping glyphs, and zooming only scaled the smear.
 //
 //   Spreading the rings across the whole canvas instead of the old [0.35, 0.47]
-//   band only reaches 7.9 pt per node — still 3× overlapped. A phone-sized
+//   band only reaches 7.9 pt per node—still 3× overlapped. A phone-sized
 //   canvas holds roughly 60 nodes on a full circle at legible spacing. No
 //   layout can draw 341.
 //
 // So destinations are aggregated into per-(interface, hop-band) clusters. The
 // bubble count is now bounded by `interfaces × HopBand.allCases.count`
 // (≤ 4 per interface) regardless of whether the path table holds 3 entries or
-// 3000, and the thing the view shows — how reachability is distributed across
-// interfaces and hop distance — is what no list can show. The Paths tab in this
+// 3000, and the thing the view shows—how reachability is distributed across
+// interfaces and hop distance—is what no list can show. The Paths tab in this
 // same screen already enumerates every row for anyone who wants the individual
 // hashes; tapping a cluster here opens exactly that list, scoped to the cluster.
 //
@@ -46,7 +46,7 @@ import ReticulumSwift
 // The old code reconstructed multi-hop relay chains by matching a path entry's
 // `via` to another entry's destination hash. That could never match:
 // `PathTableEntry.via` is `nextHopTransportID` (Transport.swift), and a
-// transport ID is a 16-byte random per-node instance identifier — never a
+// transport ID is a 16-byte random per-node instance identifier—never a
 // destination hash. `hopsByHash[viaHex]` was therefore always nil, every entry
 // became a parentless chain root, and the graph was always a flat depth-2 star.
 // The chain-reconstruction code was dead, and the header comment promising
@@ -103,7 +103,7 @@ struct NetworkVisualizerView: View {
     /// the whole canvas. Without it the outermost band's bubbles land under the
     /// overlay strip: with two interfaces, `angleFor(1, 2)` is exactly `.pi/2`,
     /// so the second spoke points straight down and its far cluster sits at
-    /// y ≈ 0.92 of the canvas — behind an opaque `.ultraThinMaterial` panel.
+    /// y ≈ 0.92 of the canvas—behind an opaque `.ultraThinMaterial` panel.
     private let bottomReserve: CGFloat = 76
 
     private var graphCanvas: some View {
@@ -113,14 +113,14 @@ struct NetworkVisualizerView: View {
                                 height: max(geo.size.height - bottomReserve, 160))
             ZStack(alignment: .topLeading) {
                 // Behind everything: a hit-testable blank that clears the
-                // selection. Without it there was no way to *deselect* — the
+                // selection. Without it there was no way to *deselect*—the
                 // bubbles were the only hit targets, so the detail bar stayed
                 // pinned to whatever was last tapped for the life of the view.
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture { withAnimation(.snappy(duration: 0.2)) { selectedNodeID = nil } }
 
-                // Rings and edges are decorative scaffolding — hidden from
+                // Rings and edges are decorative scaffolding—hidden from
                 // VoiceOver so it lands on the nodes themselves.
                 ringsLayer(size: canvas)
                     .accessibilityHidden(true)
@@ -132,7 +132,7 @@ struct NetworkVisualizerView: View {
                                isSelected: selectedNodeID == node.id,
                                pulse: pulse)
                         // Every bubble is drawn smaller than the 44 pt the HIG
-                        // asks of a tap target — the smallest is 24 pt — so the
+                        // asks of a tap target—the smallest is 24 pt—so the
                         // frame pads the target out without changing the art.
                         // `contentShape` then makes the whole padded box
                         // tappable rather than just the circle's pixels.
@@ -172,7 +172,7 @@ struct NetworkVisualizerView: View {
                 }
             }
             .padding(12)
-            // Both are purely informational — neither carries a control. Left
+            // Both are purely informational—neither carries a control. Left
             // hit-testable they swallow taps aimed at whatever is behind them,
             // which is why `bottomReserve` alone is not the whole fix.
             .allowsHitTesting(false)
@@ -184,7 +184,7 @@ struct NetworkVisualizerView: View {
 
     /// Tap handling for a bubble.
     ///
-    /// A cluster ALWAYS opens its list — it never toggles off. The toggle was a
+    /// A cluster ALWAYS opens its list—it never toggles off. The toggle was a
     /// trap: the sheet could only open on the branch that had just *assigned*
     /// `node.id`, so the second tap on a selected cluster deselected it and
     /// opened nothing, while the detail bar sat there reading "tap again to
@@ -298,7 +298,7 @@ struct NetworkVisualizerView: View {
 
     // MARK: Hop-band ring guides
     //
-    // Drawn as native SwiftUI shapes/text — not a `Canvas` — because a `Canvas`
+    // Drawn as native SwiftUI shapes/text—not a `Canvas`—because a `Canvas`
     // rasterizes its content at the view's base size and the bitmap is then
     // visually scaled by `.scaleEffect(zoom)`, going blurry at high zoom and
     // illegible at low zoom. Native `Ellipse`/`Text` re-render crisply at any
@@ -310,7 +310,7 @@ struct NetworkVisualizerView: View {
     // width and height independently so the layout fills a phone's tall canvas
     // instead of wasting the vertical thirds a circle inscribed in it would.
     // Each band's ring is drawn and labelled, so "which band is this" is read
-    // off the caption rather than judged by eye from the distance to centre.
+    // off the caption rather than judged by eye from the distance to center.
 
     private func ringsLayer(size: CGSize) -> some View {
         ZStack {
@@ -411,7 +411,7 @@ struct NetworkVisualizerView: View {
         // graph instead of a panel sitting on top of it.
         return ViewThatFits(in: .horizontal) {
             legendRow(usedTypes, hasActiveLinks: hasActiveLinks, hasInferred: hasInferred)
-            // Types alone when the full strip does not fit — the two state keys
+            // Types alone when the full strip does not fit—the two state keys
             // are the first thing worth dropping on a narrow phone.
             legendRow(usedTypes, hasActiveLinks: false, hasInferred: false)
         }
@@ -428,7 +428,7 @@ struct NetworkVisualizerView: View {
             ForEach(types, id: \.self) { type in
                 HStack(spacing: 5) {
                     // The same per-type glyph the bubbles use, so the legend
-                    // keys on shape and not only on colour.
+                    // keys on shape and not only on color.
                     Image(systemName: type.glyph)
                         .font(.caption2)
                         .foregroundStyle(type.color)
@@ -479,7 +479,7 @@ struct NetworkVisualizerView: View {
         // `-stackOffline YES` registers no interfaces, so the live graph is
         // empty and `scripts/mac-screens.sh` could only ever photograph the
         // empty state. The demo topology drives the exact same
-        // `build(interfaces:)` the real one does — see `NetworkGraph.demo`.
+        // `build(interfaces:)` the real one does—see `NetworkGraph.demo`.
         guard let next = (live?.nodes.count ?? 0) > 1 ? live : NetworkGraph.demo ?? live else { return }
 
         withAnimation(.spring(response: 0.6, dampingFraction: 0.82)) {
@@ -500,7 +500,7 @@ struct NetworkVisualizerView: View {
 /// concentric dashed circles with stacked captions in the ~90 pt of usable
 /// radius a phone canvas has. Four bands fit with ~30 pt between rings, and
 /// "how far away" at this granularity is what anyone is actually reading off a
-/// topology view — the exact hop count of a single destination is in the
+/// topology view—the exact hop count of a single destination is in the
 /// cluster's detail list, and in the Paths tab.
 enum HopBand: Int, CaseIterable, Hashable, Comparable {
     case direct = 0   // 0–1 hops
@@ -521,18 +521,18 @@ enum HopBand: Int, CaseIterable, Hashable, Comparable {
 
     /// Normalized ring radius.
     ///
-    /// Spread across [0.23, 0.47] — the old layout
+    /// Spread across [0.23, 0.47]—the old layout
     /// packed every level into [0.35, 0.47], the outer quarter of the canvas,
-    /// which is why the centre of the graph was empty while its rim was a smear.
+    /// which is why the center of the graph was empty while its rim was a smear.
     /// 0.47 is very close to the 0.5 that reaches the canvas edge.
     /// Ring radius as a fraction of the canvas, where 0.5 reaches its edge.
     ///
-    /// The old layout packed every level into [0.35, 0.47] — the outer quarter
-    /// of the canvas — which is why the middle of the graph was empty while its
+    /// The old layout packed every level into [0.35, 0.47]—the outer quarter
+    /// of the canvas—which is why the middle of the graph was empty while its
     /// rim was a smear. The outer bound stops at 0.42 rather than filling the
-    /// space: a cluster bubble is up to 48 pt across, so a centre placed any
+    /// space: a cluster bubble is up to 48 pt across, so a center placed any
     /// closer to the edge gets its outer half sheared off. `polarPoint` applies
-    /// no clamp, deliberately — the old code's `min(max(raw, 0.05), 0.95)`
+    /// no clamp, deliberately—the old code's `min(max(raw, 0.05), 0.95)`
     /// silently collapsed distinct positions onto the same edge point, so the
     /// radii themselves have to be the thing that keeps nodes on screen.
     var radius: CGFloat { 0.20 + CGFloat(rawValue) * 0.0733 }
@@ -559,10 +559,10 @@ enum HopBand: Int, CaseIterable, Hashable, Comparable {
 
 // MARK: - NetworkGraph model
 
-/// A snapshot of the locally-known mesh topology, laid out as normalized
+/// A snapshot of the locally known mesh topology, laid out as normalized
 /// (0...1) coordinates so the view can scale it to any canvas size.
 struct NetworkGraph {
-    /// One destination behind a cluster — what the cluster's detail sheet lists.
+    /// One destination behind a cluster—what the cluster's detail sheet lists.
     struct Member: Identifiable, Hashable {
         let hashHex: String
         let hops: UInt8
@@ -574,13 +574,13 @@ struct NetworkGraph {
     struct Node: Identifiable {
         let id: String
         let label: String
-        /// Full identifier (e.g. destination hash) for the detail bar — `label`
+        /// Full identifier (for example, destination hash) for the detail bar—`label`
         /// is truncated.
         let fullID: String
         let kind: Kind
         /// The destinations this node stands for.
         ///
-        /// Empty for `.me`; the whole
+        /// Empty for the local node; the whole
         /// subtree for `.interface`; the cluster's contents for `.cluster`.
         let members: [Member]
         var normPosition: CGPoint
@@ -617,8 +617,8 @@ struct NetworkGraph {
     }
 
     struct Edge: Identifiable {
-        /// `.known` — a direct link to a destination reachable in one hop.
-        /// `.inferred` — the destinations are N hops away through this
+        /// `.known`—a direct link to a destination reachable in one hop.
+        /// `.inferred`—the destinations are N hops away through this
         /// interface, but the local path table records only the next-hop
         /// *transport ID*, never the intermediate destinations, so the route is
         /// genuinely unknown here.
@@ -634,8 +634,8 @@ struct NetworkGraph {
     }
 
     /// `let`, not `var`: `indexByID` is derived once in `init`, so a property
-    /// that could be reassigned afterwards would silently desynchronise the map
-    /// from `nodes` — and `node(_:)` would start returning nil for real nodes,
+    /// that could be reassigned afterwards would silently desynchronize the map
+    /// from `nodes`—and `node(_:)` would start returning nil for real nodes,
     /// so edges would vanish rather than crash.
     ///
     /// Nothing mutates a graph in
@@ -650,9 +650,9 @@ struct NetworkGraph {
     ///
     /// The midpoint of the widest angular gap between spokes. Captions used to
     /// be pinned to the top of the ring, but `angleFor(index: 0, count:)` is
-    /// `-.pi/2` for *every* count — interface 0's spoke always runs straight up
-    /// — so every caption was drawn 9 pt above the centre of one of that
-    /// spoke's bubbles, i.e. inside it, since even the smallest bubble has a
+    /// `-.pi/2` for *every* count—interface 0's spoke always runs straight up
+    ///—so every caption was drawn 9 pt above the center of one of that
+    /// spoke's bubbles, that is, inside it, since even the smallest bubble has a
     /// 12 pt radius. The captions were painted, then covered.
     let captionAngle: Double
 
@@ -682,11 +682,11 @@ extension NetworkGraph {
     private static let meID = "me"
     private static let interfaceRadius: CGFloat = 0.13
     /// Below this, a band's destinations are drawn individually instead of as a
-    /// cluster — there is no point hiding two hashes behind a "2" bubble the
+    /// cluster—there is no point hiding two hashes behind a "2" bubble the
     /// user then has to tap.
     private static let clusterThreshold = 3
 
-    /// One interface and everything reachable through it — the only input the
+    /// One interface and everything reachable through it—the only input the
     /// layout needs.
     ///
     /// Extracted so `build(interfaces:)` is a pure function of plain values
@@ -726,7 +726,7 @@ extension NetworkGraph {
         })
     }
 
-    /// Builds the graph: "me" at centre, a ring of interfaces around it, and
+    /// Builds the graph: the local node at center, a ring of interfaces around it, and
     /// along each interface's spoke one bead per occupied hop band.
     ///
     /// A band
@@ -736,7 +736,7 @@ extension NetworkGraph {
     ///
     /// The node count this produces is bounded by
     /// `1 + interfaces × (1 + HopBand.allCases.count × clusterThreshold)`
-    /// — i.e. it does not grow with the size of the path table. That bound is
+    ///—that is, it does not grow with the size of the path table. That bound is
     /// the entire point of the rewrite; see the file header for the arithmetic
     /// showing why a node-per-destination layout cannot be made legible.
     static func build(interfaces: [InterfaceInput]) -> NetworkGraph {
@@ -779,7 +779,7 @@ extension NetworkGraph {
 
                 if bandMembers.count < clusterThreshold {
                     // Few enough to show individually. Fan them across a small
-                    // arc centred on the spoke so they do not sit on top of
+                    // arc centerd on the spoke so they do not sit on top of
                     // each other.
                     let spread = 0.14 * Double(bandMembers.count - 1)
                     for (j, member) in bandMembers.sorted(by: { $0.hashHex < $1.hashHex }).enumerated() {
@@ -823,7 +823,7 @@ extension NetworkGraph {
                             captionAngle: captionAngle(spokeCount: ifaceCount))
     }
 
-    /// Midpoint of the widest gap between spokes — where a ring caption can sit
+    /// Midpoint of the widest gap between spokes—where a ring caption can sit
     /// without a bubble landing on top of it.
     ///
     /// Spokes are evenly spaced, so the
@@ -834,13 +834,13 @@ extension NetworkGraph {
         return angleFor(index: spokeCount - 1, count: spokeCount) + step / 2
     }
 
-    /// A synthetic topology at roughly the scale that broke the old layout —
-    /// 341 destinations over three interfaces, hop counts from 1 to 27.
+    /// A synthetic topology at roughly the scale that broke the old layout—341
+    /// destinations over three interfaces, hop counts from 1 to 27.
     ///
     /// Enabled with `-seedDemoData YES`, matching `DemoData`'s flag, and never
     /// compiled into Release. It exists because `-stackOffline YES` registers no
     /// interfaces, so `scripts/mac-screens.sh` had no way to photograph this
-    /// screen with anything on it — which is how a view this broken stayed
+    /// screen with anything on it—which is how a view this broken stayed
     /// broken through several rounds of Mac-screen review.
     ///
     /// Deterministic (a fixed seed, no `Date()` beyond a single `now`), so two
@@ -855,7 +855,7 @@ extension NetworkGraph {
         func members(_ count: Int, seed: UInt64, hops: [UInt8]) -> [Member] {
             var state = seed
             return (0..<count).map { i in
-                // xorshift64 — a fixed-seed PRNG, so this is reproducible.
+                // xorshift64—a fixed-seed PRNG, so this is reproducible.
                 state ^= state << 13; state ^= state >> 7; state ^= state << 17
                 let hex = String(format: "%016llx%016llx", state, state &* 0x9E37_79B9_7F4A_7C15)
                 return Member(hashHex: String(hex.prefix(32)),
@@ -961,7 +961,7 @@ private struct NodeBubble: View {
     /// Only nodes with a name worth reading carry an external caption.
     ///
     /// Clusters
-    /// do not — their number is inside the bubble, and the ring guide already
+    /// do not—their number is inside the bubble, and the ring guide already
     /// names the band.
     private var caption: String? {
         switch node.kind {
@@ -1092,7 +1092,7 @@ private struct NodeDetailBar: View {
 ///
 /// This is the progressive-disclosure half of the aggregation: the canvas shows
 /// the distribution, and this shows the individual hashes for whichever part of
-/// it the user asked about — scoped, unlike the Paths tab, which lists all of
+/// it the user asked about—scoped, unlike the Paths tab, which lists all of
 /// them at once.
 private struct ClusterDetailSheet: View {
     let node: NetworkGraph.Node
@@ -1152,8 +1152,8 @@ private extension String {
 
 // MARK: - ConnectionType
 
-/// Connection-type classification driving edge/node color and the legend —
-/// derived from the interface's concrete Swift type for precise grouping
+/// Connection-type classification driving edge/node color and the legend—derived
+/// from the interface's concrete Swift type for precise grouping
 /// (more granular than the name-substring heuristic used elsewhere in the UI).
 enum ConnectionType: CaseIterable, Hashable {
     case tcp, udp, auto, backbone, local, lora, i2p, serial, other

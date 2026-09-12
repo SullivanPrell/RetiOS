@@ -22,7 +22,7 @@ import CoreImage.CIFilterBuiltins
 //
 // These keep the `rns*` names the whole app already calls, but each one now
 // resolves to a *system semantic color* so the UI adapts automatically to
-// Light/Dark mode, Increase Contrast, and Smart Invert — the native (HIG)
+// Light/Dark mode, Increase Contrast, and Smart Invert—the native (HIG)
 // behavior. The RNS-blue identity is preserved through `accentColor`, which is
 // backed by the `AccentColor` asset (it already ships both a light and a dark
 // blue variant). Because the tokens are computed, they re-resolve per
@@ -39,7 +39,7 @@ extension Color {
         Color(nsColor: .windowBackgroundColor)
         #endif
     }
-    /// One step above `rnsCanvas` — message bubbles, compose bars, cards.
+    /// One step above `rnsCanvas`—message bubbles, compose bars, cards.
     ///
     /// The macOS mapping is **not** `controlBackgroundColor`, which is what it
     /// used to be. On macOS that color is byte-identical to
@@ -51,7 +51,7 @@ extension Color {
     ///
     /// `unemphasizedSelectedContentBackgroundColor` is the semantic "content
     /// that reads as distinct but not active", and it is the one system color
-    /// that shifts in the right direction in both appearances — measured at
+    /// that shifts in the right direction in both appearances—measured at
     /// +15.7% luminance in Dark and −13.7% in Light against the page.
     static var rnsSurface: Color {
         #if canImport(UIKit)
@@ -61,10 +61,10 @@ extension Color {
         #endif
     }
 
-    /// Two steps above `rnsCanvas` — a neutral chip sitting on a surface.
+    /// Two steps above `rnsCanvas`—a neutral chip sitting on a surface.
     ///
     /// macOS has no third semantic step here (`underPageBackgroundColor`, the
-    /// previous mapping, is a −37% dark grey in Light — far too heavy for a
+    /// previous mapping, is a −37% dark grey in Light—far too heavy for a
     /// badge on a white page), so the step is derived from `rnsSurface` by
     /// nudging it toward the foreground in whichever direction the appearance
     /// calls for.
@@ -109,12 +109,12 @@ extension Color {
         #endif
     }
 
-    // MARK: Accent (RNS blue — from the AccentColor asset, light + dark)
+    // MARK: Accent (RNS blue—from the AccentColor asset, light + dark)
 
     static var rnsAccent: Color { .accentColor }
     static var rnsAccentBright: Color { .accentColor }
 
-    // MARK: Semantic state (system colors — adapt to appearance & vibrancy)
+    // MARK: Semantic state (system colors—adapt to appearance & vibrancy)
 
     static var rnsSuccess: Color { .green }
     static var rnsWarning: Color { .orange }
@@ -155,7 +155,7 @@ struct RNSLogoView: View {
             }
         }
         .frame(width: size, height: size)
-        // Pure branding — conveys no actionable information to VoiceOver.
+        // Pure branding—conveys no actionable information to VoiceOver.
         .accessibilityHidden(true)
     }
 
@@ -188,7 +188,7 @@ struct RNSLogoView: View {
 extension View {
     /// Applies the Reticulum brand accent to this view tree.
     ///
-    /// The app no longer forces an appearance — `UIUserInterfaceStyle` was
+    /// The app no longer forces an appearance—`UIUserInterfaceStyle` was
     /// removed from Info.plist so RetiOS follows the user's system Light/Dark
     /// setting (the HIG-native behavior). `preferredColorScheme` is deliberately
     /// not used, so accessibility overrides (Smart Invert, Increase Contrast)
@@ -203,19 +203,19 @@ extension View {
     /// The navigation bar now renders with its native system material
     /// (iOS 26 Liquid Glass), which looks correct in both Light and Dark once
     /// the rest of the UI uses adaptive system colors. Previously this forced a
-    /// solid surface fill to stop the bar disappearing against the dark theme —
-    /// no longer needed, and fighting the system material is the non-HIG path.
+    /// solid surface fill to stop the bar disappearing against the dark theme—no
+    /// longer needed, and fighting the system material is the non-HIG path.
     func rnsNavigationBar() -> some View { self }
 
     /// Lets `List` / `Form` use their native (grouped) system background instead
-    /// of a custom fill — the HIG-native look.
+    /// of a custom fill—the HIG-native look.
     ///
     /// A `systemGroupedBackground` page
     /// color is placed *behind* the content so non-scrolling screens (plain
     /// `ScrollView` / `VStack`) still get a proper page color; for a `List`/`Form`
     /// the system's own background draws on top, so this is invisible there.
     ///
-    /// Note: `scrollContentBackground(.hidden)` was intentionally removed — that
+    /// Note: `scrollContentBackground(.hidden)` was intentionally removed—that
     /// hide was the root cause of native list styling being suppressed app-wide.
     func rnsScreenBackground() -> some View {
         self.background(Color.rnsCanvas.ignoresSafeArea())
@@ -226,21 +226,21 @@ extension View {
         self.background(Color.rnsCanvas.ignoresSafeArea())
     }
 
-    /// Material for a bar the app draws itself — the NomadNet URL bar, the
+    /// Material for a bar the app draws itself—the NomadNet URL bar, the
     /// sidebar status footer, the compose bars.
     ///
     /// Uses **Liquid Glass** on OSes that have it, falling back to
     /// `.ultraThinMaterial` below that. The app builds against the iOS/macOS 26
     /// SDK and does *not* set `UIDesignRequiresCompatibility`, so system chrome
-    /// — toolbars, sidebars, tab bars — already renders as Liquid Glass for
+    ///—toolbars, sidebars, tab bars—already renders as Liquid Glass for
     /// free. This helper is for the surfaces the app draws itself, which the
-    /// system cannot restyle on our behalf and which otherwise stay visibly
+    /// system cannot restyle on the app's behalf and which otherwise stay visibly
     /// flat next to the chrome that did update.
     ///
     /// `placement` is new, and it is the reported bug. `glassEffect(_:in:)`
     /// *draws the shape you hand it*, so the old unconditional `.rect` painted
     /// four literal 90° corners at the bar's bounds. Under a top toolbar that is
-    /// right — nothing curved is adjacent. Pinned to the bottom of an iPhone it
+    /// right—nothing curved is adjacent. Pinned to the bottom of an iPhone it
     /// puts a hard rectangle corner over the display's radius and alongside the
     /// iOS 26 floating capsule tab bar: the "rectangle colliding with a capsule"
     /// in the bug report. The original justification ("a capsule would round its
@@ -259,7 +259,7 @@ extension View {
     /// page: "When your ConcentricRectangle's corners are far away from the
     /// containing shape's corners … the corner radius the system calculates may
     /// be zero." Without the floor, a bar the system decides is too far from the
-    /// display corner silently renders square again — i.e. this exact bug
+    /// display corner silently renders square again—that is, this exact bug
     /// returns with no compile error to catch it.
     ///
     /// Deployment targets are still iOS 17 / macOS 14, so the API must be
@@ -271,7 +271,7 @@ extension View {
 
     /// Anchors an app-drawn bar to the bottom of a scrolling screen.
     ///
-    /// `safeAreaBar` — *not* `safeAreaInset` — on iOS/macOS 26. The two are
+    /// `safeAreaBar`—*not* `safeAreaInset`—on iOS/macOS 26. The two are
     /// otherwise identical, and the difference is exactly the missing bottom
     /// fade: `safeAreaBar` extends the edge effect of any scroll views affected
     /// by the inset safe area, while `safeAreaInset` only reserves space. That
@@ -294,23 +294,23 @@ extension View {
     ///
     /// Replaces the `ScrollViewReader` + `proxy.scrollTo` dance, which had a
     /// trigger for exactly one of the four cases that need one:
-    ///   1. First appearance — `scrollTo` in `onAppear` raced the `LazyVStack`;
+    ///   1. First appearance—`scrollTo` in `onAppear` raced the `LazyVStack`;
     ///      trailing rows are not materialised on the first layout pass, so the
     ///      proxy had no target and the thread opened part-way up.
-    ///   2. Keyboard raise — grows the bottom safe area and shrinks the scroll
+    ///   2. Keyboard raise—grows the bottom safe area and shrinks the scroll
     ///      view's *container*. SwiftUI keyboard avoidance only guarantees the
     ///      *focused* view stays visible, and the focused view is the TextField
     ///      down in the inset, not the list. No trigger fired.
-    ///   3. Compose growth (`lineLimit(1...5)`, up to ~80 pt) — same container
+    ///   3. Compose growth (`lineLimit(1...5)`, up to ~80 pt)—same container
     ///      shrink, same silence.
-    ///   4. A new message arriving — the one case that did work.
+    ///   4. A new message arriving—the one case that did work.
     ///
     /// The two-argument `defaultScrollAnchor(_:for:)` is the whole reason this is
     /// a helper: the single-argument form ALSO sets the *alignment* role, so
     /// content shorter than the viewport gets pinned to the bottom. But
     /// `ScrollAnchorRole` is iOS 18 / macOS 15 and the app floor is iOS 17 /
     /// macOS 14, so it cannot appear in a signature the floor has to compile.
-    /// Below 18 we take the single-argument form, and callers must keep
+    /// Below 18 the single-argument form applies, and callers must keep
     /// short-content states out of the scroll view (see `ChannelRoomView`'s
     /// empty state, which is an `.overlay` for exactly this reason).
     @ViewBuilder
@@ -329,11 +329,11 @@ extension View {
     ///
     /// No-op on iOS/macOS 26: `rnsBottomBar` uses `safeAreaBar` there, which
     /// extends the scroll view's edge effect into the bar, and that *is* the
-    /// separation — painting a second full-width material on top of it is the
+    /// separation—painting a second full-width material on top of it is the
     /// "reduce the use of toolbar backgrounds" case in HIG ▸ Toolbars. Below 26
     /// there is no edge effect at all, and `Color.rnsSurface`'s own note in this
     /// file records that the macOS compose bar was once "distinguishable only by
-    /// its `Divider`" — so the hairline is load-bearing there, not decoration.
+    /// its `Divider`"—so the hairline is load-bearing there, not decoration.
     @ViewBuilder
     func rnsLegacyBarChrome() -> some View {
         if #available(iOS 26, macOS 26, *) {
@@ -351,16 +351,16 @@ extension View {
     /// Rows now use the system's native row background, which keeps
     /// correct selection / highlight / swipe-action behavior. The system row
     /// color already matches `rnsSurface` (secondary grouped background), so this
-    /// changes nothing visually — it just stops overriding system row chrome.
+    /// changes nothing visually—it just stops overriding system row chrome.
     func rnsRow() -> some View { self }
 
-    /// No-op on macOS — `navigationBarTitleDisplayMode` only exists on
+    /// No-op on macOS—`navigationBarTitleDisplayMode` only exists on
     /// iOS/iPadOS/tvOS/watchOS (it configures the *navigation bar's* title
     /// size). macOS window title bars have no inline/large display-mode
     /// concept, so there's nothing to apply there.
     ///
-    /// Centralizing the `#if os(iOS)` here — rather than at each of the ~20
-    /// call sites across the app — is what makes those views compile (and
+    /// Centralizing the `#if os(iOS)` here—rather than at each of the ~20
+    /// call sites across the app—is what makes those views compile (and
     /// look right) for the native macOS destination introduced alongside
     /// this helper.
     @ViewBuilder
@@ -376,9 +376,9 @@ extension View {
     /// with an optional trailing action button.
     ///
     /// This replaces the system
-    /// collapsing large-title nav bar — which reserves an empty ~44 pt inline
+    /// collapsing large-title nav bar—which reserves an empty ~44 pt inline
     /// bar *above* the big title (the "huge dead space" between the status bar
-    /// and the title) — with an in-content title that sits right under the safe
+    /// and the title)—with an in-content title that sits right under the safe
     /// area. Only the content below scrolls; the title stays put.
     ///
     /// iOS: draws the title (and trailing action) in-content and hides the now
@@ -394,8 +394,8 @@ extension View {
     /// parameter, and that distinction is load-bearing on macOS: a
     /// `ToolbarItem` wrapping an `EmptyView` still claims a toolbar slot, and a
     /// slot the user cannot see is still a slot the system can decide to
-    /// collapse. Every Mac screen was rendering a "»" overflow chevron —
-    /// hiding real actions behind it — because each one contributed a phantom
+    /// collapse. Every Mac screen was rendering a "»" overflow chevron—hiding
+    /// real actions behind it—because each one contributed a phantom
     /// primary-action item here. With the default argument gone, screens
     /// without an action contribute nothing at all.
     @ViewBuilder
@@ -454,10 +454,10 @@ extension View {
         #endif
     }
 
-    /// No-op on macOS — `textInputAutocapitalization` is iOS/iPadOS/tvOS/
+    /// No-op on macOS—`textInputAutocapitalization` is iOS/iPadOS/tvOS/
     /// watchOS only (it configures the on-screen keyboard's shift-key
     /// behavior). macOS text fields have no software keyboard / auto-cap
-    /// concept, so suppressing it there is meaningless — and the modifier
+    /// concept, so suppressing it there is meaningless—and the modifier
     /// doesn't exist on macOS's `View` at all, hence the guard.
     @ViewBuilder
     func rnsNoAutocapitalization() -> some View {
@@ -475,12 +475,12 @@ extension View {
     ///
     /// The live hex-filtering is applied at each call site since it needs
     /// the binding. Centralizing the styling here is the HIG "be consistent"
-    /// fix — the four hand-rolled forms previously diverged on keyboard type
+    /// fix—the four hand-rolled forms previously diverged on keyboard type
     /// and submit label.
     ///
     /// **Prefer `RNSHashField` to calling this directly.** `.font(_:)` is an
-    /// *environment* value — font information flows down the view hierarchy as
-    /// part of the environment — so the monospaced face set here reaches
+    /// *environment* value—font information flows down the view hierarchy as
+    /// part of the environment—so the monospaced face set here reaches
     /// everything in the modified view's subtree, *including the field's label*.
     /// That is invisible on iOS, where a form row uses the label as in-field
     /// placeholder text; on macOS a form always hoists the label out to the
@@ -506,7 +506,7 @@ extension View {
 
     /// Plays a haptic on iOS for a discrete event; no-op on macOS (Macs have no
     /// Taptic Engine in this context). `trigger` is any `Equatable` whose change
-    /// signals the event occurred (e.g. a success counter, or a state enum).
+    /// signals the event occurred (for example, a success counter, or a state enum).
     @ViewBuilder
     func rnsFeedback<T: Equatable>(_ feedback: SensoryFeedback, trigger: T) -> some View {
         #if os(iOS)
@@ -517,7 +517,7 @@ extension View {
     }
 
     /// Closure variant: choose the feedback from the old/new trigger values
-    /// (e.g. map a call-state transition to success / error). iOS-only.
+    /// (for example, map a call-state transition to success / error). iOS-only.
     @ViewBuilder
     func rnsFeedback<T: Equatable>(trigger: T,
                                    _ feedback: @escaping (T, T) -> SensoryFeedback?) -> some View {
@@ -537,7 +537,7 @@ extension View {
 /// corner is part of the layout and the tab bar is a floating capsule, so a
 /// bar's corner radius has neighbours it must agree with.
 enum RNSBarPlacement {
-    /// Butted against system chrome inside the window — the NomadNet URL bar
+    /// Butted against system chrome inside the window—the NomadNet URL bar
     /// under the toolbar, a sidebar footer inside a Mac window. Square corners
     /// are correct there: nothing curved is adjacent.
     case interior
@@ -545,7 +545,7 @@ enum RNSBarPlacement {
     /// iPhone) beside the floating capsule tab bar. Bottom corners must be
     /// concentric with the display's own radius.
     ///
-    /// Requested, not guaranteed — see `RNSBarMaterial`, which downgrades this
+    /// Requested, not guaranteed—see `RNSBarMaterial`, which downgrades this
     /// to `.interior` wherever the bar is not actually at a screen edge.
     case screenBottom
 }
@@ -557,8 +557,8 @@ enum RNSBarPlacement {
 /// `horizontalSizeClass`, and that read is load-bearing. `.screenBottom` asks
 /// for concentric bottom corners with a `.fixed(14)` floor, which is right only
 /// when the bar really does sit at the bottom edge of the display. In a
-/// `NavigationSplitView` detail column — every Mac window, and iPad at regular
-/// width — the bar's bottom-*leading* corner is at the sidebar divider,
+/// `NavigationSplitView` detail column—every Mac window, and iPad at regular
+/// width—the bar's bottom-*leading* corner is at the sidebar divider,
 /// hundreds of points inboard. The concentric term resolves to zero there and
 /// the floor takes over, cutting a 14 pt notch into the bar mid-window and
 /// exposing a wedge of the canvas behind it. `uniformBottomCorners` propagates
@@ -566,7 +566,7 @@ enum RNSBarPlacement {
 /// dodged per-corner either.
 ///
 /// `sizeClass == .compact` is exactly the condition under which `RootView`
-/// chooses `TabRootView` — the full-width, genuinely screen-bottom layout — so
+/// chooses `TabRootView`—the full-width, genuinely screen-bottom layout—so
 /// this tracks the real geometry rather than guessing from the platform.
 /// `horizontalSizeClass` is nil on macOS, which correctly lands on `.interior`.
 private struct RNSBarMaterial: ViewModifier {
@@ -602,7 +602,7 @@ private struct RNSBarMaterial: ViewModifier {
 /// `sizeClass == .regular` to a `NavigationSplitView` whose detail column is
 /// ~1000 pt wide, and every message becomes a single 130-character line.
 ///
-/// These are empirical values, not derived from a HIG table — the HIG only says
+/// These are empirical values, not derived from a HIG table—the HIG only says
 /// to "restrict the width of text for optimal readability" (Foundations ▸
 /// Layout). Worth an eye on an 11" and a 13" iPad.
 enum RNSLayout {
@@ -616,11 +616,11 @@ enum RNSLayout {
 extension ToolbarItemPlacement {
     /// Trailing toolbar slot that resolves correctly per platform.
     ///
-    /// iOS/iPadOS: `.topBarTrailing` — the modern (iOS 16+) name for the
+    /// iOS/iPadOS: `.topBarTrailing`—the modern (iOS 16+) name for the
     /// trailing nav-bar slot (`.navigationBarTrailing` is the older spelling
     /// of the exact same placement).
     ///
-    /// macOS: there is no navigation bar — `.primaryAction` lands the item
+    /// macOS: there is no navigation bar—`.primaryAction` lands the item
     /// in the window toolbar's primary (trailing-most) slot, the closest
     /// native equivalent.
     static var rnsTrailing: ToolbarItemPlacement {
@@ -645,7 +645,7 @@ extension ToolbarItemPlacement {
 ///    hash…", text:)` supplies a *label*. SwiftUI's own "Text field prompts"
 ///    documentation is explicit: a form on macOS always places the label at the
 ///    leading edge of the field and uses a prompt, when available, as
-///    placeholder text within the field itself — whereas on iOS the field uses
+///    placeholder text within the field itself—whereas on iOS the field uses
 ///    either the prompt or the label as placeholder text. A label-only
 ///    initializer therefore looks correct on iOS and strands the hint outside
 ///    the field on macOS, in *every* form style. `.formStyle(.grouped)` alone
@@ -657,8 +657,8 @@ extension ToolbarItemPlacement {
 ///    There is no `.font(.body)` override to forget.
 ///
 /// `LocalizedStringKey`, not `String`: a `String` parameter would bind
-/// `TextField` to its `StringProtocol` overload — the deliberately
-/// *non-localized* one — and quietly drop every hash prompt out of the
+/// `TextField` to its `StringProtocol` overload—the deliberately
+/// *non-localized* one—and quietly drop every hash prompt out of the
 /// localization table with no compile error. A literal at the call site still
 /// converts implicitly.
 ///
@@ -677,7 +677,7 @@ struct RNSHashField: View {
     ///
     /// Interpolating `"\(label) (\(prompt))"`
     /// instead measures ~345 pt of monospaced `.body` against ~290 pt of usable
-    /// row width on an iPhone SE — it truncates the only hint iOS shows.
+    /// row width on an iPhone SE—it truncates the only hint iOS shows.
     private let compactPrompt: LocalizedStringKey
     @Binding private var text: String
 
@@ -696,7 +696,7 @@ struct RNSHashField: View {
         // The cap belongs on the *control*, not on the labelled row. A
         // `.frame(maxWidth:)` on the whole `LabeledContent` constrains label and
         // field together: the label eats ~100 pt of the budget and a pasted
-        // 32-character hash then clips mid-glyph at ~27 — the field cannot show
+        // 32-character hash then clips mid-glyph at ~27—the field cannot show
         // the one value it exists to hold. Capping the control instead also
         // preserves the trailing-aligned-control alignment every other grouped
         // row in the app has.
@@ -736,7 +736,7 @@ struct RNSHashField: View {
 ///
 /// Call sites keep
 /// passing `[(label, value)]` plus a binding; this renders the standard system
-/// segmented control — the HIG-native choice — instead of a custom underline
+/// segmented control—the HIG-native choice—instead of a custom underline
 /// tab bar that had to hand-roll its own colors, animation, and a11y traits.
 /// The one matching rule every peer search in the app uses.
 ///
@@ -744,14 +744,14 @@ struct RNSHashField: View {
 ///
 /// **Hashes match by PREFIX, not substring.** A destination hash is 32 lowercase
 /// hex characters, so `contains("a")` is true for ~87% of all hashes
-/// (1 − (15/16)^32) — typing the first letter of a name returned nearly the
+/// (1 − (15/16)^32)—typing the first letter of a name returned nearly the
 /// entire list, with the accidental matches indistinguishable from the real one
 /// because the matched region is usually inside the middle that `truncatedHash`
 /// hides. Prefix matching is also what Reticulum addressing and every other hash
 /// affordance in this app already imply (`PeerEntity.shortHash` is `prefix(8)`).
 ///
-/// **The query is trimmed.** A trailing space — trivially produced by iOS
-/// autocorrect or a paste — made every match fail, which reads as "no results"
+/// **The query is trimmed.** A trailing space—trivially produced by iOS
+/// autocorrect or a paste—made every match fail, which reads as "no results"
 /// rather than as a typo.
 enum RNSSearch {
 
@@ -861,7 +861,7 @@ struct RNSSectionPicker<T: Hashable>: View {
     }
 }
 
-/// Container for a settings-style screen — a stack of `Section`s of labelled
+/// Container for a settings-style screen—a stack of `Section`s of labelled
 /// rows and explanatory footers (Settings, Interfaces).
 ///
 /// **iOS** keeps `List` + `.insetGrouped`. `List` is what supports
@@ -876,8 +876,8 @@ struct RNSSectionPicker<T: Hashable>: View {
 ///
 /// It also fixes a genuine defect rather than only a stylistic one: in the
 /// `List` layout, section footers were laid out on a single line and truncated
-/// — the Interfaces overlay-network footer ended mid-sentence at "Reticulum
-/// then…" — because the row was nearly wide enough to fit them. `Form` footers
+///—the Interfaces overlay-network footer ended mid-sentence at "Reticulum
+/// then…"—because the row was nearly wide enough to fit them. `Form` footers
 /// wrap.
 @ViewBuilder
 func rnsSettingsContainer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
@@ -891,7 +891,7 @@ func rnsSettingsContainer<Content: View>(@ViewBuilder _ content: () -> Content) 
 }
 
 extension View {
-    /// Style for a *content* list — conversations, peers, paths, channels, logs.
+    /// Style for a *content* list—conversations, peers, paths, channels, logs.
     ///
     /// (Settings-style screens use `rnsSettingsContainer` instead.)
     ///
@@ -904,14 +904,14 @@ extension View {
     func rnsContentListStyle() -> some View {
         #if os(macOS)
         // Alternating row backgrounds are the Mac idiom for a scannable list of
-        // records — Finder's list view, Mail's message list, Xcode's issue
+        // records—Finder's list view, Mail's message list, Xcode's issue
         // navigator. The banding is what separates one row from the next, and
         // the *only* filled row is the selected one.
         //
         // Two earlier attempts were wrong in opposite directions. `.bordered`
         // boxes the whole list, which collides with the grouped `Form` boxes on
         // the settings screens. Giving every row its own rounded card fixed the
-        // "unselected row is the same colour as the page" complaint, but it
+        // "unselected row is the same color as the page" complaint, but it
         // transplanted the iOS inset-grouped idiom onto macOS: a column of
         // heavy grey slabs running edge to edge, which is not what the HIG
         // describes and read worse than the problem it solved.
@@ -924,29 +924,29 @@ extension View {
     /// Stacks a search field above a list, for screens where `.searchable`
     /// cannot work.
     ///
-    /// **Use `.searchable` when the screen has a navigation bar** — that is the
+    /// **Use `.searchable` when the screen has a navigation bar**—that is the
     /// system control and it is what `DestinationsView`, `InterfaceDirectoryView`
     /// and `LogsView` correctly use.
     ///
-    /// This exists for the **tab roots**, which do not have one — and where
+    /// This exists for the **tab roots**, which do not have one—and where
     /// `.searchable` fails *silently*:
     ///
-    /// - **iOS** — `rnsPinnedTitle` draws the tab's large title itself and calls
+    /// - **iOS**—`rnsPinnedTitle` draws the tab's large title itself and calls
     ///   `.toolbar(.hidden, for: .navigationBar)`. Every iOS
     ///   `SearchFieldPlacement` resolves into the navigation bar (`.automatic`
     ///   and `.toolbar` both land in `.navigationBarDrawer`), so with the bar
     ///   hidden there is nowhere for the field to go and nothing renders.
-    ///   Apple's own note on `SearchFieldPlacement` — "Depending on the
+    ///   Apple's own note on `SearchFieldPlacement`—"Depending on the
     ///   containing view hierarchy, SwiftUI might not be able to fulfill your
-    ///   request" — is the entire diagnostic: no warning, no field.
-    /// - **macOS** — the field *would* render, in the window toolbar, which on
+    ///   request"—is the entire diagnostic: no warning, no field.
+    /// - **macOS**—the field *would* render, in the window toolbar, which on
     ///   these screens already carries `rnsSectionPicker`'s principal segmented
     ///   control plus a primary action. A third item is exactly what collapses a
     ///   Mac toolbar into the "»" overflow chevron that `rnsPinnedTitle`'s own
     ///   comment documents fighting.
     ///
-    /// So the field is drawn in-content on both platforms — the same
-    /// app-drawn-bar idiom as the NomadNet URL bar — which also keeps the three
+    /// So the field is drawn in-content on both platforms—the same
+    /// app-drawn-bar idiom as the NomadNet URL bar—which also keeps the three
     /// peer lists looking identical. The *matching semantics* at each call site
     /// should still follow the house pattern: a `filtered` array matching name
     /// or hash case-insensitively, plus a `ContentUnavailableView.search`
@@ -955,7 +955,7 @@ extension View {
     ///
     /// The `maxWidth/maxHeight: .infinity` on `self` mirrors `rnsSectionPicker`:
     /// without it the list shrinks to its intrinsic height inside the `VStack`
-    /// and floats vertically centred.
+    /// and floats vertically centerd.
     func rnsInlineSearch(text: Binding<String>,
                          prompt: LocalizedStringKey = "Name or hash") -> some View {
         VStack(spacing: 0) {
@@ -967,13 +967,13 @@ extension View {
     /// Attaches a section switcher to a screen, placed the way each platform
     /// expects.
     ///
-    /// **iOS** stretches a segmented control edge-to-edge under the title — the
+    /// **iOS** stretches a segmented control edge-to-edge under the title—the
     /// standard phone idiom, and what this app has always done.
     ///
     /// **macOS** puts it in the window toolbar instead. A Mac segmented control
     /// sizes to its content rather than filling the width, so the iOS placement
     /// rendered as a small pill marooned in the middle of an otherwise empty
-    /// row across the top of every pane — the most conspicuous phone-ism in the
+    /// row across the top of every pane—the most conspicuous phone-ism in the
     /// Mac build. The toolbar is where Finder, Mail and Xcode put exactly this
     /// control.
     ///
@@ -1003,17 +1003,17 @@ extension View {
 /// Full-fill empty state on macOS (no card chrome); ContentUnavailableView on iOS.
 ///
 /// On macOS, ContentUnavailableView renders as a fixed-size rounded card that
-/// floats in whatever space is offered — giving an awkward centered-card-on-
+/// floats in whatever space is offered—giving an awkward centered-card-on-
 /// empty-canvas look. Worse, because that card does *not* expand to fill, a
-/// bare `ContentUnavailableView` placed below fixed chrome in a `VStack` (e.g.
+/// bare `ContentUnavailableView` placed below fixed chrome in a `VStack` (for example,
 /// a URL bar) lets the whole stack shrink to its intrinsic height and get
-/// vertically centered by an outer `.frame(maxHeight: .infinity)` — dragging
+/// vertically centered by an outer `.frame(maxHeight: .infinity)`—dragging
 /// that chrome into the middle of the pane. RNSEmptyState fills the space and
 /// centers only its own content, so any sibling chrome stays put.
 ///
-/// Pass `actionTitle` + `action` to add a trailing button (e.g. "Retry" on an
+/// Pass `actionTitle` + `action` to add a trailing button (for example, "Retry" on an
 /// error state); omit both for a plain empty state. Both platforms render the
-/// button — on iOS via ContentUnavailableView's `actions` builder.
+/// button—on iOS via ContentUnavailableView's `actions` builder.
 struct RNSEmptyState: View {
     let title: String
     let systemImage: String
@@ -1062,14 +1062,14 @@ struct RNSEmptyState: View {
 
 // MARK: - Status badge (shared pill)
 
-/// A small colored status pill — the shared version of the several hand-rolled
+/// A small colored status pill—the shared version of the several hand-rolled
 /// capsule badges that had diverged on padding, corner shape, and color model.
 /// `color` drives both the text and a faint tinted background.
 ///
 /// The tinted-background model (`color.opacity(0.18)`) only works when `color`
 /// is a *saturated* color. For neutral metadata badges the caller should pass
 /// `neutral: true`, which uses an opaque `rnsSurfaceRaised` fill with legible
-/// secondary text: deriving the fill from a translucent label color (e.g.
+/// secondary text: deriving the fill from a translucent label color (for example,
 /// `tertiaryLabel`) instead multiplies down to ~5% alpha, so the pill vanishes
 /// and the text drops below the contrast floor (Labels / Color HIG).
 struct RNSBadge: View {
@@ -1128,8 +1128,8 @@ struct PeerIdentityView: View {
 
 /// Date formatting for list rows.
 ///
-/// Replaces `Text(date, style: .relative)`, which renders a bare *duration* —
-/// a conversation last touched yesterday evening read as "21 hr, 3 min". That
+/// Replaces `Text(date, style: .relative)`, which renders a bare *duration*—a
+/// conversation last touched yesterday evening read as "21 hr, 3 min". That
 /// is the format for a countdown, not for saying when something happened.
 enum RNSDate {
 
@@ -1137,7 +1137,7 @@ enum RNSDate {
     /// today, "Yesterday", a weekday within the past week, a date beyond that.
     static func listTimestamp(_ date: Date, now: Date = Date()) -> String {
         let cal = Calendar.current
-        // Calendar days between the two, measured from `now` — not from the
+        // Calendar days between the two, measured from `now`—not from the
         // real clock. `isDateInToday`/`isDateInYesterday` ignore an injected
         // `now` entirely, so the tests below agreed with this function only on
         // the day they were written and failed every day after.
@@ -1148,13 +1148,13 @@ enum RNSDate {
         case 0:      return date.formatted(date: .omitted, time: .shortened)
         case 1:      return "Yesterday"
         case 2..<7:  return date.formatted(.dateTime.weekday(.abbreviated))
-        // Beyond a week — and anything dated after `now`, which a peer with a
-        // skewed clock can produce — gets an unambiguous date.
+        // Beyond a week—and anything dated after `now`, which a peer with a
+        // skewed clock can produce—gets an unambiguous date.
         default:     return date.formatted(date: .numeric, time: .omitted)
         }
     }
 
-    /// How long ago something was, in words — "21 hours ago", "2 days ago".
+    /// How long ago something was, in words—"21 hours ago", "2 days ago".
     ///
     /// For recency ("last seen"), where the elapsed time *is* the point.
     static func ago(_ date: Date, now: Date = Date()) -> String {
@@ -1171,7 +1171,7 @@ enum RNSDate {
 
 // MARK: - Clipboard
 
-/// Cross-platform "copy this string to the pasteboard" — the single place the
+/// Cross-platform "copy this string to the pasteboard"—the single place the
 /// UIPasteboard / NSPasteboard split is handled, replacing the copies that had
 /// been inlined per-view.
 func rnsCopyToPasteboard(_ string: String) {
@@ -1219,7 +1219,7 @@ private func loadBrandImage(named name: String) -> Any? {
 ///
 /// `CIContext()` builds a full render pipeline and Apple documents it as
 /// expensive to create and intended for reuse. Constructing one per QR was the
-/// single largest block of app code on the main thread — ~75 ms every time the
+/// single largest block of app code on the main thread—~75 ms every time the
 /// Identity screen appeared, on top of the render itself.
 private let rnsCIContext = CIContext()
 
@@ -1273,7 +1273,7 @@ private func rnsWrap(_ cg: CGImage) -> Image {
 /// Cross-platform (UIImage / NSImage under the hood).
 /// Render it with `.interpolation(.none).resizable()` to keep the modules sharp.
 ///
-/// Results are cached, but a *cold* call still renders synchronously — never
+/// Results are cached, but a *cold* call still renders synchronously—never
 /// call this from a `body`. Prefer `rnsQRImageAsync` from a `.task`.
 func rnsQRImage(_ string: String, scale: CGFloat = 6) -> Image? {
     #if canImport(CoreImage)
@@ -1285,8 +1285,8 @@ func rnsQRImage(_ string: String, scale: CGFloat = 6) -> Image? {
 
 /// Renders the QR off the main thread, then hands back the `Image`.
 ///
-/// QR generation cost ~170 ms of blocked main thread on first appearance —
-/// enough to stall the navigation push animation and swallow the first taps on
+/// QR generation cost ~170 ms of blocked main thread on first appearance—enough
+/// to stall the navigation push animation and swallow the first taps on
 /// the screen. Cache hits return without leaving the current thread.
 func rnsQRImageAsync(_ string: String, scale: CGFloat = 6) async -> Image? {
     #if canImport(CoreImage)
@@ -1323,7 +1323,7 @@ public struct AddressActionRow: View {
 
             Spacer(minLength: 8)
 
-            // Copy button — briefly shows a checkmark on success.
+            // Copy button—briefly shows a checkmark on success.
             Button {
                 rnsCopyToPasteboard(fullHex)
                 showCopied = true
@@ -1341,7 +1341,7 @@ public struct AddressActionRow: View {
             .tint(showCopied ? Color.rnsSuccess : Color.secondary)
             .accessibilityLabel(showCopied ? "Copied" : "Copy address")
 
-            // Ad-hoc announce button — sends an announce immediately.
+            // Ad-hoc announce button—sends an announce immediately.
             Button(action: onAnnounce) {
                 Image(systemName: "antenna.radiowaves.left.and.right")
             }

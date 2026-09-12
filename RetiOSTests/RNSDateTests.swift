@@ -14,8 +14,8 @@ import XCTest
 /// Covers the list-row date formatting that replaced `Text(_, style: .relative)`.
 ///
 /// The bug being locked down: `.relative` renders a bare *duration*, so a
-/// conversation last touched yesterday evening displayed as "21 hr, 3 min" —
-/// a countdown, not a statement about when something happened.
+/// conversation last touched yesterday evening displayed as "21 hr, 3 min"—a
+/// countdown, not a statement about when something happened.
 ///
 /// Every case pins an explicit `now` rather than reading the clock, so the
 /// suite can't pass or fail depending on the hour it runs.
@@ -23,7 +23,7 @@ final class RNSDateTests: XCTestCase {
 
     private let cal = Calendar.current
 
-    /// 2026-07-22, 14:30 local — an arbitrary but fixed "now".
+    /// 2026-07-22, 14:30 local—an arbitrary but fixed "now".
     private var now: Date {
         cal.date(from: DateComponents(year: 2026, month: 7, day: 22,
                                       hour: 14, minute: 30))!
@@ -46,7 +46,7 @@ final class RNSDateTests: XCTestCase {
     }
 
     func testYesterdayIsNamed() {
-        // 21 h before 14:30 is 17:30 the previous day — precisely the case that
+        // 21 h before 14:30 is 17:30 the previous day—precisely the case that
         // rendered as "21 hr, 3 min" in the conversation list.
         let yesterdayEvening = date(DateComponents(hour: -21))
         XCTAssertEqual(RNSDate.listTimestamp(yesterdayEvening, now: now), "Yesterday")
@@ -78,7 +78,7 @@ final class RNSDateTests: XCTestCase {
     /// It didn't hold:
     /// `listTimestamp` branched on `isDateInToday`/`isDateInYesterday`, which
     /// read the real clock and ignored the injected `now`, so this suite agreed
-    /// with the function only on the day it was written — CI went red the next
+    /// with the function only on the day it was written—CI went red the next
     /// morning. Pinning `now` to a fixed date in the past makes any return to
     /// the real clock fail immediately rather than a day later.
     func testTodayIsRelativeToTheInjectedNowNotTheRealClock() {

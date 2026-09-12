@@ -12,8 +12,8 @@ import SwiftUI
 import SwiftData
 import NomadNet
 
-// ChannelsContent is the inner content — no NavigationStack —
-// so it can be embedded in NomadNetContainerView without nesting stacks.
+// ChannelsContent is the inner content—no NavigationStack—so
+// it can be embedded in NomadNetContainerView without nesting stacks.
 struct ChannelsContent: View {
     @Environment(NomadNetController.self) private var nomadNet
     @Query(sort: \ChannelEntity.lastActivity, order: .reverse)

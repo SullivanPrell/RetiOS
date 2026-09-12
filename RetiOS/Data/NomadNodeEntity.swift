@@ -14,7 +14,7 @@ import SwiftData
 /// A NomadNet node that has announced the nomadnetwork.node destination.
 @Model
 final class NomadNodeEntity {
-    /// 32-hex destination hash — unique per node.
+    /// 32-hex destination hash—unique per node.
     @Attribute(.unique) var destinationHash: String
     var displayName: String?
     var lastSeen: Date

@@ -70,13 +70,13 @@ final class YggdrasilVPNManager {
     private(set) var publicKey: String?
     private(set) var peers: [YggdrasilPeerInfo] = []
     private(set) var lastError: String?
-    /// True once we have located (or created) the VPN profile.
+    /// True once the VPN profile has been located (or created).
     private(set) var isConfigured: Bool = false
     /// True once a `NETunnelProviderManager.loadAllFromPreferences()` has
     /// succeeded this session.
     ///
     /// Distinguishes "queried NE, genuinely no profile"
-    /// from "couldn't query NE" — the caller must not mint a new node key in the
+    /// from "couldn't query NE"—the caller must not mint a new node key in the
     /// latter case (it would change the node identity). See StackController.
     private(set) var didLoadManagers: Bool = false
 
@@ -89,8 +89,8 @@ final class YggdrasilVPNManager {
             forName: .NEVPNStatusDidChange, object: nil, queue: .main
         ) { [weak self] note in
             guard let conn = note.object as? NEVPNConnection else { return }
-            // Delivered on the main queue (queue: .main), so we are already on
-            // the main actor — assert it to touch main-actor state synchronously.
+            // Delivered on the main queue (queue: .main), so this is already on
+            // the main actor—assert it to touch main-actor state synchronously.
             MainActor.assumeIsolated {
                 guard let self, conn === self.manager?.connection else { return }
                 self.handleStatusChange(conn.status)
@@ -109,7 +109,7 @@ final class YggdrasilVPNManager {
         do {
             let all = try await NETunnelProviderManager.loadAllFromPreferences()
             self.didLoadManagers = true
-            // A previous transient failure (e.g. Simulator "IPC failed") must
+            // A previous transient failure (for example, Simulator "IPC failed") must
             // not leave a stale red error banner once a refresh succeeds.
             self.lastError = nil
             let found = all.first {
@@ -156,7 +156,7 @@ final class YggdrasilVPNManager {
 
         do {
             try await manager.saveToPreferences()
-            // Reload after save — starting immediately off a freshly-saved
+            // Reload after save—starting immediately off a freshly saved
             // manager throws "configuration is invalid" (a documented NE quirk).
             try await manager.loadFromPreferences()
             self.manager = manager
@@ -202,7 +202,7 @@ final class YggdrasilVPNManager {
     }
 
     private func startPolling() {
-        // Cancel any prior loop first rather than early-returning on a non-nil
+        // Cancel any prior loop first rather than returning early on a non-nil
         // task: a previously stuck/finishing loop must not leave two loops
         // running (or block a restart) after a tunnel flap.
         pollTask?.cancel()

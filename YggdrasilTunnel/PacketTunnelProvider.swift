@@ -10,13 +10,13 @@
 
 //
 //  PacketTunnelProvider.swift
-//  YggdrasilTunnel — RetiOS's Yggdrasil network extension.
+//  YggdrasilTunnel—RetiOS's Yggdrasil network extension.
 //
 //  Runs the embedded yggdrasil-go engine (Yggdrasil.xcframework) inside a
 //  Packet Tunnel Provider so the device gains a real Yggdrasil IPv6 presence
-//  (split-tunnel, 0200::/7 only — normal traffic is untouched). RetiOS's
+//  (split-tunnel, 0200::/7 only—normal traffic is untouched). RetiOS's
 //  Reticulum stack then rides over that IPv6 exactly like any TCP/Backbone
-//  interface — wire-compatible with Python RNS-over-Yggdrasil nodes.
+//  interface—wire-compatible with Python RNS-over-Yggdrasil nodes.
 //
 //  Ported from the official yggdrasil-network/yggdrasil-ios PacketTunnelProvider
 //  (BSD/MIT), adapted for RetiOS: the extension reads the config JSON straight
@@ -45,7 +45,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
         // 1. Boot the Go node from the JSON config. The config disables the OS
         //    TUN (IfName none/dummy), so the engine creates only its userspace
-        //    IPv6 layer — we hand it the real utun fd below via takeOverTUN().
+        //    IPv6 layer—it is handed the real utun fd below via takeOverTUN().
         do {
             try yggdrasil.startJSON(configJSON)
         } catch {
@@ -58,8 +58,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let subnet = yggdrasil.getSubnetString()
         NSLog("YggdrasilTunnel: node IPv6 \(address), subnet \(subnet)")
 
-        // 2. Route only the Yggdrasil range (0200::/7) through this tunnel —
-        //    a split tunnel, so normal device traffic is untouched.
+        // 2. Route only the Yggdrasil range (0200::/7) through this tunnel—a
+        //    split tunnel, so normal device traffic is untouched.
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: address)
         let ipv6 = NEIPv6Settings(addresses: [address], networkPrefixLengths: [7])
         ipv6.includedRoutes = [NEIPv6Route(destinationAddress: "0200::", networkPrefixLength: 7)]

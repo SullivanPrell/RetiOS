@@ -15,8 +15,8 @@ import Observation
 
 /// One Micron page on disk, identified by its path relative to the store root.
 ///
-/// `relativePath` — not the absolute URL — is the identity, because the root can
-/// be relocated underneath us (see `MicronPageStore.setRoot`). A page keyed by
+/// `relativePath`—not the absolute URL—is the identity, because the root can
+/// be relocated underneath it (see `MicronPageStore.setRoot`). A page keyed by
 /// absolute URL would silently become a different page after a root change.
 struct MicronPage: Identifiable, Hashable, Sendable {
     var id: String { relativePath }
@@ -25,7 +25,7 @@ struct MicronPage: Identifiable, Hashable, Sendable {
     let modified: Date
     let byteCount: Int
 
-    /// The node's home page — what a peer gets when they browse without naming
+    /// The node's home page—what a peer gets when they browse without naming
     /// a page.
     ///
     /// Only the one at the root counts: `sub/index.mu` is an ordinary
@@ -75,8 +75,8 @@ enum MicronPageError: LocalizedError {
 /// nothing else:
 ///
 ///   - `index.mu` at the root is the home page.
-///   - `.mu` is a convention, not a requirement — Python serves every regular
-///     file it finds, whatever the extension, so we list them all too.
+///   - `.mu` is a convention, not a requirement—Python serves every regular
+///     file it finds, whatever the extension, so they are all listed too.
 ///   - Files and directories whose name begins with "." are skipped.
 ///   - A sibling `<page>.allowed` file is an *access list* for that page, not a
 ///     page. Python excludes it from `servedpages`; listing it here would let a
@@ -84,7 +84,7 @@ enum MicronPageError: LocalizedError {
 ///
 /// Concurrency: `@MainActor` because it publishes `pages` straight into SwiftUI.
 /// File I/O here is small (a Micron page is kilobytes) and synchronous on
-/// purpose — an async store would need every call site to deal with interleaved
+/// purpose—an async store would need every call site to deal with interleaved
 /// edits landing out of order.
 @MainActor
 @Observable
@@ -159,19 +159,19 @@ final class MicronPageStore {
     /// a user-relocated root is arbitrary, so bound it.
     private static let maxScanDepth = 8
 
-    /// A well-formed page to start from: heading, divider, colour tag with an
+    /// A well-formed page to start from: heading, divider, color tag with an
     /// explicit reset, and a link.
     ///
-    /// Kept deliberately small — it is a starting
+    /// Kept deliberately small—it is a starting
     /// point, not a tutorial.
     ///
     /// Every construct here is asserted lint-clean by
     /// `MicronPageStoreTests.testStarterTemplateIsWellFormedMicron`. The first
     /// draft was not: it used `` `F00b8ff ``, which is the THREE-nibble form
-    /// (six digits need `` `FT ``), so it consumed "00b" as the colour and
-    /// rendered the leftover "8ff" as text — "This page is 8ffMicron markup".
+    /// (six digits need `` `FT ``), so it consumed "00b" as the color and
+    /// rendered the leftover "8ff" as text—"This page is 8ffMicron markup".
     /// It also wrote `` `> `` and `` `- `` in the prose to name those
-    /// characters, and a backtick before an unrecognised character is deleted
+    /// characters, and a backtick before an unrecognized character is deleted
     /// silently, so the sentences came out as "Lines starting with are
     /// headings, a lone draws a divider". The markup characters are therefore
     /// spelled out in words rather than shown.
@@ -199,11 +199,11 @@ final class MicronPageStore {
     /// storage; tests inject a temporary directory here.
     @ObservationIgnored private let defaultRoot: URL
 
-    /// Non-nil while we hold a security scope *we* opened.
+    /// Non-nil while a security scope opened here is held.
     ///
     /// Tracked separately so
-    /// we never call `stopAccessingSecurityScopedResource()` on a scope opened
-    /// by someone else — the counts are per-process and unbalancing them leaks
+    /// `stopAccessingSecurityScopedResource()` is never called on a scope opened
+    /// elsewhere—the counts are per-process and unbalancing them leaks
     /// or prematurely revokes access.
     @ObservationIgnored private var scopedRoot: URL?
 
@@ -222,8 +222,8 @@ final class MicronPageStore {
     ///   - defaults: where the security-scoped bookmark lives.
     init(rootOverride: URL? = nil, defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        // NomadNetController.setup already creates Documents/nomadnet; we only
-        // own the pages/ child, but ask for intermediates anyway so the store is
+        // NomadNetController.setup already creates Documents/nomadnet; this store owns
+        // only the pages/ child, but ask for intermediates anyway so the store is
         // usable before the controller has run.
         self.defaultRoot = rootOverride ?? URL.documentsDirectory
             .appending(path: "nomadnet", directoryHint: .isDirectory)
@@ -244,8 +244,8 @@ final class MicronPageStore {
 
     /// Point the store at `url` and remember it across launches.
     ///
-    /// Call this with the URL handed over by `.fileImporter`. We open our own
-    /// security scope on it before minting the bookmark: on macOS a
+    /// Call this with the URL handed over by `.fileImporter`. A fresh
+    /// security scope is opened on it before minting the bookmark: on macOS a
     /// `.withSecurityScope` bookmark can only be created while the URL is being
     /// accessed, and callers reliably forget.
     func setRoot(_ url: URL) throws {
@@ -255,8 +255,8 @@ final class MicronPageStore {
             throw record(MicronPageError.rootUnavailable("\(url.path) is not a directory"))
         }
 
-        // Open our scope first, then release the old one — if the two happen to
-        // be the same URL, releasing first would revoke access we still need.
+        // Open the new scope first, then release the old one—if the two happen to
+        // be the same URL, releasing first would revoke access still needed.
         let opened = url.startAccessingSecurityScopedResource()
         let previous = scopedRoot
         scopedRoot = opened ? url : nil
@@ -272,8 +272,8 @@ final class MicronPageStore {
             throw record(MicronPageError.bookmarkFailed(error.localizedDescription))
         }
 
-        // Release the previous scope whenever one was held — including when it
-        // is the SAME url. Re-picking the same folder called
+        // Release the previous scope whenever one was held—including when it
+        // is the SAME URL. Re-picking the same folder called
         // startAccessingSecurityScopedResource() again, and the old
         // `previous != url` guard then skipped the balancing stop, leaking one
         // access per re-pick for the process lifetime. The newly opened scope
@@ -286,7 +286,7 @@ final class MicronPageStore {
         // bookmark granted as the scoped one. `fileExists` follows a symlink so
         // a symlinked folder is accepted here, but
         // `FileManager.contentsOfDirectory(at:)` then fails with ENOTDIR on the
-        // link itself — the scan came back empty and every containment check
+        // link itself—the scan came back empty and every containment check
         // rejected its own children, because `assertInsideRoot` compares
         // symlink-resolved paths on both sides while `rootURL` was unresolved.
         // A node operator symlinking storage from another volume is exactly the
@@ -313,9 +313,9 @@ final class MicronPageStore {
     /// `.withSecurityScope` simply does not exist on iOS.
     ///
     /// There, a bookmark to a
-    /// URL outside our container is security-scoped automatically, and
+    /// URL outside the app container is security-scoped automatically, and
     /// `.minimalBookmark` keeps the blob small (a full bookmark embeds resource
-    /// values we never read).
+    /// values that are never read).
     private static var bookmarkCreationOptions: URL.BookmarkCreationOptions {
         #if os(macOS)
         return [.withSecurityScope]
@@ -335,8 +335,8 @@ final class MicronPageStore {
     /// Re-resolve the persisted bookmark, if any.
     ///
     /// Any failure here falls back to
-    /// the default root and reports why: silently editing the wrong directory —
-    /// or worse, editing a stale path that now points somewhere else — is far
+    /// the default root and reports why: silently editing the wrong directory—or
+    /// worse, editing a stale path that now points somewhere else—is far
     /// more damaging than losing the user's folder choice.
     private func restoreBookmarkedRoot() {
         guard let data = defaults.data(forKey: Self.bookmarkDefaultsKey) else { return }
@@ -373,8 +373,8 @@ final class MicronPageStore {
         rootURL = resolved.resolvingSymlinksInPath()   // see setRoot
         isUsingCustomRoot = true
 
-        // A stale bookmark still resolved — the folder moved or was renamed.
-        // Re-mint it now, while we hold the scope, or it will decay further.
+        // A stale bookmark still resolved—the folder moved or was renamed.
+        // Re-mint it now, while the scope is held, or it decays further.
         if isStale, let refreshed = try? resolved.bookmarkData(options: Self.bookmarkCreationOptions,
                                                               includingResourceValuesForKeys: nil,
                                                               relativeTo: nil) {
@@ -405,7 +405,7 @@ final class MicronPageStore {
             }
             return
         }
-        // Only ever conjure our *own* storage. A user-chosen folder that has
+        // Only ever conjure the app's *own* storage. A user-chosen folder that has
         // vanished (unplugged volume, deleted node directory) must surface as an
         // error, not be silently recreated as an empty directory.
         guard !isUsingCustomRoot else {
@@ -452,7 +452,7 @@ final class MicronPageStore {
         }
     }
 
-    /// `index.mu` at the root sorts first — it is the page a visiting node gets
+    /// `index.mu` at the root sorts first—it is the page a visiting node gets
     /// when it asks for nothing in particular.
     ///
     /// A nested `sub/index.mu` is just
@@ -505,7 +505,7 @@ final class MicronPageStore {
         return try page(forRelativePath: url.lastPathComponent, fallback: url)
     }
 
-    /// Rename within the page's own directory — a nested page stays nested.
+    /// Rename within the page's own directory—a nested page stays nested.
     /// `newName` is a single path component, never a path.
     @discardableResult
     func rename(_ page: MicronPage, to newName: String) throws -> MicronPage {
@@ -584,7 +584,7 @@ final class MicronPageStore {
         defer { if opened { externalURL.stopAccessingSecurityScopedResource() } }
 
         // lastPathComponent already discards any directory part, but the result
-        // still goes through the same validation as a typed name — an imported
+        // still goes through the same validation as a typed name—an imported
         // filename is untrusted input exactly like a text field.
         let safe = try Self.validatedName(externalURL.lastPathComponent)
 
@@ -610,8 +610,8 @@ final class MicronPageStore {
     ///
     /// Python NomadNet does no sanitisation at all; it is safe only because it
     /// registers a request handler per exact discovered path and never composes
-    /// a path from input. We do compose paths, so anything that could climb out
-    /// of the root — or masquerade as an access list — is refused here, before
+    /// a path from input. This store does compose paths, so anything that could climb out
+    /// of the root—or masquerade as an access list—is refused here, before
     /// it ever reaches the filesystem.
     static func validatedName(_ raw: String) throws -> String {
         let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -745,8 +745,8 @@ final class MicronPageStore {
     /// Returns the first free name in `directory`, trying `stem.ext`, then `stem-2.ext`.
     ///
     /// Throws rather than returning a colliding URL when the search is
-    /// exhausted. It used to `break` with the last candidate it had tested —
-    /// one that exists — and the caller then wrote to it with `.atomic`, which
+    /// exhausted. It used to `break` with the last candidate it had tested—one
+    /// that exists—and the caller then wrote to it with `.atomic`, which
     /// silently replaces. A uniquifier whose failure mode is overwriting the
     /// file it was asked to avoid is worse than no uniquifier.
     private func uniqueURL(in directory: URL, stem: String, extension ext: String) throws -> URL {

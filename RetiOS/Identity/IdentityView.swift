@@ -17,9 +17,9 @@ struct IdentityView: View {
     @State private var draftName: String = ""
     // QR of the identity hash, rendered asynchronously (see the `.task` below).
     // Core Image generation is costly and the hash is stable, so it is built
-    // once per identity — never in `body`, and never on the main thread.
+    // once per identity—never in `body`, and never on the main thread.
     @State private var qrImage: Image?
-    // RRC chat nickname — read live by RRCManager.getNickname() via the
+    // RRC chat nickname—read live by RRCManager.getNickname() via the
     // NomadNetAppAdapter, so saving here takes effect on the next message.
     @AppStorage("rrcNickname") private var rrcNickname: String = ""
     @FocusState private var nameFocused: Bool
@@ -41,7 +41,7 @@ struct IdentityView: View {
         // Rendered off the main thread and keyed on the hash, so it runs once per
         // identity and never blocks the push animation. Doing this synchronously
         // in `onAppear` blocked the main thread for ~170 ms every time this
-        // screen appeared — the "Identity is painfully slow" stall.
+        // screen appeared—the "Identity is painfully slow" stall.
         .task(id: stack.identity?.hexHash) {
             guard let hex = stack.identity?.hexHash else { qrImage = nil; return }
             qrImage = await rnsQRImageAsync(hex)

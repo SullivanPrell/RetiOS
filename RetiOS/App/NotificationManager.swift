@@ -34,7 +34,7 @@ enum AppTab: String, Hashable, CaseIterable {
     ///     RetiOS.app/Contents/MacOS/RetiOS -hasCompletedOnboarding YES \
     ///       -stackOffline YES -startTab interfaces
     ///
-    /// The alternative — driving the app through XCUITest — needs an
+    /// The alternative—driving the app through XCUITest—needs an
     /// Accessibility grant *and* needs to activate the app, which fails
     /// outright whenever another app is holding focus. Selecting the screen up
     /// front needs neither: `screencapture -l <windowID>` captures a background
@@ -124,7 +124,7 @@ final class NotificationManager: NSObject {
     // MARK: - Categories
 
     private func registerCategories() {
-        // CALL — Accept brings the app to foreground; Decline runs silently in background.
+        // CALL—Accept brings the app to foreground; Decline runs silently in background.
         let accept = UNNotificationAction(
             identifier: NotifAction.acceptCall,
             title: "Accept",
@@ -142,7 +142,7 @@ final class NotificationManager: NSObject {
             options: [.customDismissAction]
         )
 
-        // MESSAGE — no custom actions; tap opens the conversation.
+        // MESSAGE—no custom actions; tap opens the conversation.
         let messageCategory = UNNotificationCategory(
             identifier: NotifCategory.message,
             actions: [],
@@ -261,15 +261,15 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
             switch (content.categoryIdentifier, actionId) {
 
             case (NotifCategory.call, NotifAction.acceptCall):
-                // Action has .foreground — app comes to foreground automatically.
-                // Answer immediately (the button says "Accept" — making the user
+                // Action has .foreground—app comes to foreground automatically.
+                // Answer immediately (the button says "Accept"—making the user
                 // tap Accept a second time in-app was a trap), then show the
                 // active-call UI on the Calls tab.
                 self.callsController?.acceptIncomingCall()
                 self.navigateTo = .calls
 
             case (NotifCategory.call, NotifAction.declineCall):
-                // Runs as a background action — reject without bringing app forward.
+                // Runs as a background action—reject without bringing app forward.
                 self.callsController?.rejectIncomingCall()
 
             case (NotifCategory.message, _):

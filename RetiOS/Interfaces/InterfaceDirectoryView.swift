@@ -44,7 +44,7 @@ struct InterfaceDirectorySheet: View {
             // List is always the root view so `.searchable()` and `.rnsScreenBackground()`
             // are always on the same stable view type. Switching the root between
             // ProgressView / ContentUnavailableView / List caused UISearchController to
-            // detach and reattach on every state change — producing a one-frame zero-size
+            // detach and reattach on every state change—producing a one-frame zero-size
             // Metal layer and the layoutSubtreeIfNeeded recursion warning. The overlay
             // handles all loading/error/empty visuals without changing the root type.
             List {
@@ -107,7 +107,7 @@ struct InterfaceDirectorySheet: View {
         .task { await load() }
         #if os(macOS)
         // macOS sheets size to their content; without an explicit frame a
-        // NavigationStack-wrapped List collapses to near-zero height — this is
+        // NavigationStack-wrapped List collapses to near-zero height—this is
         // the "pop-up opens collapsed with no options" bug. Give it a real size.
         .frame(minWidth: 460, idealWidth: 560, minHeight: 520, idealHeight: 680)
         #endif
@@ -127,7 +127,7 @@ struct InterfaceDirectorySheet: View {
             let result = try await InterfaceDirectory.fetchOnline()
             entries = result
         } catch is CancellationError {
-            // Task was cancelled (sheet dismissed) — benign.
+            // Task was cancelled (sheet dismissed)—benign.
         } catch {
             loadError = "Check your connection and try again."
         }
@@ -194,7 +194,7 @@ private struct DirectoryEntryRow: View {
     }
 
     private func badge(_ text: String) -> some View {
-        // Neutral metadata pill — opaque surface fill + secondary text. (Passing
+        // Neutral metadata pill—opaque surface fill + secondary text. (Passing
         // a translucent label color as the tint would render the pill at ~5%
         // alpha and drop the text below the contrast floor.)
         RNSBadge(text: text, neutral: true)

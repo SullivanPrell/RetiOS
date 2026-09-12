@@ -14,10 +14,10 @@ import ReticulumSwift
 
 /// Listens for nomadnetwork.node announces and upserts NomadNodeEntity records.
 ///
-/// NomadNet nodes set app_data = name.encode("utf-8") — plain UTF-8, no msgpack wrapper.
+/// NomadNet nodes set app_data = name.encode("utf-8")—plain UTF-8, no msgpack wrapper.
 /// (See nomadnet/Node.py: `self.destination.announce(app_data=self.name.encode("utf-8"))`)
 ///
-/// Same 1-second coalescing strategy as LXMFPeerAnnounceHandler — see that file for the
+/// Same 1-second coalescing strategy as LXMFPeerAnnounceHandler—see that file for the
 /// rationale. Announce bursts collapse into one batched SwiftData save per second.
 final class NomadNetNodeAnnounceHandler: AnnounceHandler {
     /// The announce aspect this handler subscribes to.
@@ -66,7 +66,7 @@ final class NomadNetNodeAnnounceHandler: AnnounceHandler {
         }
     }
 
-    /// Runs on `queue` against the background context — never the main thread.
+    /// Runs on `queue` against the background context—never the main thread.
     private func flush() {
         let context: ModelContext
         if let existing = ingestContext {

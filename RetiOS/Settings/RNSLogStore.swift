@@ -80,7 +80,7 @@ private final class RNSLogBuffer: @unchecked Sendable {
 ///
 /// Installs itself as `Reticulum.logHandler` on init. Note the handler is only
 /// invoked for messages that already passed `Reticulum.log`'s level filter
-/// (`guard level <= globalLogLevel`) — it does NOT see everything.
+/// (`guard level <= globalLogLevel`)—it does NOT see everything.
 /// Persists the chosen log level to UserDefaults so the setting survives relaunches.
 ///
 /// Log lines are coalesced rather than published one-by-one: `Reticulum.log` is
@@ -91,7 +91,7 @@ private final class RNSLogBuffer: @unchecked Sendable {
 /// to saturate the main actor. Now a burst collapses into one batched append.
 /// `@Observable` (not `ObservableObject`) is load-bearing here, not stylistic.
 /// `ObservableObject` invalidates EVERY view holding the object on ANY
-/// `@Published` change — so appending a log line re-rendered `SettingsView`,
+/// `@Published` change—so appending a log line re-rendered `SettingsView`,
 /// which observes this store purely to read `logLevel` for one Picker. Settings
 /// (and every submenu and text field under it) therefore re-rendered on every
 /// RNS log line. `@Observable` tracks per-property, established by what each
@@ -102,7 +102,7 @@ private final class RNSLogBuffer: @unchecked Sendable {
 final class RNSLogStore {
     static let maxEntries = 500
     private static let logLevelKey = "rnsLogLevel"
-    /// Coalescing window — short enough to feel live in the Logs screen.
+    /// Coalescing window—short enough to feel live in the Logs screen.
     private static let flushInterval: TimeInterval = 0.25
 
     private(set) var entries: [RNSLogEntry] = []
@@ -141,7 +141,7 @@ final class RNSLogStore {
         entries.removeAll()
     }
 
-    /// Appends a whole batch in one mutation — a single `objectWillChange`
+    /// Appends a whole batch in one mutation—a single `objectWillChange`
     /// regardless of how many lines arrived in the window.
     private func flush() {
         let batch = buffer.drain()

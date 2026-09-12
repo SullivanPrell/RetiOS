@@ -12,7 +12,7 @@ import SwiftUI
 import ReticulumSwift
 
 struct RNodeView: View {
-    // App-scoped, not `@State` — see the ownership note in `RetiOSApp`. A
+    // App-scoped, not `@State`—see the ownership note in `RetiOSApp`. A
     // view-scoped controller left a dead `RNodeInterface` registered with
     // Transport forever once the user navigated away.
     @Environment(RNodeScannerController.self) private var scanner
@@ -28,17 +28,17 @@ struct RNodeView: View {
         }
         .rnsScreenBackground()
         .navigationTitle("RNode (BLE)")
-        // Inline title (flush, no large-title dead space) — matches the other
+        // Inline title (flush, no large-title dead space)—matches the other
         // pushed detail screens (Interfaces, Logs, Identity).
         .rnsInlineNavigationTitle()
         .toolbar { scanToolbar }
         // `setup` / `onInterfacesChanged` are wired once in `RetiOSApp`, not
-        // here — this view no longer owns the controller's lifetime.
+        // here—this view no longer owns the controller's lifetime.
         //
         // Scanning still stops on the way out: it is per-visit work (the device
         // list is only meaningful while this screen is visible) and it keeps the
         // BLE radio from scanning in the background. It deliberately does NOT
-        // disconnect — an established RNode link is the user's radio, and must
+        // disconnect—an established RNode link is the user's radio, and must
         // survive them navigating elsewhere in the app.
         .onDisappear {
             scanner.stopScanning()
@@ -269,7 +269,7 @@ private struct DeviceRow: View {
             }
         }
         .frame(width: 18)
-        // The bars are purely visual — expose signal strength to VoiceOver.
+        // The bars are purely visual—expose signal strength to VoiceOver.
         .accessibilityElement()
         .accessibilityLabel("Signal strength")
         .accessibilityValue("\(bars) of 3 bars, \(rssi) dBm")

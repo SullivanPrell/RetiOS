@@ -14,7 +14,7 @@ import ReticulumSwift
 @testable import RetiOS
 
 /// `swift_devel/bugs/020`, the RetiOS half (design D5): the 2 Hz sync poll exited only on
-/// `.done` or `.failed` — two states the library might never set — so a misbehaving callee hung
+/// `.done` or `.failed`—two states the library might never set—so a misbehaving callee hung
 /// the caller for the lifetime of the process.
 ///
 /// The library now bounds its own stalls
@@ -23,8 +23,8 @@ import ReticulumSwift
 @MainActor
 final class SyncPollBoundTests: XCTestCase {
 
-    /// A router that will never reach a terminal transfer state: freshly built, no propagation
-    /// node configured, state parked at `.idle` — exactly what the poll saw in `bugs/020`.
+    /// A router that never reaches a terminal transfer state: freshly built, no propagation
+    /// node configured, state parked at `.idle`—exactly what the poll saw in `bugs/020`.
     private func stuckRouter() -> LXMRouter {
         LXMRouter(transport: Transport())
     }

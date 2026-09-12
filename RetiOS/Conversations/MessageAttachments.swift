@@ -16,8 +16,8 @@ import LXMF
 /// LXMF messages can carry structured attachments alongside their text, keyed
 /// by the `Field` IDs (mirrors `LXMF/LXMF.py`). Until the C1 fix, inbound
 /// `fields` were dropped on `unpack`; now they survive, so RetiOS can surface
-/// them. We decode them lazily from the stored packed bytes rather than holding
-/// a second copy of the (loosely-typed) `[Int: Any]` dictionary in SwiftData.
+/// them. They are decoded lazily from the stored packed bytes rather than holding
+/// a second copy of the (loosely typed) `[Int: Any]` dictionary in SwiftData.
 ///
 /// Field value shapes (after `LXMessage.unpack`, see `decodeFieldValue`):
 ///   - `FIELD_IMAGE`            (0x06): `[image_type, image_bytes]`
@@ -32,11 +32,11 @@ struct MessageAttachments {
     var image: ImageAttachment?
     var files: [FileAttachment] = []
     var audio: AudioAttachment?
-    /// Size in bytes of a telemetry blob, if present (we don't parse the
-    /// Sideband-specific telemetry payload — just acknowledge it).
+    /// Size in bytes of a telemetry blob, if present (the
+    /// Sideband-specific telemetry payload is acknowledged, not parsed).
     var telemetryBytes: Int?
 
-    /// True when the message carried nothing beyond text we can't display here.
+    /// True when the message carried nothing beyond text this view can display.
     var isEmpty: Bool {
         image == nil && files.isEmpty && audio == nil && telemetryBytes == nil
     }
@@ -44,7 +44,7 @@ struct MessageAttachments {
     /// Decode the attachments from a message's raw packed bytes.
     ///
     /// Returns `nil`
-    /// when the bytes can't be unpacked or carry no recognised attachment.
+    /// when the bytes can't be unpacked or carry no recognized attachment.
     static func decode(from packed: Data) -> MessageAttachments? {
         guard let msg = try? LXMessage.unpack(packed) else { return nil }
         let fields = msg.fields
@@ -74,7 +74,7 @@ struct MessageAttachments {
             result.audio = AudioAttachment(mode: asInt(pair[0]) ?? 0, data: data)
         }
 
-        // FIELD_TELEMETRY: opaque blob — record its presence/size only.
+        // FIELD_TELEMETRY: opaque blob—record its presence/size only.
         if let raw = fields[Int(Field.telemetry.rawValue)], let data = asData(raw) {
             result.telemetryBytes = data.count
         }
@@ -85,8 +85,8 @@ struct MessageAttachments {
     // MARK: - Loose value coercion
     //
     // Field values come back as `Data` (msgpack bin), `String` (msgpack str),
-    // or `Int`. Different senders pack names/types as either str or bin, so we
-    // accept both throughout.
+    // or `Int`. Different senders pack names/types as either str or bin, so both
+    // are accepted throughout.
 
     private static func asData(_ v: Any) -> Data? {
         if let d = v as? Data { return d }

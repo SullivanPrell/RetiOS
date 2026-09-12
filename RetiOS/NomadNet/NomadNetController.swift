@@ -36,7 +36,7 @@ private final class NomadNetAppAdapter: NomadNetworkAppProtocol {
 
 // MARK: - NomadNetController
 
-/// Drives NomadNetBrowserView and ChannelsView — owns the browser instance,
+/// Drives NomadNetBrowserView and ChannelsView—owns the browser instance,
 /// the RRCManager, and publishes navigation + channel state to SwiftUI.
 @MainActor
 @Observable
@@ -51,7 +51,7 @@ final class NomadNetController {
     private(set) var canGoBack = false
     private(set) var canGoForward = false
 
-    /// Whether we identify ("log in") to the *currently loaded* node.
+    /// Whether the app identifies ("log in") to the *currently loaded* node.
     ///
     /// Reflects
     /// the persisted per-node toggle and drives the URL-bar identify control.
@@ -60,7 +60,7 @@ final class NomadNetController {
 
     // MARK: RRC state
 
-    /// Live hub manager — non-nil after setup().
+    /// Live hub manager—non-nil after setup().
     private(set) var rrcManager: RRCManager?
 
     /// Bumped whenever `RRCManager` reports a change to its hub/room state.
@@ -69,7 +69,7 @@ final class NomadNetController {
     /// views showing hub state have nothing to depend on. Under
     /// `ObservableObject` this was a blanket `objectWillChange.send()`, which
     /// only worked because it invalidated *every* observer. `@Observable`
-    /// notifies per-property, so the dependency must be explicit — hub views
+    /// notifies per-property, so the dependency must be explicit—hub views
     /// read this counter.
     private(set) var rrcRevision: Int = 0
 
@@ -128,13 +128,13 @@ final class NomadNetController {
         transport.register(announceHandler: nodeHandler)
         nodeAnnounceHandler = nodeHandler
 
-        // Browser. Pass our identity so the browser can identify to nodes on the
-        // link (parity with Python's Browser — lets nodes gate / personalise pages).
+        // Browser. Pass the identity so the browser can identify to nodes on the
+        // link (parity with Python's Browser—lets nodes gate / personalise pages).
         let b = ReticulumNomadNetBrowser(transport: transport, identity: identity)
         // Per-node identify predicate (parity with Python's
         // `directory.should_identify_on_connect`). Reads the persisted per-node
         // toggle directly from UserDefaults so it's correct for whichever node is
-        // actually being contacted — no MainActor hop, no pushed state, no race.
+        // actually being contacted—no MainActor hop, no pushed state, no race.
         b.shouldIdentify = { hash in
             UserDefaults.standard.bool(forKey: NomadNetController.identifyKey(for: hash))
         }
@@ -154,7 +154,7 @@ final class NomadNetController {
             Task { @MainActor [weak self] in
                 self?.isLoading    = false
                 self?.errorMessage = reason
-                // Refresh Back/Forward enablement too — a failed navigation can
+                // Refresh Back/Forward enablement too—a failed navigation can
                 // still have moved the history cursor, leaving the buttons stale.
                 self?.updateHistory()
             }
@@ -174,7 +174,7 @@ final class NomadNetController {
 
     /// Navigate to a page, optionally carrying form-field values. `fields` are
     /// sent to the node as `field_<name>` (widget/form inputs), distinct from the
-    /// URL's `var_<name>` variables — matching Python's NomadNet Browser.
+    /// URL's `var_<name>` variables—matching Python's NomadNet Browser.
     ///
     /// Passing
     /// them here (rather than flattening them into the URL string) is what keeps
@@ -186,9 +186,9 @@ final class NomadNetController {
         browser?.navigate(to: url, fields: fields)
     }
 
-    /// Toggle whether we identify ("log in") to the current node, persist the
-    /// choice per-node, and reload so it takes effect immediately — turning it on
-    /// re-requests the page with our identity revealed (so the node can serve
+    /// Toggle whether the app identifies ("log in") to the current node, persist the
+    /// choice per-node, and reload so it takes effect immediately—turning it on
+    /// re-requests the page with the identity revealed (so the node can serve
     /// logged-in content); turning it off re-requests anonymously.
     ///
     /// Mirrors Python
@@ -225,7 +225,7 @@ final class NomadNetController {
 
     func reload() {
         // With no page loaded there is nothing to reload, and the browser fires
-        // neither onPageLoaded nor onError — so setting isLoading would leave the
+        // neither onPageLoaded nor onError—so setting isLoading would leave the
         // spinner spinning forever. No-op instead.
         guard currentURL != nil else { return }
         isLoading = true
@@ -267,7 +267,7 @@ final class NomadNetController {
     /// Reconnect any auto-reconnect hubs that have dropped their link.
     ///
     /// Called after setup (restoring persisted hubs) and whenever the app
-    /// returns to the foreground — iOS tears down idle network connections
+    /// returns to the foreground—iOS tears down idle network connections
     /// while backgrounded, so open hubs are usually dead on resume.
     func reconnectHubs() {
         guard let manager = rrcManager else { return }
@@ -282,7 +282,7 @@ final class NomadNetController {
     func leaveChannel(channelHash: String) {
         guard let manager = rrcManager,
               let hashData = Data(hexString: channelHash) else { return }
-        // Look up the stored destName so we find the right hub even with custom dest names.
+        // Look up the stored destName to find the right hub even with custom dest names.
         var destName: String = RRC.defaultDestName
         if let ctx = modelContext {
             let chanDesc = FetchDescriptor<ChannelEntity>(
@@ -349,7 +349,7 @@ final class NomadNetController {
             ctx.insert(channel)
         }
         channel.lastActivity = ts
-        // Our own messages are echoed back by the hub — they must not inflate
+        // Locally sent messages are echoed back by the hub—they must not inflate
         // the channel's unread badge (ownSrc == rrcManager.identity.hash).
         let ownHex = rrcManager?.identity?.hash.map { String(format: "%02x", $0) }.joined()
         if ownHex != senderHex {

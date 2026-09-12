@@ -61,8 +61,8 @@ struct LXSTPeer: Identifiable {
 /// `Telephone`, rather than a hand-rolled link flow. `Telephone` owns the
 /// signalling handshake (AVAILABLE → identify → RINGING → CONNECTING →
 /// ESTABLISHED), profile negotiation, and the audio pipeline; it talks to the
-/// `lxst.telephony` destination — the *same* aspect a Python `rnphone`/LXST node
-/// uses — so RetiOS calls now interoperate with Python endpoints. (The previous
+/// `lxst.telephony` destination—the *same* aspect a Python `rnphone`/LXST node
+/// uses—so RetiOS calls now interoperate with Python endpoints. (The previous
 /// implementation used a non-standard `lxst.call` aspect and exchanged no
 /// signalling, so it could only ever call another copy of itself.)
 ///
@@ -82,9 +82,9 @@ final class CallsController {
 
     private(set) var callState: CallState = .idle
     private(set) var isMuted = false
-    /// 16-byte hash of our lxst.telephony destination (available after setup).
+    /// 16-byte hash of the local lxst.telephony destination (available after setup).
     private(set) var lxstCallHash: Data?
-    /// Whether we actively announce our LXST call address to the mesh.
+    /// Whether the local LXST call address is actively announced to the mesh.
     private(set) var lxstAnnounceEnabled: Bool = {
         UserDefaults.standard.object(forKey: "lxstAnnounceEnabled") as? Bool ?? false
     }()
@@ -103,7 +103,7 @@ final class CallsController {
     ///
     /// Used to label the call UI.
     @ObservationIgnored private var activePeerHash: Data?
-    // In-progress call record — pushed to history when the call ends.
+    // In-progress call record—pushed to history when the call ends.
     @ObservationIgnored private var pendingRecord: CallRecord?
 
     @ObservationIgnored private var lxstAnnounceHandler: LXSTCallAnnounceHandler?
@@ -116,9 +116,9 @@ final class CallsController {
         self.identity  = identity
 
         // Telephone registers its own inbound `lxst.telephony` destination and
-        // owns the full call/audio lifecycle. We inject the platform audio
-        // backend and bridge its callbacks (which fire off the main thread) to
-        // our @MainActor UI state.
+        // owns the full call/audio lifecycle. This controller injects the platform
+        // audio backend and bridges its callbacks (which fire off the main thread)
+        // to @MainActor UI state.
         let phone = Telephone(identity: identity, transport: transport)
         phone.makeAudioBackend = { AVAudioEngineBackend() }
 
@@ -262,7 +262,7 @@ final class CallsController {
     /// The remote party's `Identity` for the call currently on the line.
     ///
     /// This is the *verified* public key from the link handshake, not something
-    /// reconstructed from a hash — so it is the only reliable way to address the
+    /// reconstructed from a hash—so it is the only reliable way to address the
     /// other party while a call is up. It matters because `callState.incoming`
     /// carries an **identity** hash, which nothing in Reticulum is keyed by:
     /// `Identity.recall` cannot look it up, and a peer who has not announced this
@@ -299,7 +299,7 @@ final class CallsController {
         pendingRecord?.outcome = .rejected
         // Telephone sends STATUS_REJECTED to the caller for a ringing incoming call.
         telephone?.hangup()
-        // handleTerminated/handleEnded will finalize, but reflect immediately too.
+        // handleTerminated/handleEnded finalizes, but reflect immediately too.
     }
 
     // MARK: - Shared call controls
@@ -363,7 +363,7 @@ final class CallsController {
     }
 
     private func handleRejected() {
-        // Outbound call declined by the remote (or our own decline echoing back).
+        // Outbound call declined by the remote (or a local decline echoing back).
         if case .incoming = callState { finalizeAndReset(outcome: .rejected); return }
         finalizePendingRecord(outcome: .rejected)
         callState = .failed("Call was declined")

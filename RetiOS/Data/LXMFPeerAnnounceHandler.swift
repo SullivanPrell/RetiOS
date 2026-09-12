@@ -17,8 +17,8 @@ import LXMF
 ///
 /// Transport calls `receivedAnnounce` from background threads, often in bursts
 /// (a busy mesh can deliver hundreds of `lxmf.delivery` announces per second).
-/// Writing one SwiftData save per announce would saturate the main thread —
-/// every save re-renders every `@Query` view — and the UI (including the
+/// Writing one SwiftData save per announce would saturate the main thread—every
+/// save re-renders every `@Query` view—and the UI (including the
 /// keyboard / text entry) would starve and appear frozen.
 ///
 /// To stay responsive under load this handler:
@@ -30,7 +30,7 @@ import LXMF
 /// The flush runs on a private serial queue against its own background
 /// `ModelContext`, NOT the main context. Coalescing alone still left a fetch +
 /// `save()` on the main thread once a second for as long as announces kept
-/// arriving — and because every `save()` re-runs every `@Query` in the app, the
+/// arriving—and because every `save()` re-runs every `@Query` in the app, the
 /// main thread was doing database work plus dependent view recomputation
 /// continuously under mesh traffic. That is what made typing feel bad on every
 /// screen, not just the ones showing peers. SwiftData merges the background
@@ -39,9 +39,9 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
     /// The announce aspect this handler subscribes to.
     public var aspectFilter: String? { "lxmf.delivery" }
 
-    /// Also receive path responses, so a peer whose path was requested (e.g. when
-    /// the user tries to message a not-yet-known peer) is recorded — with its
-    /// display name — as soon as the path response arrives, without waiting for a
+    /// Also receive path responses, so a peer whose path was requested (for example, when
+    /// the user tries to message a not-yet-known peer) is recorded—with its
+    /// display name—as soon as the path response arrives, without waiting for a
     /// fresh broadcast announce.
     ///
     /// Mirrors NomadNet's `receive_path_responses = True`.
@@ -51,7 +51,7 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
     /// Serial queue that owns `ingestContext`; all SwiftData work happens here.
     private let queue = DispatchQueue(label: "dev.sprell.retios.peer-announce-ingest",
                                       qos: .utility)
-    /// Background context — created on, and confined to, `queue`.
+    /// Background context—created on, and confined to, `queue`.
     private var ingestContext: ModelContext?
 
     private let lock = NSLock()
@@ -69,14 +69,14 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
 
     func receivedAnnounce(destinationHash: Data, identity: Identity, appData: Data?,
                           announcePacketHash: Data, isPathResponse: Bool) {
-        // Capture value types here — called on a Transport background thread.
+        // Capture value types here—called on a Transport background thread.
         let hex         = destinationHash.map { String(format: "%02x", $0) }.joined()
         let displayName = Self.extractDisplayName(from: appData)
         let now         = Date()
 
         lock.lock()
         if let existing = pending[hex] {
-            // Last write wins; keep a name once we've seen one.
+            // Last write wins; keep a name once one has been seen.
             pending[hex] = (displayName ?? existing.name, now)
         } else {
             pending[hex] = (displayName, now)
@@ -94,7 +94,7 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
 
     /// Drains the pending buffer and writes it in one transaction.
     ///
-    /// Runs on `queue` against the background context — never the main thread.
+    /// Runs on `queue` against the background context—never the main thread.
     private func flush() {
         let context: ModelContext
         if let existing = ingestContext {

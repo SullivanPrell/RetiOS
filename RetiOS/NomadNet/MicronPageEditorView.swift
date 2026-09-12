@@ -16,12 +16,12 @@ import NomadNet
 // The Micron page editor: source on one side, the app's real renderer on the
 // other.
 //
-// iOS/iPadOS only, because `MicronSourceEditor` is — it wraps Runestone, which
+// iOS/iPadOS only, because `MicronSourceEditor` is—it wraps Runestone, which
 // is UIKit-only. See the header of MicronSourceEditor.swift for the full
 // constraint and for what a Mac version would take.
 //
-// The preview is deliberately `MicronView(nodes: MicronParser.parse(text))` —
-// the exact call the Browse tab makes (NomadNetBrowserView.pageContent). Any
+// The preview is deliberately `MicronView(nodes: MicronParser.parse(text))`—the
+// exact call the Browse tab makes (NomadNetBrowserView.pageContent). Any
 // other preview would be a second renderer that could disagree with what a peer
 // sees, which is the one thing a page author cannot tolerate. MicronParser is
 // non-throwing and degrades silently on malformed input, so it is safe to run
@@ -62,7 +62,7 @@ struct MicronPageEditorView: View {
         }
     }
 
-    /// Micron is a terminal markup — NomadNet renders it into a fixed-width
+    /// Micron is a terminal markup—NomadNet renders it into a fixed-width
     /// pane.
     ///
     /// Previewing at the device width alone tells the author nothing about
@@ -79,7 +79,7 @@ struct MicronPageEditorView: View {
         }
     }
 
-    // Re-linting on every keystroke is fine at page scale — a Micron page is a
+    // Re-linting on every keystroke is fine at page scale—a Micron page is a
     // document a human wrote, not a log file. The pass is linear over the text.
     private var diagnostics: [MicronDiagnostic] { MicronLinter.diagnostics(in: text) }
 
@@ -99,7 +99,7 @@ struct MicronPageEditorView: View {
         .task(id: page.id) { load() }
         .onChange(of: text) { _, _ in scheduleSave() }
         // `onDisappear` covers navigating back, but NOT backgrounding or
-        // termination — iOS calls neither on the way to the app switcher. A
+        // termination—iOS calls neither on the way to the app switcher. A
         // keystroke inside the debounce window would otherwise never reach disk.
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { flush() }
@@ -132,7 +132,7 @@ struct MicronPageEditorView: View {
     /// width rather than removing it.
     ///
     /// A `switch` over the mode put `editor` in a different `_ConditionalContent`
-    /// branch per case, which is a different structural identity — so every
+    /// branch per case, which is a different structural identity—so every
     /// Edit↔Split↔Preview switch deallocated the Runestone `TextView` and built
     /// a fresh one, dropping the caret, the scroll position, the keyboard and
     /// the whole undo stack. Keeping one instance in one position is what makes
@@ -341,7 +341,7 @@ struct MicronPageEditorView: View {
         } catch {
             // MUST leave `loadFailed` set. A page that could not be read shows
             // an empty editor, and autosave would then write that empty string
-            // over a file that still has content — `store.read` throws
+            // over a file that still has content—`store.read` throws
             // `.notUTF8` for any non-UTF-8 file, and the store lists every
             // regular file in the directory because `.mu` is a convention, not
             // a requirement. Pointing the root at a real node's storage/pages,
@@ -414,8 +414,8 @@ struct MicronPageEditorView: View {
     // MARK: - Insertion
 
     /// Appends at the end of the document. `MicronSourceEditor` does not expose
-    /// the selection range yet — Runestone has one, but plumbing it back out
-    /// through the representable is its own piece of work — so a selection-aware
+    /// the selection range yet—Runestone has one, but plumbing it back out
+    /// through the representable is its own piece of work—so a selection-aware
     /// wrap is not possible here. `caretBack` is accepted now so callers already
     /// express intent for when that lands.
     private func insert(_ snippet: String, caretBack: Int = 0) {
@@ -434,7 +434,7 @@ struct MicronPageEditorView: View {
 /// Wraps `MicronLinkSnippet`.
 ///
 /// All markup construction lives in that value type
-/// so it can be unit-tested — as `@State private` fields in here it was
+/// so it can be unit-tested—as `@State private` fields in here it was
 /// unreachable from a test, and it was wrong (see the `.page` case).
 struct MicronLinkBuilderSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -489,7 +489,7 @@ struct MicronLinkBuilderSheet: View {
 
 // MARK: - Field builder
 
-/// Wraps `MicronFieldSnippet` — the one Micron construct nobody remembers.
+/// Wraps `MicronFieldSnippet`—the one Micron construct nobody remembers.
 struct MicronFieldBuilderSheet: View {
     @Environment(\.dismiss) private var dismiss
     let onInsert: (String) -> Void

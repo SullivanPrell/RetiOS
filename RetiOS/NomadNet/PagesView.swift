@@ -16,13 +16,13 @@ import UniformTypeIdentifiers
 // The page library: the "Pages" section of the NomadNet tab.
 //
 // iOS/iPadOS only. The whole point of the library is the Micron editor it opens
-// into, and that editor is Runestone — UIKit-only, linked with XcodeGen
+// into, and that editor is Runestone—UIKit-only, linked with XcodeGen
 // `destinationFilters: [iOS]` (see MicronSourceEditor.swift). Shipping the list
 // on the Mac would mean shipping a second-class editor behind it, so the section
 // is compiled out of the Mac slice entirely; `NomadSection` has no `.pages` case
 // there.
 //
-// PagesContent is the inner content — no NavigationStack — so it slots into
+// PagesContent is the inner content—no NavigationStack—so it slots into
 // NomadNetContainerView's section switcher alongside Browse / Peers / Favorites
 // / Channels, exactly like ChannelsContent.
 //
@@ -244,8 +244,8 @@ struct PagesContent: View {
         let name = renameText.trimmingCharacters(in: .whitespaces)
         renameTarget = nil
         // Compare against the FILENAME, not the relative path. `store.rename`
-        // takes a single path component — `validatedName` rejects anything
-        // containing "/" — so a nested page prefilled with "sub/about.mu" could
+        // takes a single path component—`validatedName` rejects anything
+        // containing "/"—so a nested page prefilled with "sub/about.mu" could
         // never be renamed at all: every attempt threw .invalidName. The page
         // stays in its directory; only the last component changes.
         guard !name.isEmpty, name != page.url.lastPathComponent else { return }
@@ -256,7 +256,7 @@ struct PagesContent: View {
         guard case .success(let urls) = result else { return }
         for url in urls {
             // A picked file is outside the app container, so it needs its scope
-            // opened for the duration of the copy — without this the read fails
+            // opened for the duration of the copy—without this the read fails
             // with a permission error on both platforms.
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }

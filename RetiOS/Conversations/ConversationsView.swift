@@ -13,7 +13,7 @@ import SwiftData
 
 // MARK: - Messages container
 
-/// Top-level Messages tab — segmented into Conversations and LXMF Peers.
+/// Top-level Messages tab—segmented into Conversations and LXMF Peers.
 struct ConversationsView: View {
     @Environment(StackController.self) private var stack
     @Environment(NotificationManager.self) private var notifs
@@ -28,8 +28,8 @@ struct ConversationsView: View {
     var body: some View {
         NavigationStack(path: $navPath) {
             // Only the section picker + list scroll below the pinned title.
-            // The picker sits inline on iOS and in the window toolbar on Mac —
-            // see `rnsSectionPicker`.
+            // The picker sits inline on iOS and in the window toolbar on Mac—see
+            // `rnsSectionPicker`.
             Group {
                 switch section {
                 case .conversations:
@@ -46,7 +46,7 @@ struct ConversationsView: View {
                 ("Peers",    MessagesSection.peers)
             ], selection: $section)
             // Flush pinned title with the compose / add-contact action in the
-            // header's trailing slot beside the title — matching the Calls tab.
+            // header's trailing slot beside the title—matching the Calls tab.
             // (rnsPinnedTitle sizes/tints the action and hides the empty iOS
             // nav bar; pushed thread views set their own nav bar / back button.)
             .rnsPinnedTitle("Messages") {
@@ -76,7 +76,7 @@ struct ConversationsView: View {
             }
             // Menu-bar "File ▸ New Message" (⌘N).
             .onChange(of: notifs.requestCompose) { _, _ in showCompose = true }
-            // Menu-bar "File ▸ New Contact" (⌃⌘N) — switch to the Contacts
+            // Menu-bar "File ▸ New Contact" (⌃⌘N)—switch to the Contacts
             // section and open the add-by-hash sheet.
             .onChange(of: notifs.requestAddContact) { _, _ in
                 section = .contacts
@@ -106,7 +106,7 @@ struct ConversationsView: View {
 
 private enum MessagesSection: Hashable { case conversations, contacts, peers }
 
-// Search on all three segments uses `rnsInlineSearch`, NOT `.searchable` — this
+// Search on all three segments uses `rnsInlineSearch`, NOT `.searchable`—this
 // is a tab root under `rnsPinnedTitle`, which hides the navigation bar the iOS
 // search field would have to live in. See `rnsInlineSearch` for the full
 // diagnosis; it fails silently, so it is worth knowing before "fixing" it back.
@@ -131,9 +131,9 @@ private struct ConversationSummary: Identifiable, Equatable {
 ///
 /// Performance note: this view queries ALL messages once and deduplicates in Swift,
 /// rather than using per-row @Query (which would spawn N live database subscriptions
-/// for N conversations — causing mass re-renders on every announce flush).
+/// for N conversations—causing mass re-renders on every announce flush).
 ///
-/// It deliberately does **not** query `PeerEntity` — that lives one level down in
+/// It deliberately does **not** query `PeerEntity`—that lives one level down in
 /// `ConversationList`, so the name lookup and the message scan sit in separate
 /// views with separate inputs.
 ///
@@ -143,7 +143,7 @@ private struct ConversationSummary: Identifiable, Equatable {
 /// invalidation is evidently broader than per-view, and SwiftData publishes no
 /// documentation of its scope, so the mechanism is unexplained. The split was
 /// kept because value-typed `Equatable` summary rows are worth having on their
-/// own — not because it stops the grouping below from re-running.
+/// own—not because it stops the grouping below from re-running.
 ///
 /// Measured cost of that spurious re-run today: below the noise floor (p95 main-
 /// thread delay stays at 0.1 ms under a 40-peer announce storm). It is a
@@ -182,8 +182,8 @@ private struct ConversationListContent: View {
 
 /// Renders the resolved conversation summaries, attaching display names.
 ///
-/// Owns the `PeerEntity` query so that an announce invalidates *only* this view —
-/// rebuilding an O(peers) name map and diffing `Equatable` rows — instead of
+/// Owns the `PeerEntity` query so that an announce invalidates *only* this view—rebuilding
+/// an O(peers) name map and diffing `Equatable` rows—instead of
 /// re-scanning every message.
 private struct ConversationList: View {
     let summaries: [ConversationSummary]
@@ -208,8 +208,8 @@ private struct ConversationList: View {
                         Label("Delete", systemImage: "trash")
                     }
                 }
-                // Right-click / long-press equivalent of the swipe action —
-                // the discoverable path on macOS, where swiping is hidden.
+                // Right-click / long-press equivalent of the swipe action—the
+                // discoverable path on macOS, where swiping is hidden.
                 .contextMenu {
                     Button(role: .destructive) {
                         deleteConversation(peerHash: item.peerHash)
@@ -234,14 +234,14 @@ private struct ConversationList: View {
     /// hash, case-insensitively.
     ///
     /// Matching on the hash matters more here than in
-    /// those lists — a conversation with a peer that has never announced a name
+    /// those lists—a conversation with a peer that has never announced a name
     /// has no other handle to search by.
     private func filtered(_ names: [String: String]) -> [ConversationSummary] {
         guard let q = RNSSearch.query(searchText) else { return summaries }
         return summaries.filter { RNSSearch.matches(q, name: names[$0.peerHash], hash: $0.peerHash) }
     }
 
-    /// Names for the peers we actually have conversations with.
+    /// Names for the peers that actually have conversations.
     ///
     /// Restricting to
     /// those hashes keeps the map small on a node that has heard thousands of
@@ -258,7 +258,7 @@ private struct ConversationList: View {
     /// Remove every message in a conversation.
     ///
     /// The peer/contact record is
-    /// deliberately kept — deleting a thread shouldn't forget the person.
+    /// deliberately kept—deleting a thread shouldn't forget the person.
     private func deleteConversation(peerHash: String) {
         let descriptor = FetchDescriptor<MessageEntity>(
             predicate: #Predicate { $0.conversationHash == peerHash }
@@ -327,7 +327,7 @@ private struct LXMFPeersContent: View {
     @Query(sort: \PeerEntity.lastSeen, order: .reverse) private var peers: [PeerEntity]
     @State private var searchText = ""
 
-    /// Match on display name or hash, case-insensitively — the house rule from
+    /// Match on display name or hash, case-insensitively—the house rule from
     /// Destinations ▸ Peers.
     private var filtered: [PeerEntity] {
         guard let q = RNSSearch.query(searchText) else { return peers }
@@ -405,7 +405,7 @@ private struct LXMFPeerRow: View {
 /// from the discovered-peers list).
 ///
 /// Distinct from the raw announce-derived
-/// Peers list — contacts are a deliberate, user-curated address book.
+/// Peers list—contacts are a deliberate, user-curated address book.
 private struct ContactsContent: View {
     @Environment(\.modelContext) private var context
     @Query(filter: #Predicate<PeerEntity> { $0.isContact == true },
@@ -444,7 +444,7 @@ private struct ContactsContent: View {
                 }
                 // Right-click / long-press equivalent of the swipe action, so the
                 // Remove action is discoverable on macOS (where swiping is hidden)
-                // — matching the two sibling lists in this same Messages tab.
+                //—matching the two sibling lists in this same Messages tab.
                 .contextMenu {
                     Button(role: .destructive) {
                         contact.isContact = false
@@ -495,7 +495,7 @@ private struct ContactRow: View {
 /// Manually save a contact by destination hash, with an optional nickname.
 ///
 /// Updates the existing PeerEntity if the peer has already announced, or
-/// creates a new one (which will be filled in by future announces).
+/// creates a new one (which future announces fill in).
 struct AddContactSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -516,7 +516,7 @@ struct AddContactSheet: View {
                         .rnsHashFieldStyle()
                         .focused($hashFocused)
                         .onChange(of: hashInput) { _, new in
-                            // Lowercase to match ComposeView — otherwise an
+                            // Lowercase to match ComposeView—otherwise an
                             // uppercase-hex entry creates a case-mismatched
                             // duplicate peer whose thread never links up.
                             hashInput = String(new.filter { $0.isHexDigit }.prefix(32)).lowercased()

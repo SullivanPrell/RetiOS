@@ -23,10 +23,10 @@ import AppKit
 // Early version of a Meshtastic-style map tab: shows the device's own
 // position on Apple Maps, requests location permission up front, and
 // offers a GPS-source picker (device vs. an attached RNode). RNode
-// firmware doesn't report position data yet — the RNode option surfaces
+// firmware doesn't report position data yet—the RNode option surfaces
 // connection status honestly and is wired up to flip on the moment that
 // lands (see Phase 13 RNode work in tasks/todo.md). MapKit transparently
-// caches recently-viewed tiles for offline use; downloadable region packs
+// caches recently viewed tiles for offline use; downloadable region packs
 // are a later enhancement (see the "Offline Maps" info sheet).
 
 struct MapView: View {
@@ -50,7 +50,7 @@ struct MapView: View {
                     UserAnnotation()
                 }
                 .mapControls {
-                    // Native user-location control — manages follow/heading
+                    // Native user-location control—manages follow/heading
                     // tracking state itself, unlike a hand-rolled center button.
                     MapUserLocationButton()
                     MapCompass()
@@ -205,7 +205,7 @@ struct MapView: View {
         }
     }
 
-    /// The RNode firmware doesn't report GPS fixes over KISS yet — this
+    /// The RNode firmware doesn't report GPS fixes over KISS yet—this
     /// reads connection state honestly so the option is visible and ready
     /// to light up the moment that protocol support lands.
     private var rnodeStatusText: String {

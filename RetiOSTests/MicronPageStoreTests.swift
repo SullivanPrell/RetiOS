@@ -14,8 +14,8 @@ import XCTest
 /// Every test runs against a fresh temporary directory and a throwaway
 /// UserDefaults suite.
 ///
-/// Nothing here may touch the real Documents container —
-/// that is where the Reticulum identity private key lives.
+/// Nothing here may touch the real Documents container—that
+/// is where the Reticulum identity private key lives.
 @MainActor
 final class MicronPageStoreTests: XCTestCase {
 
@@ -83,7 +83,7 @@ final class MicronPageStoreTests: XCTestCase {
     }
 
     func testCreateKeepsANonMuExtension() throws {
-        // .mu is convention, not enforcement — Python serves whatever it finds.
+        // .mu is convention, not enforcement—Python serves whatever it finds.
         let (store, _) = try makeStore()
         let page = try store.create(named: "readme.txt", contents: "x")
         XCTAssertEqual(page.relativePath, "readme.txt")
@@ -391,7 +391,7 @@ final class MicronPageStoreTests: XCTestCase {
         // The victim lives in its own managed temp directory, NOT in `root`'s
         // parent: that parent is the shared $TMPDIR, so the file survived every
         // run and could collide with a parallel test process. `relativePath`
-        // still says "../outside.mu" — what is under test is that the store
+        // still says "../outside.mu"—what is under test is that the store
         // re-derives the URL from that string rather than trusting `url`.
         let outsideDir = try makeTempRoot()
         let victim = outsideDir.appending(path: "outside.mu")
@@ -481,7 +481,7 @@ final class MicronPageStoreTests: XCTestCase {
         XCTAssertTrue(lines.contains("-"), "needs a divider on its own line")
         // `FT, not `F: six hex digits are the "T" form. The template used to say
         // "`F00b8ff", which the parser reads as the THREE-nibble tag "00b" plus
-        // the literal text "8ff" — it rendered as "This page is 8ffMicron".
+        // the literal text "8ff"—it rendered as "This page is 8ffMicron".
         // MicronAuthoringTests asserts the whole template lints clean; this pins
         // the specific tag.
         XCTAssertTrue(template.contains("`FT00b8ff"), "needs a 6-digit foreground colour tag")

@@ -40,7 +40,7 @@ struct DestinationsView: View {
                             PeerRow(peer: peer)
                         }
                         // allowsFullSwipe:false so an over-swipe can't auto-start
-                        // a call — the user must tap the revealed Call button.
+                        // a call—the user must tap the revealed Call button.
                         .swipeActions(edge: .leading, allowsFullSwipe: false) {
                             Button {
                                 if let hashData = Data(hexString: peer.destinationHash) {
@@ -129,7 +129,7 @@ private struct PeerRow: View {
 
     var body: some View {
         // Shared identity block: name (or "Unknown Peer") + truncated hash +
-        // relative last-seen — same as the Messages ▸ Peers and call-peer rows.
+        // relative last-seen—same as the Messages ▸ Peers and call-peer rows.
         PeerIdentityView(name: peer.displayName ?? "Unknown Peer",
                          hash: peer.destinationHash,
                          lastSeen: peer.lastSeen)

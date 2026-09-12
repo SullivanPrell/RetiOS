@@ -43,24 +43,24 @@ struct RootView: View {
 
     @ViewBuilder
     private var layout: some View {
-        // macOS has no `UserInterfaceSizeClass` concept at all — AppKit-hosted
+        // macOS has no `UserInterfaceSizeClass` concept at all—AppKit-hosted
         // SwiftUI always reports `horizontalSizeClass == nil` there (it's an
         // iOS/iPadOS/Mac-Catalyst/tvOS trait). `nil == .regular` is `false`,
         // so without this branch every Mac window fell through to
-        // `TabRootView` — the *phone* layout: a `TabView` with each tab
+        // `TabRootView`—the *phone* layout: a `TabView` with each tab
         // independently wrapping itself in `NavigationStack` and applying
         // `.rnsNavigationBar()` / `.rnsInlineNavigationTitle()`, which are
         // no-ops on macOS (there's no navigation bar or nav-bar title-display
         // mode in a window toolbar). That's what "Mac styles are wildly
         // inconsistent" was: a touch-first tab-bar UI rendered through
         // AppKit's window chrome, with none of the iOS-only styling that
-        // made it cohere — instead of `SidebarRootView`, the
+        // made it cohere—instead of `SidebarRootView`, the
         // `NavigationSplitView` layout literally labelled "iPad / Mac
         // sidebar" below, which both `rnsNavigationBar()`'s doc comment and
         // that label make clear was always the intended Mac experience.
         //
-        // macOS windows are always effectively "regular" width — there's no
-        // compact/phone-sized macOS window — so route unconditionally there.
+        // macOS windows are always effectively "regular" width—there's no
+        // compact/phone-sized macOS window—so route unconditionally there.
         #if os(macOS)
         SidebarRootView()
         #else
@@ -99,8 +99,8 @@ private struct TabRootView: View {
 
             // NOTE: deliberately only 5 tabs here (not 6).
             //
-            // `UITabBarController` — which backs SwiftUI's `TabView` on
-            // iPhone / compact width — only displays 5 tabs directly; a 6th
+            // `UITabBarController`—which backs SwiftUI's `TabView` on
+            // iPhone / compact width—only displays 5 tabs directly; a sixth
             // gets silently folded into an automatic "More" tab managed by
             // `UIMoreNavigationController`. That controller fights with each
             // tab's own `NavigationStack` for ownership of the navigation
@@ -108,7 +108,7 @@ private struct TabRootView: View {
             // intermittent toolbar corruption (observed firsthand as
             // `[Assert] UIScrollView does not support multiple observers...
             // removing old observer <UIMoreNavigationController>` in the
-            // console — which is what made the "download logs" share button
+            // console—which is what made the "download logs" share button
             // vanish on tap).
             //
             // "Tools" is reachable instead via a NavigationLink from
@@ -118,7 +118,7 @@ private struct TabRootView: View {
             // which has no such limit.
 
             // `SettingsView` no longer wraps itself in a `NavigationStack`
-            // (see its body comment) — `TabView` provides no navigation
+            // (see its body comment)—`TabView` provides no navigation
             // context of its own, so this is the one place that must supply
             // it. `SidebarRootView.detailView` deliberately does NOT, since
             // `NavigationSplitView` already manages the detail column's stack.
@@ -129,7 +129,7 @@ private struct TabRootView: View {
         .suppressTabBarMinimize()
         .onChange(of: notifs.navigateTo) { _, tab in
             guard let tab else { return }
-            // `.tools` and `.interfaces` have no phone tabs — route both to
+            // `.tools` and `.interfaces` have no phone tabs—route both to
             // Settings, which carries NavigationLinks to both.
             let phoneTab: AppTab
             switch tab {
@@ -193,7 +193,7 @@ private struct SidebarRootView: View {
                         .onChange(of: geo.size.height) { _, new in sidebarHeight = new }
                 }
             }
-            // iOS only — see `sidebarToolbar`.
+            // iOS only—see `sidebarToolbar`.
             #if os(iOS)
             .toolbar { sidebarToolbar }
             #endif
@@ -215,12 +215,12 @@ private struct SidebarRootView: View {
     /// Laid out with `ViewThatFits` rather than truncation. The Mac sidebar is
     /// far narrower (~200 pt) than any iPhone this was originally sized for,
     /// and the naive version let the status text and the identity hash fight
-    /// for width until *both* wrapped — the footer read "Stack run-/ning" over
+    /// for width until *both* wrapped—the footer read "Stack run-/ning" over
     /// two rows with the hash broken across three.
     ///
     /// Truncating instead is no better: squeezing a 32-char hash into the
     /// leftover space renders it as a lone "…", which carries no information at
-    /// all. So the hash is treated as genuinely optional — shown whole when it
+    /// all. So the hash is treated as genuinely optional—shown whole when it
     /// fits, dropped when it doesn't, and always available via the tooltip.
     private var stackStatusBar: some View {
         ViewThatFits(in: .vertical) {
@@ -256,7 +256,7 @@ private struct SidebarRootView: View {
         HStack(spacing: 6) {
             Circle()
                 .fill(stack.isRunning ? Color.rnsSuccess : Color.rnsWarning)
-                // A bare Circle in an HStack will happily be squeezed to a
+                // A bare Circle in an HStack is happily squeezed to a
                 // sliver when the row is tight; pin it.
                 .frame(width: 7, height: 7)
                 .fixedSize()
@@ -271,7 +271,7 @@ private struct SidebarRootView: View {
                     .font(.caption2.monospaced())
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
-                    .fixedSize()   // whole or not at all — never a lone "…"
+                    .fixedSize()   // whole or not at all—never a lone "…"
             }
         }
     }
@@ -322,7 +322,7 @@ private struct SidebarRootView: View {
 
     /// iOS only. A `NavigationSplitView` on macOS merges the sidebar's toolbar
     /// into the single window toolbar, where this competed for the same
-    /// primary-action slot as the detail screen's own actions — so the logo was
+    /// primary-action slot as the detail screen's own actions—so the logo was
     /// what the "»" overflow was hiding. Mac apps don't badge their window
     /// toolbar with the app icon anyway; the Dock and the menu bar already say
     /// which app this is.
@@ -335,7 +335,7 @@ private struct SidebarRootView: View {
     }
     #endif
 
-    // MARK: Detail view — mirrors the tab bar exactly
+    // MARK: Detail view—mirrors the tab bar exactly
 
     @ViewBuilder
     private func detailView(for tab: AppTab) -> some View {
@@ -383,8 +383,8 @@ private extension AppTab {
 //
 // Presented once (gated on the `hasCompletedOnboarding` AppStorage flag) over
 // the whole app. Full-screen on iOS, a sized sheet on macOS. Composes existing
-// building blocks — `stack.setNodeDisplayName`, the shared `rnsQRImage`, and
-// `InterfaceDirectory` quick-add — into a 3-step welcome.
+// building blocks—`stack.setNodeDisplayName`, the shared `rnsQRImage`, and
+// `InterfaceDirectory` quick-add—into a 3-step welcome.
 
 private struct OnboardingPresenter: ViewModifier {
     @Environment(StackController.self) private var stack
@@ -416,7 +416,7 @@ private struct OnboardingView: View {
     ///
     /// Calling `rnsQRImage` inline in `body`
     /// re-rendered the whole QR (including a fresh CIContext) on *every* body
-    /// evaluation — on the very first screen a new user ever sees.
+    /// evaluation—on the very first screen a new user ever sees.
     @State private var qrImage: Image?
 
     private let lastStep = 2

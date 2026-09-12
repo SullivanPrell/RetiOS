@@ -18,7 +18,7 @@ import AppKit
 @main
 struct RetiOSApp: App {
     // macOS quits by calling exit(), which runs the C++ static destructors of
-    // everything linked in — including the embedded i2pd's router singletons,
+    // everything linked in—including the embedded i2pd's router singletons,
     // while i2pd's own threads are still running on them. That race is a
     // reproducible SIGSEGV on Quit (i2p::tunnel::Tunnels::Run reading a
     // half-destroyed i2p::transport::transports). SwiftUI offers no termination
@@ -36,7 +36,7 @@ struct RetiOSApp: App {
     @State private var calls     = CallsController()
     @State private var nomadNet  = NomadNetController()
     // Owned here (not as a per-view @StateObject in BLEMeshView) so the mesh
-    // radio — and the UI state that reflects it — survives navigation. A
+    // radio—and the UI state that reflects it—survives navigation. A
     // view-scoped controller would be torn down and recreated every time the
     // user left and returned to the BLE Mesh screen: the radio it started
     // would keep running (registered with `stack.transport`), but the fresh
@@ -46,8 +46,8 @@ struct RetiOSApp: App {
     // Owned here for the same reason as `bleMesh`, and for a sharper one: a
     // connected RNode registers a live `RNodeInterface` with `Transport`, and
     // `Transport.interfaces` holds it strongly. As a view-scoped `@State` the
-    // controller died when the user navigated away from the RNode screen —
-    // taking its `CBCentralManager` (and therefore the disconnect callback that
+    // controller died when the user navigated away from the RNode screen—taking
+    // its `CBCentralManager` (and therefore the disconnect callback that
     // calls `teardown()`) with it, while the now-dead interface stayed
     // registered forever. Transport kept selecting it for outbound traffic that
     // silently went nowhere. App-scoped, the controller outlives navigation, so
@@ -59,10 +59,10 @@ struct RetiOSApp: App {
     // holds a security-scoped resource open when the user has pointed it at a
     // folder outside the container (a live NomadNet node's storage/pages, say),
     // and a view-scoped store would drop that access every time the section
-    // switcher rebuilt the view — the same class of bug the two controllers
+    // switcher rebuilt the view—the same class of bug the two controllers
     // above document.
     //
-    // iOS-only, because the Pages section is (Runestone is UIKit-only — see
+    // iOS-only, because the Pages section is (Runestone is UIKit-only—see
     // MicronSourceEditor.swift). Not merely unused on the Mac: `init()` calls
     // `reload()`, which calls `ensureRootExists()`, which *creates*
     // Documents/nomadnet/pages. Keeping it cross-platform would mkdir a page
@@ -83,7 +83,7 @@ struct RetiOSApp: App {
     /// Injects every app-owned model plus the shared container and theme.
     ///
     /// Applied to BOTH scenes deliberately. The macOS Settings (⌘,) scene used
-    /// to inject only three of the six models — safe at the time, because no
+    /// to inject only three of the six models—safe at the time, because no
     /// view reachable from it read the others, but `@Environment(T.self)` is
     /// non-optional and *traps* when the type is absent. One future line under
     /// RNS Tools or Identity reading `nomadNet` would have become a crash that
@@ -122,8 +122,8 @@ struct RetiOSApp: App {
                 .task {
                     #if os(macOS)
                     // Before anything else: give the delegate the controller it
-                    // has to stop at Quit. Quitting earlier than this is safe —
-                    // nothing is running yet — and quitting *during* bringUp is
+                    // has to stop at Quit. Quitting earlier than this is safe—nothing
+                    // is running yet—and quitting *during* bringUp is
                     // caught by I2PDaemon's own atexit backstop.
                     appDelegate.stack = stack
                     #endif
@@ -132,8 +132,8 @@ struct RetiOSApp: App {
                     // bringing up the stack so no incoming calls are missed.
                     notifs.callsController = calls
 
-                    // Request notification permission early — before the first
-                    // message or call could arrive — so the system dialog appears
+                    // Request notification permission early—before the first
+                    // message or call could arrive—so the system dialog appears
                     // at a natural moment rather than mid-call.
                     await notifs.requestPermission()
 
@@ -172,7 +172,7 @@ struct RetiOSApp: App {
                                 bleMesh.enable(localName: name)
                             }
                             // Pick up messages parked at the propagation node while
-                            // we were offline. No-op when no node is configured;
+                            // the app was offline. No-op when no node is configured;
                             // if no path is known yet the router downloads as soon
                             // as one arrives (wantsDownloadOnPathAvailableFrom).
                             stack.syncFromPropagationNode()
@@ -188,7 +188,7 @@ struct RetiOSApp: App {
                 }
         }
         #if os(macOS)
-        // Native Mac window sizing — a sensible default, and a floor so the
+        // Native Mac window sizing—a sensible default, and a floor so the
         // three-column split view can't be crushed into uselessness.
         .defaultSize(width: 1100, height: 720)
         .windowResizability(.contentMinSize)
@@ -274,7 +274,7 @@ struct RetiOSApp: App {
 /// destructor in the image. The embedded i2pd keeps its router (netDb,
 /// transports, tunnels) in dylib-scope C++ singletons served by a dozen of its
 /// own threads, so an exit that hasn't stopped i2pd first destroys those
-/// singletons *underneath* live threads — a use-after-destruction that shows up
+/// singletons *underneath* live threads—a use-after-destruction that shows up
 /// as a SIGSEGV in `i2p::tunnel::Tunnels::Run` on the way out. Stopping the
 /// stack first (`Reticulum.stop()` → `I2PInterface.stop()` → `C_StopI2P`) joins
 /// those threads while they're still healthy, and also lets i2pd flush its netDb

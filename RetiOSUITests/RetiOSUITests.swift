@@ -16,16 +16,16 @@ import XCTest
 ///
 /// `@Environment(SomeModel.self)` is non-optional and **traps at runtime** when
 /// a scene forgets to inject the model. It does not fail to compile, and unit
-/// tests never build a scene — so nothing else in this project can catch it.
+/// tests never build a scene—so nothing else in this project can catch it.
 /// The only way to know a screen is reachable is to reach it.
 ///
 /// macOS sharpens this: the Preferences window (⌘,) is a *separate* `Settings`
 /// scene with its own environment, so a screen reachable from both the main
 /// window and Preferences can work in one and crash in the other. That is not a
-/// hypothetical here — `RetiOSApp.appEnvironment` carries a comment about the
+/// hypothetical here—`RetiOSApp.appEnvironment` carries a comment about the
 /// Settings scene having once been under-injected.
 ///
-/// ## Platform support — read before assuming the Mac tests run
+/// ## Platform support—read before assuming the Mac tests run
 ///
 /// **iOS Simulator: unattended.** The simulator grants the test runner
 /// accessibility access, so these run from a bare `xcodebuild test` and in CI.
@@ -39,7 +39,7 @@ import XCTest
 /// the tests holds Accessibility permission. Grant it to the terminal (or CI
 /// agent) under System Settings ▸ Privacy & Security ▸ Accessibility, or run
 /// from Xcode.app, which prompts the first time. macOS also needs a signable
-/// bundle; the entitlements can be dropped for a local run — they only disable
+/// bundle; the entitlements can be dropped for a local run—they only disable
 /// Yggdrasil, which these tests never touch:
 ///
 ///     xcodebuild test -scheme RetiOS -destination 'platform=macOS,arch=arm64' \
@@ -53,7 +53,7 @@ import XCTest
 ///
 /// Nothing here taps **Scan** on the RNode screen when running on macOS. That
 /// creates a real `CBCentralManager` and would raise the system Bluetooth
-/// permission dialog on the developer's own Mac — an unattended test must not
+/// permission dialog on the developer's own Mac—an unattended test must not
 /// do that. The iOS Simulator has no Bluetooth radio, so the same tap there is
 /// inert and reports "Bluetooth unavailable", which is what
 /// `testRNodeControllerStateSurvivesNavigation` relies on.
@@ -69,14 +69,14 @@ final class RetiOSUITests: XCTestCase {
     private func launchApp() -> XCUIApplication {
         let app = XCUIApplication()
         // `-key value` launch arguments land in UserDefaults' argument domain,
-        // which outranks everything else — so these skip the onboarding sheet
+        // which outranks everything else—so these skip the onboarding sheet
         // and suppress network bring-up without the app needing a test-only
         // UI path.
         //
         // `-stackOffline` matters more than it looks. XCTest relaunches the app
         // for every test method, so without it each method rejoined
         // AutoInterface's multicast group, redialled every saved gateway,
-        // respawned i2pd and re-armed the Yggdrasil VPN profile — then had all
+        // respawned i2pd and re-armed the Yggdrasil VPN profile—then had all
         // of it killed abruptly when the test ended. That churn disrupts a real
         // mesh the developer's machine belongs to, and makes the tests slow and
         // dependent on network state. None of the assertions here need a live
@@ -136,7 +136,7 @@ final class RetiOSUITests: XCTestCase {
         let app = launchApp()
         XCTAssertTrue(waitForMainUI(app), "main UI never appeared")
 
-        // ⌘, opens the Settings scene — a different environment from the
+        // ⌘, opens the Settings scene—a different environment from the
         // WindowGroup the sidebar lives in.
         app.typeKey(",", modifierFlags: .command)
 
@@ -158,7 +158,7 @@ final class RetiOSUITests: XCTestCase {
     /// Regression test for the zombie-interface fix (v0.3.3).
     ///
     /// `RNodeScannerController` used to be a view-scoped `@State`, so leaving
-    /// the screen destroyed it — taking its `CBCentralManager`, and with it the
+    /// the screen destroyed it—taking its `CBCentralManager`, and with it the
     /// disconnect callback that deregisters the `RNodeInterface`, while
     /// `Transport.interfaces` (a strong array) kept the dead interface forever.
     ///
@@ -167,7 +167,7 @@ final class RetiOSUITests: XCTestCase {
     /// leaving and returning. A view-scoped controller would be reconstructed
     /// and fall back to "Idle".
     ///
-    /// iOS Simulator only — see the note on this class about the Bluetooth
+    /// iOS Simulator only—see the note on this class about the Bluetooth
     /// permission dialog. Here the radio is absent, so tapping Scan lands in a
     /// stable `bluetoothUnavailable` state with no prompt and no side effects.
     func testRNodeControllerStateSurvivesNavigation() {

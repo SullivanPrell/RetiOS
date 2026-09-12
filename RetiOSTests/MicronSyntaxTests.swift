@@ -16,7 +16,7 @@ import XCTest
 /// this lexer happened to produce.
 ///
 /// Where the parser's behaviour is surprising
-/// the test says so — those are the cases where a "cleanup" of the lexer would
+/// the test says so—those are the cases where a "cleanup" of the lexer would
 /// silently desync the editor from the renderer.
 final class MicronSyntaxTests: XCTestCase {
 
@@ -46,7 +46,7 @@ final class MicronSyntaxTests: XCTestCase {
         }
     }
 
-    /// Substring covered by the nth token — proves the ranges are usable, not
+    /// Substring covered by the nth token—proves the ranges are usable, not
     /// merely self-consistent.
     private func slice(_ text: String, _ index: Int) -> String {
         let token = MicronSyntax.tokens(in: text)[index]
@@ -113,7 +113,7 @@ final class MicronSyntaxTests: XCTestCase {
 
     func testHeadingContainingFieldOpenerLosesHeadingStatusEntirely() {
         // `first == ">" && line.contains("`<")` drops the whole ">" run and
-        // re-treats the line as ordinary. The markers render as nothing — but
+        // re-treats the line as ordinary. The markers render as nothing—but
         // they still get a token, `.droppedHeadingMarker`, so the editor can
         // mark them as non-rendering and the linter can warn. Without it a
         // heading that works and one that silently does not were identical on
@@ -167,7 +167,7 @@ final class MicronSyntaxTests: XCTestCase {
 
     func testLiteralFenceMustBeTheEntireLine() {
         // "`= " is not a fence; it is a backtick followed by the command "=",
-        // which `makeOutput` does not implement — so it is silently deleted.
+        // which `makeOutput` does not implement—so it is silently deleted.
         assertTokens("`= \nfoo", [(.unknownCommand, 0, 2)])
     }
 
@@ -231,7 +231,7 @@ final class MicronSyntaxTests: XCTestCase {
 
     func testLiteralFenceWinsInsideTableMode() {
         // The fence comparison is the very first thing parseLine does, ahead of
-        // table buffering — so "`=" opens literal mode even mid-table.
+        // table buffering—so "`=" opens literal mode even mid-table.
         assertTokens("`t\n`=\nrow\n`=\n`t", [
             (.tableFence, 0, 2),
             (.literalFence, 3, 2),
@@ -283,7 +283,7 @@ final class MicronSyntaxTests: XCTestCase {
         assertTokens("\\", [(.escape, 0, 1)])
     }
 
-    // MARK: - Inline style, colour and alignment
+    // MARK: - Inline style, color and alignment
 
     func testStyleAndResetTags() {
         assertTokens("`!x`_y`*z``", [
@@ -331,7 +331,7 @@ final class MicronSyntaxTests: XCTestCase {
     }
 
     func testColourWithTooFewCharactersDropsTheCommandOnly() {
-        // "`F12": neither branch fits, so the switch falls through — the "`F"
+        // "`F12": neither branch fits, so the switch falls through—the "`F"
         // vanishes and "12" renders as text.
         assertTokens("`F12", [(.colorTag, 0, 2)])
     }
@@ -350,8 +350,8 @@ final class MicronSyntaxTests: XCTestCase {
         // The terminator has to be something that PRODUCES A TOKEN, or the test
         // cannot fail: with a plain "!" the expected output is `[.anchor]`
         // whether the character is re-read or swallowed, so changing
-        // `index = end; continue` to `index = end + 1` — desyncing the lexer
-        // from the parser — would still pass. A backtick command does produce
+        // `index = end; continue` to `index = end + 1`—desyncing the lexer
+        // from the parser—would still pass. A backtick command does produce
         // one.
         assertTokens("`:`!x", [(.anchor, 0, 2), (.styleTag, 2, 2)])
         assertTokens("`:!x", [(.anchor, 0, 2)])
@@ -401,7 +401,7 @@ final class MicronSyntaxTests: XCTestCase {
 
     func testLinkWithEmptyUrlIsDiscardedEntirely() {
         assertTokens("`[]", [(.linkDelimiter, 0, 2)])
-        // Only "`[" is consumed, so the rest is re-read as ordinary text — which
+        // Only "`[" is consumed, so the rest is re-read as ordinary text—which
         // means the separator backtick now introduces a command, and "`]" is not
         // one. That second deletion is the parser's behaviour, not an artefact.
         assertTokens("`[label`]", [(.linkDelimiter, 0, 2), (.unknownCommand, 7, 2)])
@@ -511,7 +511,7 @@ final class MicronSyntaxTests: XCTestCase {
 
     func testEveryTokenKindIsReachable() {
         // A kind no document can produce is either dead or a highlighting theme
-        // entry that will never fire; either way it should not exist silently.
+        // entry that never fires; either way it should not exist silently.
         let corpus = """
         # comment
         \\escaped

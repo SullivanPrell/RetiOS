@@ -11,7 +11,7 @@
 import Foundation
 
 /// Read-only client for the public Reticulum interface directory at
-/// https://directory.rns.recipes — lets users discover and quick-add
+/// https://directory.rns.recipes—lets users discover and quick-add
 /// community-run gateways without typing a host/port by hand.
 enum InterfaceDirectory {
     struct Entry: Codable, Identifiable, Hashable {
@@ -29,7 +29,7 @@ enum InterfaceDirectory {
 
     private static let submittedPath = "https://directory.rns.recipes/api/directory/submitted"
 
-    /// Fetches the currently-online, community-submitted directory entries.
+    /// Fetches the currently online, community-submitted directory entries.
     static func fetchOnline() async throws -> [Entry] {
         guard var components = URLComponents(string: submittedPath) else { throw URLError(.badURL) }
         components.queryItems = [URLQueryItem(name: "status", value: "online")]
@@ -44,7 +44,7 @@ enum InterfaceDirectory {
 }
 
 extension InterfaceDirectory.Entry {
-    /// RetiOS can only quick-connect to host:port style gateways — RNode, Serial,
+    /// RetiOS can only quick-connect to host:port style gateways—RNode, Serial,
     /// I2P, KISS etc. require local hardware or daemons this directory can't configure.
     var isQuickAddable: Bool {
         savedKind != nil && port != nil
@@ -52,7 +52,7 @@ extension InterfaceDirectory.Entry {
 
     var savedKind: StackController.SavedInterfaceKind? {
         // Yggdrasil gateways are ordinary TCP/Backbone links to an IPv6
-        // Yggdrasil address — the API reports that in `network`, never `type`.
+        // Yggdrasil address—the API reports that in `network`, never `type`.
         // Tag them `.yggdrasil` so the app shows the right icon/label; they're
         // still added as a TCP/Backbone interface under the hood.
         if network == "yggdrasil" {
@@ -64,7 +64,7 @@ extension InterfaceDirectory.Entry {
         switch type {
         case "tcp":      return .tcp
         case "backbone": return .backbone
-        default:         return nil   // i2p and others need local config — not quick-addable
+        default:         return nil   // i2p and others need local config—not quick-addable
         }
     }
 

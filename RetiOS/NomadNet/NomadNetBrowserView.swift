@@ -13,8 +13,8 @@ import SwiftData
 import Combine
 import NomadNet
 
-// NomadNetBrowserContent is the inner content — no NavigationStack —
-// so it can be embedded in NomadNetContainerView without nesting stacks.
+// NomadNetBrowserContent is the inner content—no NavigationStack—so
+// it can be embedded in NomadNetContainerView without nesting stacks.
 struct NomadNetBrowserContent: View {
     @Environment(NomadNetController.self) private var nomadNet
     @Environment(\.modelContext) private var context
@@ -49,7 +49,7 @@ struct NomadNetBrowserContent: View {
             Button(action: { nomadNet.goBack() }) {
                 Image(systemName: "chevron.left")
             }
-            // Body-sized chevrons are only ~17pt — pad the hit region to 44x44pt.
+            // Body-sized chevrons are only ~17pt—pad the hit region to 44x44pt.
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
             .accessibilityLabel("Back")
@@ -74,13 +74,13 @@ struct NomadNetBrowserContent: View {
                 .onSubmit { navigate() }
                 #if os(iOS)
                 // Match the address content and label Return as the load action.
-                // (Not folded into rnsHashFieldStyle — that helper forces a body
+                // (Not folded into rnsHashFieldStyle—that helper forces a body
                 // font that would enlarge this deliberately compact caption bar.)
                 .keyboardType(.asciiCapable)
                 .submitLabel(.go)
                 #endif
 
-            // Identify ("log in") toggle — reveals our identity to the current
+            // Identify ("log in") toggle—reveals the local identity to the current
             // node so it can serve logged-in / gated content, exactly like
             // Python NomadNet's per-node "Identify when connecting". Persisted
             // per-node; toggling reloads the page so it takes effect at once.
@@ -100,7 +100,7 @@ struct NomadNetBrowserContent: View {
                     : "Identify to this node (log in)")
 
                 // Star the node being browsed. Deliberately the same glyph and
-                // colours as the star in NomadNodeRow (Peers/Favorites lists) so
+                // colors as the star in NomadNodeRow (Peers/Favorites lists) so
                 // both affordances read as one control. Same condition as the
                 // identify button: with no page loaded there is nothing to star.
                 Button(action: toggleFavorite) {
@@ -138,12 +138,12 @@ struct NomadNetBrowserContent: View {
         .rnsBarMaterial()
         // `onChange`, not `onReceive(controller.$currentURL)`: @Observable
         // publishes no Combine projection. It also fires only on a real change
-        // rather than on every assignment, which is what we want here.
+        // rather than on every assignment, which is what this call site needs.
         .onChange(of: nomadNet.currentURL) { _, _ in syncURLBar() }
         // `onChange` alone left the address blank on a page that was plainly
         // loaded. Each branch of the section switcher is its own view identity,
-        // so re-entering Browse rebuilds this view with `urlInput` back at "" —
-        // and the Peers list's Browse button sets `currentURL` and flips the
+        // so re-entering Browse rebuilds this view with `urlInput` back at ""—and
+        // the Peers list's Browse button sets `currentURL` and flips the
         // section in the same update, so the change lands before this view
         // exists and `onChange` never fires for it. Seed from the loaded page.
         .onAppear { syncURLBar() }
@@ -152,7 +152,7 @@ struct NomadNetBrowserContent: View {
     /// Mirror the loaded page's address into the field.
     ///
     /// Never clobbers text the
-    /// user is actively editing — only syncs while the field isn't focused.
+    /// user is actively editing—only syncs while the field isn't focused.
     private func syncURLBar() {
         guard !urlBarFocused, let url = nomadNet.currentURL else { return }
         urlInput = url.toString()
@@ -180,7 +180,7 @@ struct NomadNetBrowserContent: View {
         if let starred = favorites.first(where: { $0.destinationHash == hash }) {
             starred.isFavorite = false
         } else {
-            // A hash typed by hand may have no NomadNodeEntity yet — the browser
+            // A hash typed by hand may have no NomadNodeEntity yet—the browser
             // never requires an announce, only the announce handler creates rows.
             // destinationHash is @Attribute(.unique), so fetch before inserting:
             // a blind insert of an existing hash would collide with the row the
@@ -227,7 +227,7 @@ struct NomadNetBrowserContent: View {
         } else if let error = nomadNet.errorMessage {
             // Full-screen error only on initial load failure (no page to show).
             // Uses RNSEmptyState (not a bare ContentUnavailableView) so it fills
-            // the pane on macOS — otherwise the fixed-size card lets this whole
+            // the pane on macOS—otherwise the fixed-size card lets this whole
             // VStack center vertically and drags the URL bar into the middle.
             RNSEmptyState(
                 title: "Page Unavailable",
@@ -261,14 +261,14 @@ struct NomadNetBrowserContent: View {
         let target = link.url
         guard !target.isEmpty else { return }
 
-        // Skip in-page anchors and RRC links — not page navigation.
+        // Skip in-page anchors and RRC links—not page navigation.
         if target.hasPrefix("#") || target.hasPrefix("rrc://") { return }
 
         // Split the link's data items into form-field references and inline
         // variable assignments. A bare name (`who`) is a form-field reference:
         // send the field's current value as `field_<name>`. A `name=value` item
         // is a URL variable: send as `var_<name>`. Mirrors Python's NomadNet
-        // Browser — a submitted form field MUST reach the node as `field_<name>`,
+        // Browser—a submitted form field MUST reach the node as `field_<name>`,
         // not as a URL variable, or the node's request handler never sees it.
         // (Previously every item was flattened into the URL as `name=value`, so
         // form fields were mis-sent as `var_*` and inline variables were dropped.)
@@ -293,8 +293,8 @@ struct NomadNetBrowserContent: View {
                 nomadNet.navigate(to: combined, fields: fieldValues)
             }
         } else if target.hasPrefix(":") {
-            // Colon-prefixed path (":page/about.mu" or ":/page/about.mu") —
-            // relative to current node; strip the leading colon.
+            // Colon-prefixed path (":page/about.mu" or ":/page/about.mu")—relative
+            // to current node; strip the leading colon.
             if let current = nomadNet.currentURL {
                 let path = String(target.dropFirst())
                 let combined = current.destinationHash.hexString + ":" + path + suffix
@@ -312,8 +312,8 @@ struct NomadNetBrowserContent: View {
             if looksAbsolute {
                 nomadNet.navigate(to: target + suffix, fields: fieldValues)
             } else if let current = nomadNet.currentURL {
-                // Relative path — resolve against the directory of the current page.
-                // e.g. current path "/page/index.mu" + target "contact" → "/page/contact"
+                // Relative path—resolve against the directory of the current page.
+                // for example, current path "/page/index.mu" + target "contact" → "/page/contact"
                 let currentDir = (current.path as NSString).deletingLastPathComponent
                 let base = currentDir.isEmpty ? "" : currentDir
                 let resolvedPath = base.hasSuffix("/")

@@ -24,7 +24,7 @@ struct PropagationNodeView: View {
     @State private var showClearConfirm = false
 
     var body: some View {
-        // Was a bare `Form` — the same non-scrolling columns layout diagnosed on
+        // Was a bare `Form`—the same non-scrolling columns layout diagnosed on
         // Tools ▸ Ping. This screen is reachable twice on macOS: as the ⌘,
         // Settings scene (framed at 520 pt) and as the detail column of the
         // 1100 pt main window, so it took the full width damage on the second
@@ -66,7 +66,7 @@ struct PropagationNodeView: View {
         Section {
             // See RNSHashField: the string passed to `TextField(_:text:)` is a
             // *label*, and macOS forms never put a label inside the field.
-            // Labelled "Propagation node", not "Node hash" — `currentSection`
+            // Labelled "Propagation node", not "Node hash"—`currentSection`
             // already renders a `LabeledContent("Node hash")`, and two rows
             // reading "Node hash" with different meanings (what you are entering
             // vs. what is saved) is worse than the bug being fixed.

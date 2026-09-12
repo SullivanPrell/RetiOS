@@ -162,12 +162,12 @@ struct InterfacesView: View {
                     }
                 }
                 // Without this, only the label/trailing text is hittable and the
-                // Spacer gap in the row's middle is a dead zone — tapping the
-                // visual centre of the row does nothing. Make the whole row tap.
+                // Spacer gap in the row's middle is a dead zone—tapping the
+                // visual center of the row does nothing. Make the whole row tap.
                 .contentShape(Rectangle())
             }
 
-            // Yggdrasil — run an embedded node (system VPN packet tunnel).
+            // Yggdrasil—run an embedded node (system VPN packet tunnel).
             Button {
                 showYggdrasilNodeSheet = true
             } label: {
@@ -190,7 +190,7 @@ struct InterfacesView: View {
                 .contentShape(Rectangle())
             }
 
-            // Yggdrasil — dial a specific peer over its IPv6 address.
+            // Yggdrasil—dial a specific peer over its IPv6 address.
             Button {
                 showYggdrasilSheet = true
             } label: {
@@ -271,7 +271,7 @@ private struct InterfaceRow: View {
             Spacer()
 
             // Reflect the interface's real online state instead of a hardcoded
-            // green dot — a down/failed interface must not read as "active".
+            // green dot—a down/failed interface must not read as "active".
             Circle()
                 .fill(interface.isOnline ? Color.rnsSuccess : Color.rnsTextMuted)
                 .frame(width: 8, height: 8)
@@ -424,7 +424,7 @@ struct AddInterfaceSheet: View {
                 }
                 .rnsRow()
 
-                // IFAC — the segment credentials. Optional, and left blank for the public
+                // IFAC—the segment credentials. Optional, and left blank for the public
                 // network. An interface on an IFAC-protected segment *without* them comes up,
                 // reports Up and passes nothing, so the fields exist rather than the setting
                 // being unreachable from the app.
@@ -501,7 +501,7 @@ struct AddInterfaceSheet: View {
         let trimNetwork = networkName.trimmingCharacters(in: .whitespaces)
         let trimPassphrase = passphrase.trimmingCharacters(in: .whitespaces)
         // Before register/start, so the key is installed before the interface's opening announce
-        // — see `bugs/015` and `Reticulum.py:975`.
+        //—see `bugs/015` and `Reticulum.py:975`.
         let saved = StackController.SavedInterface(
             name: trimName, host: trimHost, port: portNum, kind: mode.savedKind,
             networkName: trimNetwork.isEmpty ? nil : trimNetwork,
@@ -622,7 +622,7 @@ struct I2PConfigSheet: View {
             .filter { !$0.isEmpty }
 
         // Validate the peer addresses. This wires up the error Section that was
-        // previously dead code — malformed lines used to save silently. The
+        // previously dead code—malformed lines used to save silently. The
         // message states the rule the check actually enforces (a `.i2p` suffix,
         // which covers `.b32.i2p`); base64 destinations are dialed via a separate
         // path and aren't entered here.
@@ -792,7 +792,7 @@ struct YggdrasilNodeSheet: View {
     }
 
     /// Enabling a node with no peers and no LAN discovery yields a valid address
-    /// that can reach no one — warn before that surprises the user.
+    /// that can reach no one—warn before that surprises the user.
     private var hasNoReachability: Bool {
         enabled
             && !multicastEnabled

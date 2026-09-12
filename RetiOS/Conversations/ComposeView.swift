@@ -11,7 +11,7 @@
 import SwiftUI
 import SwiftData
 
-/// New conversation sheet — pick a contact / recent peer, or enter a peer
+/// New conversation sheet—pick a contact / recent peer, or enter a peer
 /// destination hash manually, then write the first message.
 struct ComposeView: View {
     @Environment(StackController.self) private var stack
@@ -29,8 +29,8 @@ struct ComposeView: View {
         return hex.count == 32
     }
 
-    /// Contacts first (alphabetical), then the most recently seen peers —
-    /// so most sends are a tap instead of pasting a 32-char hash.
+    /// Contacts first (alphabetical), then the most recently seen peers—so
+    /// most sends are a tap instead of pasting a 32-char hash.
     private var suggestedPeers: [PeerEntity] {
         let contacts = peers.filter { $0.isContact }
             .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
@@ -53,7 +53,7 @@ struct ComposeView: View {
                         .focused($hashFocused)
                         .onChange(of: peerHashInput) { _, new in
                             // Lowercase so a typed/pasted uppercase hash still
-                            // matches stored (lowercase) peer hashes — otherwise
+                            // matches stored (lowercase) peer hashes—otherwise
                             // `selectedPeerName` and the row checkmark silently fail.
                             peerHashInput = String(new.filter { $0.isHexDigit }.prefix(32)).lowercased()
                         }

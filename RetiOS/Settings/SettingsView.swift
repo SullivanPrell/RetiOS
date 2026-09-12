@@ -23,7 +23,7 @@ struct SettingsView: View {
         .critical, .error, .warning, .notice, .info, .verbose, .debug
     ]
 
-    // Cached stats — refreshed on appear and every 5 s rather than computed in body.
+    // Cached stats—refreshed on appear and every 5 s rather than computed in body.
     // Calling transport.getPathTable() inline blocks the main thread for O(n) work
     // on every re-render, causing visible hitches when typing in forms.
     @State private var cachedPathCount: Int = 0
@@ -32,7 +32,7 @@ struct SettingsView: View {
     //
     // `SettingsView` is presented two different ways (see `RootView`):
     //   - `TabRootView` (compact width): as a `TabView` tab, which provides no
-    //     navigation context of its own — the call site wraps it in
+    //     navigation context of its own—the call site wraps it in
     //     `NavigationStack { SettingsView() }`.
     //   - `SidebarRootView` (regular width): as the `detail` of a
     //     `NavigationSplitView`, which *already* manages its own navigation
@@ -41,7 +41,7 @@ struct SettingsView: View {
     // Nesting a second `NavigationStack` inside `NavigationSplitView`'s detail
     // produces a duplicated/stacked back button the moment you push a
     // `NavigationLink` destination (exactly what this view's "Identity",
-    // "Interfaces", "RNode", "BLE Mesh", "Logs" links do) — the split view's
+    // "Interfaces", "RNode", "BLE Mesh", "Logs" links do)—the split view's
     // own back-navigation chrome and the inner stack's back button both render.
     // Owning the wrapper at each call site (mirroring `ToolsView`'s existing
     // pattern) lets each presentation context supply exactly one stack.
@@ -60,7 +60,7 @@ struct SettingsView: View {
     var body: some View {
         rnsSettingsContainer { sections }
         .rnsScreenBackground()
-        // Flush pinned title (no large-title dead space) — matches the other
+        // Flush pinned title (no large-title dead space)—matches the other
         // tabs. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
         .rnsPinnedTitle("Settings")
         .task {
@@ -74,7 +74,7 @@ struct SettingsView: View {
 
     private func refreshCachedStats() {
         guard let transport = stack.transport else { return }
-        // Assign only on change — writing @State unconditionally re-rendered the
+        // Assign only on change—writing @State unconditionally re-rendered the
         // whole Settings list every 5 s even when the path count was identical.
         let count = transport.getPathTable().count
         if cachedPathCount != count { cachedPathCount = count }
@@ -122,7 +122,7 @@ struct SettingsView: View {
         .rnsRow()
     }
 
-    // Shown on iPhone only — iPad and macOS reach Interfaces via the sidebar.
+    // Shown on iPhone only—iPad and macOS reach Interfaces via the sidebar.
     private var interfacesSection: some View {
         Section("Interfaces") {
             NavigationLink(destination: InterfacesView()) {
@@ -135,8 +135,8 @@ struct SettingsView: View {
     private var networkSection: some View {
         Section("Network") {
             // Lives here (rather than its own tab bar item) so the iPhone
-            // tab bar stays at 5 tabs — see `TabRootView`'s comment for why
-            // a 6th tab silently breaks navigation chrome via iOS's
+            // tab bar stays at 5 tabs—see `TabRootView`'s comment for why
+            // a sixth tab silently breaks navigation chrome via iOS's
             // automatic "More" tab folding.
             NavigationLink(destination: ToolsView()) {
                 Label("RNS Tools", systemImage: "wrench.and.screwdriver.fill")
@@ -224,7 +224,7 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section("About") {
-            // The app's own version first — otherwise "About" showed only the
+            // The app's own version first—otherwise "About" showed only the
             // ReticulumSwift library's self-reported constant, which made the
             // app look like it was at that version (and never surfaced RetiOS's
             // real version/build at all).
@@ -240,7 +240,7 @@ struct SettingsView: View {
         .rnsRow()
     }
 
-    /// "0.3.0 (6)" — from the bundle's short version + build number.
+    /// "0.3.0 (6)"—from the bundle's short version + build number.
     private static var appVersion: String {
         let info = Bundle.main.infoDictionary
         let short = info?["CFBundleShortVersionString"] as? String ?? "—"

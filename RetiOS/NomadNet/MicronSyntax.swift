@@ -18,7 +18,7 @@ import Foundation
 /// URL. So this file re-walks the same grammar and emits ranges instead of nodes.
 ///
 /// That makes it a second implementation of one grammar, which is a maintenance
-/// hazard — so every non-obvious branch below cites the exact behaviour in
+/// hazard—so every non-obvious branch below cites the exact behaviour in
 /// `MicronParser.swift` it is mirroring. When the parser changes, these comments
 /// are the diff list.
 ///
@@ -28,11 +28,11 @@ import Foundation
 ///    leading `\` makes "the remainder rendered literally (no further markup)".
 ///    It does not: `makeOutput` starts with `var escape = preEscape`, and the
 ///    very first character processed clears `escape` whatever it is. So a leading
-///    backslash escapes exactly *one* character — the first — and the rest of the
+///    backslash escapes exactly *one* character—the first—and the rest of the
 ///    line is parsed for tags as normal.
 ///
 /// 2. **Only literal mode and table mode change tokenization.** The style
-///    toggles (bold/italic/underline/colour/alignment) bleed across lines, but
+///    toggles (bold/italic/underline/color/alignment) bleed across lines, but
 ///    they never affect what is or isn't a token, so this lexer ignores them
 ///    entirely. `MicronLinter` runs its own tiny pass for the one rule that does
 ///    need them (a toggle left open at EOF).
@@ -42,10 +42,10 @@ import Foundation
 /// Lexical classes an editor cares about.
 ///
 /// Deliberately *not* a mirror of
-/// `MicronNode` — these are ranges to colour, not semantics to render.
+/// `MicronNode`—these are ranges to color, not semantics to render.
 ///
 /// Note there is no `text` case: ordinary body text produces no token at all.
-/// `headingText` exists only because heading content is worth colouring as a
+/// `headingText` exists only because heading content is worth coloring as a
 /// unit, and heading content is itself tag-parsed (`parseLine` runs it through
 /// `makeOutput`), so it arrives as runs interleaved with real tags.
 enum MicronTokenKind: String, CaseIterable, Sendable {
@@ -61,7 +61,7 @@ enum MicronTokenKind: String, CaseIterable, Sendable {
     case unknownCommand
     /// A ">" run on a line that also contains a form field. The parser drops it
     /// and renders the line as body text, so it is markup the author wrote that
-    /// produces nothing — distinct from `headingMarker`, which does work.
+    /// produces nothing—distinct from `headingMarker`, which does work.
     case droppedHeadingMarker
 }
 
@@ -95,10 +95,10 @@ struct MicronDiagnostic: Equatable, Sendable {
 /// A small, opinionated set of lints.
 ///
 /// The bar for inclusion is that the parser
-/// *silently* does something other than what the author wrote — Micron has no
+/// *silently* does something other than what the author wrote—Micron has no
 /// error reporting of its own, so a mistyped tag just vanishes from the page and
-/// the author is left staring at a hole. Each message therefore says what will
-/// happen, not merely that something is wrong.
+/// the author is left staring at a hole. Each message therefore says what
+/// happens, not merely that something is wrong.
 ///
 /// Severity is `error` when author content is discarded or swallowed, `warning`
 /// when only the tag itself is lost or degraded.
@@ -121,7 +121,7 @@ enum MicronLinter {
     /// The one rule that needs formatting state the lexer deliberately throws away.
     ///
     /// `ParseState.bold/underline/italic` are toggles that persist across lines
-    /// for the whole document — nothing resets them at end of line, end of
+    /// for the whole document—nothing resets them at end of line, end of
     /// section or end of heading. Only `` `` `` (`resetFormatting`) clears them.
     /// So an unmatched `` `! `` doesn't bold a word, it bolds the rest of the page.
     private static func openStyleDiagnostics(
@@ -175,8 +175,8 @@ enum MicronLinter {
 /// The single state machine behind both `MicronSyntax.tokens` and
 /// `MicronLinter.diagnostics`.
 ///
-/// They must agree — a token stream that says
-/// "field" where the linter says "not a field" is worse than either alone — so
+/// They must agree—a token stream that says
+/// "field" where the linter says "not a field" is worse than either alone—so
 /// there is exactly one walk of the document and the two public entry points are
 /// thin projections of its result.
 private struct MicronScanner {
@@ -250,7 +250,7 @@ private struct MicronScanner {
         // `split(separator: "\n", omittingEmptySubsequences: false)` over
         // *Characters*. Trap: "\r\n" is a single grapheme cluster and is not
         // equal to "\n", so a CRLF document is one enormous line to the parser
-        // — and therefore to us. Reproducing that is the point; a lexer that
+        //—and therefore to this lexer. Reproducing that is the point; a lexer that
         // helpfully split on CRLF would highlight lines the renderer never sees.
         var lineStart = 0
         var index = 0
@@ -270,7 +270,7 @@ private struct MicronScanner {
                      + "document renders verbatim, tags and all. Add a closing `= line.")
         }
         if let fence = tableFence {
-            // `parse()` flushes `tableBuffer` at EOF, so the rows do render — but
+            // `parse()` flushes `tableBuffer` at EOF, so the rows do render—but
             // as table cells, not as markup.
             diagnose(.error, fence.range, line: fence.line,
                      "Table is never closed — every line to the end of the document "
@@ -299,7 +299,7 @@ private struct MicronScanner {
             return
         }
 
-        // 2. Literal body — no tag recognition at all.
+        // 2. Literal body—no tag recognition at all.
         if literal {
             emit(.literalBody, lo, hi)
             return
@@ -321,7 +321,7 @@ private struct MicronScanner {
             preEscape = true
         } else if chars[lo] == ">", containsFieldOpener(lo, hi) {
             // `parseLine`: a heading line that also contains "`<" loses heading
-            // status entirely — the whole run of ">" is dropped and the rest is
+            // status entirely—the whole run of ">" is dropped and the rest is
             // parsed as an ordinary line.
             //
             // Worth a diagnostic even though nothing the author typed is lost:
@@ -427,7 +427,7 @@ private struct MicronScanner {
     /// - Parameters:
     ///   - lo: first index of the range to scan.
     ///   - hi: one past the last index of the range to scan.
-    ///   - escaped: initial state of `makeOutput`'s `escape` flag, i.e. the
+    ///   - escaped: initial state of `makeOutput`'s `escape` flag, that is, the
     ///     parser's `preEscape`. Remember it survives exactly one character.
     ///   - plainKind: token kind for plain-text runs, or nil to emit none.
     private mutating func scanInline(
@@ -466,7 +466,7 @@ private struct MicronScanner {
                     // `FT rrggbb (6 digit) else `F rgb (3 digit). The two guards
                     // are independent in the parser: "`FT12" fails the 6-digit
                     // length check and then feeds "T12" to parseColor3, which
-                    // fails and yields the *default* colour rather than nothing.
+                    // fails and yields the *default* color rather than nothing.
                     if index + 1 < hi, chars[index + 1] == "T", index + 7 < hi {
                         let hex = String(chars[(index + 2)..<(index + 8)])
                         emit(.colorTag, tagStart, index + 8)
@@ -560,7 +560,7 @@ private struct MicronScanner {
 
                 default:
                     // Anything else after a backtick is consumed and produces
-                    // nothing — both characters simply disappear from the page.
+                    // nothing—both characters simply disappear from the page.
                     emit(.unknownCommand, tagStart, index + 1)
                     diagnose(.warning, tagStart, index + 1,
                              "Unknown command `\(character) — the parser deletes it silently "
@@ -685,16 +685,16 @@ private struct MicronScanner {
     /// `parseColor3`: "gNN" is a greyscale percentage (two *decimal* digits),
     /// anything else is three hex nibbles.
     ///
-    /// Flagging "`Fg50" as a bad colour
+    /// Flagging "`Fg50" as a bad color
     /// would be a false positive on perfectly good markup.
     private func isColor3(_ hex: String) -> Bool {
         let characters = Array(hex)
         guard characters.count == 3 else { return false }
         if characters[0] == "g" { return UInt8(String(characters[1...2])) != nil }
         // ASCII-only. `Character.isHexDigit` is Unicode-wide and returns true
-        // for the fullwidth forms U+FF10…, which a CJK IME produces — but the
+        // for the fullwidth forms U+FF10…, which a CJK IME produces—but the
         // parser validates with `UInt8(_:radix: 16)`, which is strictly ASCII
-        // and returns nil for them. Accepting them here meant a colour tag that
+        // and returns nil for them. Accepting them here meant a color tag that
         // silently does nothing passed the lint as valid.
         return characters.allSatisfy { $0.isASCII && $0.isHexDigit }
     }

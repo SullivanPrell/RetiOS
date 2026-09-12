@@ -23,7 +23,7 @@ enum PersistenceController {
         do {
             return try ModelContainer(for: schema, configurations: [config])
         } catch {
-            // A crash-on-launch here (e.g. an on-disk store left incompatible by
+            // A crash-on-launch here (for example, an on-disk store left incompatible by
             // a schema change) leaves the app permanently unlaunchable with no
             // recovery. Fall back to an in-memory store so the app still opens;
             // history won't persist this session, but the user isn't locked out.

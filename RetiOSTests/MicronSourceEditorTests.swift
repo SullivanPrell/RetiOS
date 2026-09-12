@@ -11,11 +11,11 @@
 import XCTest
 @testable import RetiOS
 
-/// Locks down the *capture styling policy* of the Micron source editor —
-/// which tree-sitter-micron `highlights.scm` capture name gets which colour
+/// Locks down the *capture styling policy* of the Micron source editor—which
+/// tree-sitter-micron `highlights.scm` capture name gets which color
 /// role and font weight.
 ///
-/// Not a rendering test — the editor itself is a `UIViewRepresentable` over
+/// Not a rendering test—the editor itself is a `UIViewRepresentable` over
 /// Runestone and exists on **iOS/iPadOS only** (Runestone is UIKit-only),
 /// which is not meaningfully assertable in a unit test anyway. That's exactly
 /// why `MicronCaptureColor`, `MicronCaptureStyle` and `MicronCaptureStyling`

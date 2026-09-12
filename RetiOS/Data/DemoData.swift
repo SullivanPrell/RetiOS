@@ -18,13 +18,13 @@ import SwiftData
 /// screenshot run can't reach the *populated* Messages, Contacts or Peers
 /// screens: an ad-hoc signed build has no sandbox, so it reads a different,
 /// empty store from the one the real app uses. That left the exact screens with
-/// the styling problems — row banding, separators, bubbles — unreviewable, and
+/// the styling problems—row banding, separators, bubbles—unreviewable, and
 /// every fix to them a guess. A two-row list is not enough either; row banding
 /// and scan-ability only show up past a handful of entries.
 ///
 /// Enabled with `-seedDemoData YES`. Never compiled into Release.
 ///
-/// **Safety.** Every row it writes is tagged — messages by a `demo-` hash
+/// **Safety.** Every row it writes is tagged—messages by a `demo-` hash
 /// prefix, peers and their conversations by a reserved `0d0d0d…` destination
 /// hash. It refuses to touch a store containing anything it did not write, and
 /// only ever deletes rows carrying those markers. Real conversations and real
@@ -42,7 +42,7 @@ enum DemoData {
     /// Reserved prefixes.
     ///
     /// A real Reticulum destination hash is a truncated
-    /// SHA-256, so these are astronomically unlikely to collide — but the
+    /// SHA-256, so these are astronomically unlikely to collide—but the
     /// deletion path is still gated on the message check below, not on this
     /// alone.
     private static let peerPrefix = "0d0d0d"
@@ -67,7 +67,7 @@ enum DemoData {
         guard existingMessages.allSatisfy({ $0.messageHash.hasPrefix(messagePrefix) }) else { return }
 
         // Clear the previous fixture so that editing the script below actually
-        // changes what the next screenshot run shows — otherwise the first seed
+        // changes what the next screenshot run shows—otherwise the first seed
         // wins forever and edits look like they did nothing.
         for message in existingMessages { context.delete(message) }
         let existingPeers = (try? context.fetch(FetchDescriptor<PeerEntity>())) ?? []
@@ -77,7 +77,7 @@ enum DemoData {
 
         let now = Date()
 
-        // A couple are deliberately nameless — the common case for a peer heard
+        // A couple are deliberately nameless—the common case for a peer heard
         // only via an announce.
         let names: [String?] = ["sully-iphone", "kitchen-node", "EliteOne-SB",
                                 "sergds (Ts3K)", "Ashen", "gdch7", "SLEN",
@@ -90,7 +90,7 @@ enum DemoData {
 
         // A short exchange on the first conversation, spanning enough of the
         // calendar to exercise every branch of `RNSDate.listTimestamp` at once
-        // — today, yesterday, and a date past the weekday window.
+        //—today, yesterday, and a date past the weekday window.
         var script: [(peer: String, minutesAgo: Double, outbound: Bool, text: String)] = [
             (peerAHash, 60 * 26,     true,  "testing123"),
             (peerAHash, 60 * 25,     false, "hi"),

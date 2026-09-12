@@ -17,7 +17,7 @@ import Runestone
 // MARK: - iOS/iPadOS only (read this before filing a bug)
 //
 // The Micron source editor exists on iOS and iPadOS and nowhere else. That is
-// not an oversight and not a phased rollout — it is a hard platform constraint
+// not an oversight and not a phased rollout—it is a hard platform constraint
 // that the Mac build is now honest about instead of papering over.
 //
 // The editor is Runestone's `TextView`: a code-editor surface with a
@@ -28,26 +28,26 @@ import Runestone
 // layer (`Theme`, `HighlightedRange`, `DefaultTheme`) is typed in
 // `UIFont`/`UIColor`. Its `Package.swift` declares `platforms: [.iOS(.v14)]` and
 // nothing else. It is linked here with XcodeGen `destinationFilters: [iOS]`
-// precisely so the Mac slice never tries to compile it — so **every** `Runestone`
+// precisely so the Mac slice never tries to compile it—so **every** `Runestone`
 // symbol below must stay inside `#if os(iOS)`. Mac Catalyst would build it, but
 // RetiOS ships a native Mac target, not Catalyst.
 //
 // This file used to carry a macOS branch: a plain SwiftUI `TextEditor` in a
-// monospaced face, with no gutter, no colouring and no find bar. It was removed
+// monospaced face, with no gutter, no coloring and no find bar. It was removed
 // deliberately. A page author cannot tell whether markup is right without seeing
 // it separated from prose, so that surface was not a smaller version of the
-// editor — it was a worse tool wearing the same name. Rather than ship it, the
+// editor—it was a worse tool wearing the same name. Rather than ship it, the
 // whole Pages section is compiled out of the Mac slice: `NomadSection` has no
 // `.pages` case there (see NomadNetContainerView), and PagesView.swift and
 // MicronPageEditorView.swift are `#if os(iOS)` in their entirety.
 //
-// What would close the gap, in increasing order of cost — kept as the record of
+// What would close the gap, in increasing order of cost—kept as the record of
 // what a Mac version would actually take, should anyone want to build one:
 //   1. Raise the macOS floor to 26 and use the attributed `TextEditor`
-//      (`Binding<AttributedString>`), which gives colouring — but still no
+//      (`Binding<AttributedString>`), which gives coloring—but still no
 //      gutter. Cheapest real improvement; blocked today by the macOS 14 floor.
 //   2. An `NSViewRepresentable` over `NSTextView` with a `NSTextStorage`
-//      delegate applying the same Tree-sitter-driven colours. Gets colouring
+//      delegate applying the same Tree-sitter-driven colors. Gets coloring
 //      on any macOS.
 //   3. A ruler-view gutter on top of (2). Explicitly out of scope: a
 //      hand-rolled `NSRulerView` that stays aligned through wrapping, folding
@@ -59,17 +59,17 @@ import Runestone
 
 // MARK: - Tree-sitter capture styling (portable policy)
 //
-// Which colour role and font weight each tree-sitter-micron `highlights.scm`
-// capture name maps to. Plain data only — no UIKit, no Runestone — so this
+// Which color role and font weight each tree-sitter-micron `highlights.scm`
+// capture name maps to. Plain data only—no UIKit, no Runestone—so this
 // lives outside the `#if os(iOS)` gate below and stays unit-testable on the
 // macOS destination too. `RetiOSTests` builds for both destinations, and this
-// mapping is the one part of the theme that isn't actually iOS-specific —
-// the same reason `MicronTintRole` used to live out here before this file
+// mapping is the one part of the theme that isn't actually iOS-specific—the
+// same reason `MicronTintRole` used to live out here before this file
 // grew real Tree-sitter highlighting.
 
-/// A colour role from the RNS brand palette (`Design/RNSBrand.swift`).
+/// A color role from the RNS brand palette (`Design/RNSBrand.swift`).
 ///
-/// Deliberately not resolved to `UIColor` here — `UIColor` is UIKit, and this
+/// Deliberately not resolved to `UIColor` here—`UIColor` is UIKit, and this
 /// type must build on macOS for `RetiOSTests`. See `MicronEditorTheme` below
 /// for the half of this that does resolve to `UIColor`, which has no reason
 /// to exist outside iOS and stays inside the guard.
@@ -84,14 +84,14 @@ struct MicronCaptureStyle: Equatable {
 }
 
 /// tree-sitter-micron's `queries/highlights.scm` capture names, mapped to a
-/// colour and weight.
+/// color and weight.
 ///
-/// Real, per-construct colour (closer to VS Code/Zed)
+/// Real, per-construct color (closer to VS Code/Zed)
 /// rather than the Pages editor's earlier background-tint scheme, which this
-/// replaces. Every colour is drawn from the existing RNS palette — no new
+/// replaces. Every color is drawn from the existing RNS palette—no new
 /// hues introduced. `rnsWarning`/`rnsError` are deliberately excluded: they
 /// are load-bearing for `MicronLinter`'s actual-problem signal elsewhere in
-/// this screen, and reusing them for ordinary syntax colouring would blur a
+/// this screen, and reusing them for ordinary syntax coloring would blur a
 /// distinction the app keeps sharp on purpose.
 enum MicronCaptureStyling {
     static let styles: [String: MicronCaptureStyle] = [
@@ -121,7 +121,7 @@ enum MicronCaptureStyling {
     /// Returns the style for `highlightName`, falling back through its dotted prefixes.
     ///
     /// Longest dotted-prefix match, per Runestone's own documented pattern
-    /// (`CreatingATheme.md`'s `findLongestMatch`) — e.g. a future
+    /// (`CreatingATheme.md`'s `findLongestMatch`)—for example, a future
     /// `markup.link.label.something` capture would fall back through
     /// `markup.link.label`, then `markup.link`, rather than going unstyled.
     /// Every capture tree-sitter-micron's own `highlights.scm` actually emits
@@ -142,14 +142,14 @@ enum MicronCaptureStyling {
 
 // MARK: - The editor
 
-/// A source editor for Micron (`.mu`) documents — a `UIViewRepresentable` over
+/// A source editor for Micron (`.mu`) documents—a `UIViewRepresentable` over
 /// Runestone's `TextView`.
 ///
 /// This is the first `*Representable` in RetiOS, so the lifecycle is spelled
 /// out rather than assumed:
 ///
 ///   `makeCoordinator()` runs once per identity and owns the only long-lived
-///   state — the delegate object. It must not touch the view (there isn't one
+///   state—the delegate object. It must not touch the view (there isn't one
 ///   yet).
 ///
 ///   `makeUIView(context:)` runs once. All *static* configuration goes here.
@@ -159,7 +159,7 @@ enum MicronCaptureStyling {
 ///   full re-layout) that are not free to repeat.
 ///
 ///   `updateUIView(_:context:)` runs on every invalidation of the enclosing
-///   view — which, for a bound `String`, means *every keystroke*. It must
+///   view—which, for a bound `String`, means *every keystroke*. It must
 ///   therefore be cheap and, above all, idempotent.
 struct MicronSourceEditor: UIViewRepresentable {
     @Binding var text: String
@@ -174,9 +174,9 @@ struct MicronSourceEditor: UIViewRepresentable {
         view.editorDelegate = context.coordinator
 
         // Markup editing, not prose editing. Every one of these is a
-        // correctness fix, not a preference: iOS will happily turn `"` into a
+        // correctness fix, not a preference: iOS happily turns `"` into a
         // curly quote and `--` into an em dash, and Micron's parser does not
-        // recognise either. Autocapitalisation alone silently breaks
+        // recognize either. Autocapitalisation alone silently breaks
         // lower-case tag names.
         view.autocorrectionType = .no
         view.autocapitalizationType = .none
@@ -212,12 +212,12 @@ struct MicronSourceEditor: UIViewRepresentable {
         // tree-sitter-micron's compiled grammar via Runestone's public
         // `TreeSitterLanguage` API, so Runestone parses the document for real
         // and calls `MicronEditorTheme.textColor(for:)`/`fontTraits(for:)` per
-        // capture — that's where the actual Micron colours come from now.
+        // capture—that's where the actual Micron colors come from now.
         //
         // Runestone recommends building the state off the main queue for large
         // documents. Not done here: a NomadNet page is a few kilobytes, and
         // hopping queues would mean the view renders empty for a frame on every
-        // externally-driven load (file open, page switch). Revisit if this
+        // externally driven load (file open, page switch). Revisit if this
         // editor is ever pointed at something big.
         view.setState(TextViewState(text: text, theme: MicronEditorTheme.shared, language: .micron))
 
@@ -239,14 +239,14 @@ struct MicronSourceEditor: UIViewRepresentable {
         // NEVER assign `uiView.text` here. Runestone's `text` setter swaps the
         // backing `StringView` without rebuilding the line manager or clearing
         // the per-line controllers, which leaves stale layout objects pointing
-        // into a string that no longer exists — the cause of several open
+        // into a string that no longer exists—the cause of several open
         // upstream crash reports. `setState` is the supported path and does
-        // rebuild everything (including clamping the selection, so we do not
-        // have to save and restore it).
+        // rebuild everything (including clamping the selection, so it does not
+        // have to be saved and restored).
         //
         // And a reload here is only ever correct for a change that came from
         // *outside* the editor. When the user types, `textViewDidChange` writes
-        // the binding, SwiftUI re-invalidates, and we land right back here — at
+        // the binding, SwiftUI re-invalidates, and control lands right back here—at
         // which point the view's text and the binding are already identical, so
         // the comparison below is itself the re-entrancy guard. That is why it
         // compares view-to-binding rather than tracking an "isUpdating" flag:
@@ -258,7 +258,7 @@ struct MicronSourceEditor: UIViewRepresentable {
         if uiView.text != text {
             // `addUndoAction: true`, NOT the default. `setState` defaults to
             // false, which REPLACES the document without registering an undo
-            // operation — and that discards the whole existing undo stack. Every
+            // operation—and that discards the whole existing undo stack. Every
             // insert-palette tap and every builder sheet goes through this path
             // (they mutate the binding, not the view), so with the default a
             // single "Bold" tap made every keystroke before it un-undoable.
@@ -272,7 +272,7 @@ struct MicronSourceEditor: UIViewRepresentable {
     /// Delegate target and owner of the representable's mutable state.
     ///
     /// A class, and retained by SwiftUI for the lifetime of the view's
-    /// identity, which is what makes it safe for `editorDelegate` — a `weak`
+    /// identity, which is what makes it safe for `editorDelegate`—a `weak`
     /// reference that would otherwise be nil by the time the user typed.
     final class Coordinator: TextViewDelegate {
         var text: Binding<String>
@@ -302,7 +302,7 @@ struct MicronSourceEditor: UIViewRepresentable {
 /// churn the layout manager's font metrics for no reason.
 ///
 /// `textColor(for:)`/`fontTraits(for:)` map tree-sitter-micron's
-/// `queries/highlights.scm` capture names to real per-token colours via
+/// `queries/highlights.scm` capture names to real per-token colors via
 /// `MicronCaptureStyling` (above, outside the iOS gate so the mapping stays
 /// testable on macOS too). Runestone passes capture names through verbatim,
 /// with no fallback matching of its own (confirmed against its source), so
@@ -323,7 +323,7 @@ private final class MicronEditorTheme: Theme {
     ///
     /// Runestone caches an estimated line
     /// height off `theme.font` when the state is built, so this is sampled at
-    /// state-construction time — a content-size change mid-session needs a new
+    /// state-construction time—a content-size change mid-session needs a new
     /// `setState` to take effect. The cap keeps the gutter from eating half the
     /// width at the top accessibility sizes.
     let font: UIFont = UIFontMetrics(forTextStyle: .body).scaledFont(
@@ -356,7 +356,7 @@ private final class MicronEditorTheme: Theme {
 
     // MARK: Tree-sitter capture styling
     //
-    // The capture → colour/weight policy itself is `MicronCaptureStyling`,
+    // The capture → color/weight policy itself is `MicronCaptureStyling`,
     // above the `#if os(iOS)` guard. What's left here is resolving each
     // `MicronCaptureColor` to a dynamic `UIColor`, which has no reason to
     // exist outside iOS.
@@ -368,7 +368,7 @@ private final class MicronEditorTheme: Theme {
     private static let infoColor = resolvedColor(Color.rnsInfo)
     private static let textMutedColor = resolvedColor(Color.rnsTextMuted)
 
-    /// Resolves a brand `Color` to a *dynamic* `UIColor` — deferred to draw
+    /// Resolves a brand `Color` to a *dynamic* `UIColor`—deferred to draw
     /// time, per trait collection, so it doesn't go stale across a Light/Dark
     /// switch the way a plain `UIColor(Color.x)` captured once at first touch
     /// would.

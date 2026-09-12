@@ -11,8 +11,8 @@
 import XCTest
 @testable import RetiOS
 
-/// Covers the pure, CoreBluetooth-free half of connection arbitration —
-/// nonce generation and the comparison that decides who dials out.
+/// Covers the pure, CoreBluetooth-free half of connection arbitration—nonce
+/// generation and the comparison that decides who dials out.
 ///
 /// The
 /// CoreBluetooth-entangled half (advertising, scanning, GATT setup) needs
@@ -53,7 +53,7 @@ final class CoreBluetoothMeshTransportArbitrationTests: XCTestCase {
 
     func testTieDefersOnBothSides() {
         // Identical nonces (astronomically unlikely at 24 bits, but not
-        // impossible) must not make both sides connect — that's the exact
+        // impossible) must not make both sides connect—that's the exact
         // mutual cross-connect deadlock arbitration exists to prevent.
         // Deferring on both sides is safe: `deferralTimeout`'s self-heal
         // promotes one side automatically.
@@ -65,9 +65,9 @@ final class CoreBluetoothMeshTransportArbitrationTests: XCTestCase {
 
     func testMissingPeerNonceDefers() {
         // A peer with no advertised nonce compares as empty, the smallest
-        // possible value, so we always defer to it. This can't occur in
-        // practice — anything discovered here already advertised our exact
-        // custom service UUID to be seen at all — but the comparison still
+        // possible value, so the local side always defers to it. This can't occur in
+        // practice—anything discovered here already advertised the exact
+        // custom service UUID to be seen at all—but the comparison still
         // needs to resolve to *something* deterministic rather than
         // force-unwrapping or crashing.
         XCTAssertEqual(

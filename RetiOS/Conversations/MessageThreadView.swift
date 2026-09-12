@@ -17,7 +17,7 @@ struct MessageThreadView: View {
     @Environment(\.modelContext) private var context
     @Query private var messages: [MessageEntity]
     @Query private var peers: [PeerEntity]
-    // errorMessage is the only @State here — only changes on send, not on every keystroke.
+    // errorMessage is the only @State here—only changes on send, not on every keystroke.
     // `draft` has been moved into ComposeBar so that typing only invalidates ComposeBar.body,
     // not the full message list above.
     @State private var errorMessage: String?
@@ -51,13 +51,13 @@ struct MessageThreadView: View {
             // ~1000 pt wide, and an unconstrained thread turns every message
             // into one 130-character line. The compose bar below takes the same
             // cap so the bar never spans wider than the content it separates.
-            // The outer .infinity frame re-centres the capped column instead of
+            // The outer .infinity frame re-centers the capped column instead of
             // leaving it flush leading.
             .frame(maxWidth: RNSLayout.threadWidth)
             .frame(maxWidth: .infinity)
         }
         // Replaces the entire ScrollViewReader + proxy.scrollTo, which had a
-        // trigger for exactly one of the four cases that need one — see
+        // trigger for exactly one of the four cases that need one—see
         // `rnsBottomScrollAnchor`. In particular the `onAppear` scrollTo raced
         // the LazyVStack (trailing rows are not materialised on the first
         // layout pass, so the proxy had no target and the thread opened
@@ -73,12 +73,12 @@ struct MessageThreadView: View {
         .onAppear { markRead() }
         // `rnsBottomBar` (safeAreaBar on 26) rather than safeAreaInset: it also
         // extends the scroll view's bottom edge effect into the inset, which is
-        // the fade that was missing under the bar — bubbles used to scroll
+        // the fade that was missing under the bar—bubbles used to scroll
         // under it, and behind the floating tab bar, with no transition at all.
         .rnsBottomBar { composeBar }
         .rnsCanvasBackground()
         // Transient confirmation. The button vanishing is the primary signal,
-        // but on its own it is ambiguous — a control that disappears the instant
+        // but on its own it is ambiguous—a control that disappears the instant
         // it is tapped reads just as easily as a mis-tap or a glitch, and nothing
         // else on this screen changes (the title already showed the peer's name).
         // This says what happened, in the place the user is looking.
@@ -140,14 +140,14 @@ struct MessageThreadView: View {
     /// looks out of place above the keyboard, apply Liquid Glass to the view
     /// that contains your controls to maintain consistency." Putting it on the
     /// field and the send button individually instead would also run against
-    /// Materials' "use Liquid Glass effects sparingly — overusing this material
+    /// Materials' "use Liquid Glass effects sparingly—overusing this material
     /// in multiple custom controls can provide a subpar user experience."
     ///
     /// `.screenBottom` is the actual reported fix: the bar's bottom corners now
     /// follow the display's radius instead of cutting a 90° rectangle across it
     /// beside the floating capsule tab bar.
     ///
-    /// No `Divider()` on iOS/macOS 26 — `rnsBottomBar` extends the scroll edge
+    /// No `Divider()` on iOS/macOS 26—`rnsBottomBar` extends the scroll edge
     /// effect into the inset and that *is* the separation.
     /// `rnsLegacyBarChrome` puts the hairline back below 26, where there is no
     /// such effect.
@@ -177,9 +177,9 @@ struct MessageThreadView: View {
         peers.first?.label ?? "<\(String(peerHash.prefix(8)))>"
     }
 
-    /// No PeerEntity at all means the thread was opened for a hash we've never
-    /// heard an announce from (compose-to-hash), which is likewise "not a
-    /// contact" — so the add action is offered in both cases.
+    /// No PeerEntity at all means the thread was opened for a hash that has never
+    /// announced (compose-to-hash), which is likewise "not a
+    /// contact"—so the add action is offered in both cases.
     private var isContact: Bool {
         peers.first?.isContact == true
     }
@@ -202,7 +202,7 @@ struct MessageThreadView: View {
         } else {
             // Never announced. Insert the row the announce handler would have
             // created; a later announce upserts by hash and fills in the display
-            // name instead of colliding. No displayName is invented here — the
+            // name instead of colliding. No displayName is invented here—the
             // list falls back to `<shorthash>` via PeerEntity.label, and a made-up
             // name would be indistinguishable from an announced one.
             context.insert(PeerEntity(destinationHash: hash, isContact: true))
@@ -211,7 +211,7 @@ struct MessageThreadView: View {
         contactAddedTick += 1
     }
 
-    /// Clear the unread flag on everything in this thread — called when the
+    /// Clear the unread flag on everything in this thread—called when the
     /// thread is opened and whenever new messages arrive while it's visible.
     private func markRead() {
         var dirty = false
@@ -222,7 +222,7 @@ struct MessageThreadView: View {
         if dirty { try? context.save() }
     }
 
-    // `text` is trimmed and non-empty — ComposeBar guarantees this before calling.
+    // `text` is trimmed and non-empty—ComposeBar guarantees this before calling.
     private func sendMessage(_ text: String) {
         guard let peerData = Data(hexString: peerHash) else { return }
         do {
@@ -238,8 +238,8 @@ struct MessageThreadView: View {
 
 // MARK: - Compose bar
 //
-// Owns `draft` as private @State so keystrokes only re-evaluate ComposeBar.body —
-// not the ScrollView + message list in the parent. The parent receives text only
+// Owns `draft` as private @State so keystrokes only re-evaluate ComposeBar.body—not
+// the ScrollView + message list in the parent. The parent receives text only
 // when the user actually taps Send (or submits via keyboard).
 
 private struct ComposeBar: View {
@@ -249,7 +249,7 @@ private struct ComposeBar: View {
     ///
     /// The parent uses it to clear a stale
     /// send error, which otherwise pinned a red caption above the bar for the
-    /// life of the view — and, now that the error line sits inside the bottom
+    /// life of the view—and, now that the error line sits inside the bottom
     /// bar, permanently inflated the bottom safe area with it.
     let onDraftChanged: () -> Void
     @State private var draft = ""
@@ -269,7 +269,7 @@ private struct ComposeBar: View {
         HStack(spacing: 8) {
             // NOTE: no `.onSubmit` here. This is a multiline (`axis: .vertical`)
             // field, so Return inserts a newline and `.onSubmit` never fires on
-            // iOS — attaching it only misleads. Sending is via the button (and,
+            // iOS—attaching it only misleads. Sending is via the button (and,
             // on macOS, the ⌘Return keyboard shortcut on that button).
             TextField("Message", text: $draft, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
@@ -316,14 +316,14 @@ private struct ComposeBar: View {
 /// backed rather than one made the instant `send()` returned.
 ///
 /// `.delivered` now means the recipient proved receipt. `.sending` means in flight and not yet
-/// proved — a state a message can legitimately sit in for a while. `.outbound` means queued,
+/// proved—a state a message can legitimately sit in for a while. `.outbound` means queued,
 /// including after a delivery timeout returned it for another attempt, and is deliberately
 /// distinguished from `.sending`: a retry the user cannot see reads as a message that silently
 /// stopped moving.
 private func deliveryIcon(state: Int16) -> some View {
     Group {
         switch state {
-        case 0x08: // delivered — the recipient proved it
+        case 0x08: // delivered—the recipient proved it
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(Color.rnsSuccess)
                 .accessibilityLabel("Delivered")
@@ -331,11 +331,11 @@ private func deliveryIcon(state: Int16) -> some View {
             Image(systemName: "checkmark")
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("Sent")
-        case 0x02: // sending — in flight, awaiting the recipient's proof
+        case 0x02: // sending—in flight, awaiting the recipient's proof
             Image(systemName: "arrow.up.circle")
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("Sending")
-        case 0x01: // outbound — queued, or returned here by a delivery timeout
+        case 0x01: // outbound—queued, or returned here by a delivery timeout
             Image(systemName: "clock.arrow.circlepath")
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("Queued for delivery")
@@ -381,14 +381,14 @@ private struct MessageBubble: View {
 
                 // Show the text bubble when there's text, or as an "(empty)"
                 // placeholder only when the message carries neither text nor
-                // any attachment we could render.
+                // any attachment this view can render.
                 if hasText || att == nil {
                     Text(hasText ? message.content : "(empty)")
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         // Received bubble uses the secondary grouped surface (white in
                         // Light, dark-gray in Dark) so it always contrasts with the
-                        // grouped page — tertiary would match the page exactly in Light.
+                        // grouped page—tertiary would match the page exactly in Light.
                         .background(message.isOutbound ? Color.rnsAccent : Color.rnsSurface)
                         .foregroundStyle(message.isOutbound ? .white : .primary)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -403,7 +403,7 @@ private struct MessageBubble: View {
                     }
                 }
             }
-            // `Spacer(minLength:)` alone only guarantees a 40 pt gutter — it does
+            // `Spacer(minLength:)` alone only guarantees a 40 pt gutter—it does
             // not stop the bubble taking the other 950 pt of an iPad detail
             // column. Capping the bubble is what keeps a long message a
             // paragraph instead of one 130-character line, on the platform where
@@ -420,7 +420,7 @@ private struct MessageBubble: View {
 /// Renders the image / file / audio / telemetry attachments carried by an LXMF
 /// message.
 ///
-/// Display-only for now — playback of audio and saving of files are
+/// Display-only for now—playback of audio and saving of files are
 /// follow-on work; this surfaces what the C1 fix recovered on the wire.
 private struct AttachmentsView: View {
     let attachments: MessageAttachments

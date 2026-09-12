@@ -14,7 +14,7 @@ import ReticulumSwift
 
 // MARK: - CoreBluetoothMeshTransport
 
-/// CoreBluetooth implementation of `BLEMeshTransport` — lets this device mesh
+/// CoreBluetooth implementation of `BLEMeshTransport`—lets this device mesh
 /// directly with any number of nearby phones running the same app, with no
 /// RNode hardware in between.
 ///
@@ -22,48 +22,48 @@ import ReticulumSwift
 ///
 /// `BLERNodeTransport` only ever needs the *central* role: the phone connects
 /// out to one specific RNode peripheral. A phone-to-phone mesh can't work that
-/// way — CoreBluetooth centrals can only discover *peripherals*, never other
+/// way—CoreBluetooth centrals can only discover *peripherals*, never other
 /// centrals, so if every phone only scanned, no two phones could ever find
 /// each other. Each device must therefore run both roles concurrently:
 ///
 ///   - **Peripheral**: advertise the mesh GATT service, so nearby phones can
-///     find and connect to *us*.
+///     find and connect to *this device*.
 ///   - **Central**: scan for that same service, and connect out to whatever
-///     we find.
+///     it finds.
 ///
 /// Whichever side initiates the GATT connection, the link ends up fully
-/// bidirectional — exactly like `BLERNodeTransport`'s Nordic UART pattern,
+/// bidirectional—exactly like `BLERNodeTransport`'s Nordic UART pattern,
 /// just with the roles potentially reversed:
 ///
-///   - When **we are central** (we connected to them): we write to *their*
-///     RX characteristic, and subscribe to notifications on *their* TX
-///     characteristic.
-///   - When **we are peripheral** (they connected to us): they write to
-///     *our* RX characteristic, and we notify them via *our* TX
-///     characteristic once they subscribe.
+///   - When **this device is central** (it dialled the peer): it writes to the
+///     *peer's* RX characteristic, and subscribes to notifications on the
+///     *peer's* TX characteristic.
+///   - When **this device is peripheral** (the peer dialled it): the peer writes
+///     to this device's RX characteristic, and is notified on this device's TX
+///     characteristic once it subscribes.
 ///
 /// ## GATT layout
 ///
-/// A custom "Reticulum Mesh" service — this isn't a Nordic UART link, so it
+/// A custom "Reticulum Mesh" service—this isn't a Nordic UART link, so it
 /// gets its own UUID space, but mirrors the NUS convention of sequential
 /// service/RX/TX UUIDs for easy recognition:
 ///
 /// ```
-/// Service  98196A76 — Reticulum Mesh
-///   RX char 98196A77 — write / write-without-response (peer → us)
-///   TX char 98196A78 — notify                          (us → peer)
+/// Service  98196A76—Reticulum Mesh
+///   RX char 98196A77—write / write-without-response (peer → local)
+///   TX char 98196A78—notify                          (local → peer)
 /// ```
 ///
 /// ## Peer identity
 ///
-/// `BLEMeshPeerID` is `CBPeripheral.identifier.uuidString` for links where we
-/// are central, and `CBCentral.identifier.uuidString` where we are
+/// `BLEMeshPeerID` is `CBPeripheral.identifier.uuidString` for links where this
+/// device is central, and `CBCentral.identifier.uuidString` where it is
 /// peripheral. CoreBluetooth assigns these independently per role, so the
-/// *same* physical device can show up under two different peer IDs — once for
+/// *same* physical device can show up under two different peer IDs—once for
 /// each direction in which a connection was initiated. This transport makes
 /// no attempt to reconcile the two: `BLEMeshInterface`'s flood-and-broadcast
 /// model (mirroring `AutoInterface`) and `Transport`'s duplicate-hash
-/// suppression already handle redundant links gracefully — a "phantom" extra
+/// suppression already handle redundant links gracefully—a "phantom" extra
 /// neighbour just means a packet gets flooded down one extra (redundant) edge,
 /// not that anything breaks. Reconciling would require an application-layer
 /// handshake exchanging stable identities, which is out of scope for a radio
@@ -73,12 +73,12 @@ final class CoreBluetoothMeshTransport: NSObject {
     // MARK: - GATT UUIDs
 
     static let meshSvcUUID = CBUUID(string: "98196A76-3A68-4651-AAA0-160700BB0E6C")
-    /// Write / write-without-response: peer → us, when we are the GATT peripheral.
+    /// Write / write-without-response: peer → local, in the GATT peripheral role.
     static let meshRxUUID  = CBUUID(string: "98196A77-3A68-4651-AAA0-160700BB0E6C")
-    /// Notify: us → peer, when we are the GATT peripheral.
+    /// Notify: local → peer, in the GATT peripheral role.
     static let meshTxUUID  = CBUUID(string: "98196A78-3A68-4651-AAA0-160700BB0E6C")
 
-    /// Human-readable `CBManagerState` for diagnostic logging — neither
+    /// Human-readable `CBManagerState` for diagnostic logging—neither
     /// `CBManagerState` nor `CBPeripheralManagerState`/`CBCentralManagerState`
     /// (it's a single shared enum) conforms to `CustomStringConvertible`.
     private static func describe(_ state: CBManagerState) -> String {
@@ -93,7 +93,7 @@ final class CoreBluetoothMeshTransport: NSObject {
         }
     }
 
-    /// First 8 hex characters of a peer ID — enough to distinguish peers in
+    /// First 8 hex characters of a peer ID—enough to distinguish peers in
     /// logs without spamming full UUIDs.
     private static func short(_ peerID: BLEMeshPeerID) -> Substring { peerID.prefix(8) }
 
@@ -104,11 +104,11 @@ final class CoreBluetoothMeshTransport: NSObject {
     // are independently assigned per role (see the "Peer identity" doc
     // comment on the type), and `CBPeripheralManager` exposes no "local
     // identifier" at all. Yet every device here runs *both* roles and
-    // scans+advertises continuously — so any two devices in range inevitably
+    // scans+advertises continuously—so any two devices in range inevitably
     // discover each other within milliseconds of one another and BOTH call
     // `central.connect(_:)` at nearly the same instant. In practice that
     // mutual cross-connection attempt deadlocks at least one side's radio:
-    // neither `didConnect` nor `didFailToConnect` ever fires — exactly the
+    // neither `didConnect` nor `didFailToConnect` ever fires—exactly the
     // symptom reported ("discovered peer ... — connecting", then permanent
     // silence, 0 packets/0 peers on both ends despite both successfully
     // advertising and scanning).
@@ -117,84 +117,84 @@ final class CoreBluetoothMeshTransport: NSObject {
     // initiator per pair so there's nothing left to race: on mutual
     // discovery, only one side calls `connect(_:)`; the other waits to be
     // connected to. Both keep advertising and scanning regardless, so the
-    // link still forms either way — just from exactly one direction.
+    // link still forms either way—just from exactly one direction.
     //
     // ATTEMPT #1 (reverted): generate a random per-device ID, persist it,
     // and append it to the advertised local name (`"<name>\u{1F}<hex id>"`)
-    // so peers could compare IDs and elect the numerically-lower side. This
+    // so peers could compare IDs and elect the numerically lower side. This
     // built and ran, but made things *worse* in the field: appending even
     // ~9 bytes pushed the local-name AD structure past whatever headroom
     // `CBPeripheralManager` has left over once the 128-bit mesh service UUID
     // (16 bytes alone) is also in the advertisement. The system responded by
     // silently dropping `CBAdvertisementDataLocalNameKey` from the broadcast
-    // *entirely* — confirmed by comparing the two test runs' logs:
+    // *entirely*—confirmed by comparing the two test runs' logs:
     //   before the suffix: peers correctly saw "RetiOS" / "sully-iphone"
     //   after adding it:   peers instead saw "Sullivan's MacBook Pro" /
-    //                      "Sully-iPhone" — the *system* Bluetooth device
-    //                      names, i.e. `didDiscover`'s fallback to
+    //                      "Sully-iPhone"—the *system* Bluetooth device
+    //                      names, that is, `didDiscover`'s fallback to
     //                      `peripheral.name` because `CBAdvertisementData-
     //                      LocalNameKey` was simply absent from the payload.
     // With the custom name gone, `parseAdvertisedName` always returned a
     // `nil` ID, `connectionDecision`'s `guard let peerTieBreakID` always
-    // failed, and *both* sides fell through to `.connect` — i.e. the exact
+    // failed, and *both* sides fell through to `.connect`—that is, the exact
     // mutual cross-connection deadlock arbitration was meant to prevent,
     // just one layer further down.
     //
-    // ATTEMPT #2: don't transmit anything new at all — there's no headroom
+    // ATTEMPT #2: don't transmit anything new at all—there's no headroom
     // to do so safely alongside a 128-bit service UUID, full stop. Instead,
     // elect the initiator using data that's *already* proven to transmit
     // intact: the plain advertised display name. Lexicographic string
-    // comparison is symmetric and deterministic — exactly one of
-    // `nameA < nameB` / `nameB < nameA` holds for any two distinct names —
-    // so "the side whose name sorts lower dials out" resolves identically
+    // comparison is symmetric and deterministic—exactly one of
+    // `nameA < nameB` / `nameB < nameA` holds for any two distinct names—so
+    // "the side whose name sorts lower dials out" resolves identically
     // from both ends without adding a single byte to either advertisement.
     //
-    // ATTEMPT #3 (current, additive — election logic itself is unchanged
+    // ATTEMPT #3 (current, additive—election logic itself is unchanged
     // from #2): in the field, election picked exactly one initiator
-    // correctly — one side logged "connecting", the other "yielding the
-    // connection to them" — and the link *still* never formed: the
+    // correctly—one side logged "connecting", the other "yielding the
+    // connection to them"—and the link *still* never formed: the
     // "connecting" side fell silent forever, 0 packets/0 peers on both ends.
     // Two independent liveness gaps were compounding:
     //
     //   1. `central.connect(_:)` has **no built-in timeout**. CoreBluetooth
-    //      can — and in the field, did — simply never call back: neither
+    //      can—and in the field, did—simply never call back: neither
     //      `didConnect` nor `didFailToConnect` fired. That latches
     //      `connectingPeripheralIDs` forever, so every subsequent
     //      `didDiscover` for that peer is silently swallowed by the
     //      `guard !alreadyConnecting`. (The likely trigger, visible by
-    //      comparing the two sides' logs side by side: "sully-iphone" — 12
-    //      bytes — doesn't fit in the legacy 31-byte advertisement PDU
+    //      comparing the two sides' logs side by side: "sully-iphone"—12
+    //      bytes—doesn't fit in the legacy 31-byte advertisement PDU
     //      alongside the 18-byte 128-bit-service-UUID AD structure and
-    //      3-byte flags structure, leaving ~10 bytes of headroom — 2 of
+    //      3-byte flags structure, leaving ~10 bytes of headroom—2 of
     //      which are the name structure's own length+type, an 8-character
-    //      ceiling. "RetiOS" — 6 bytes — just squeaks under it. So the
+    //      ceiling. "RetiOS"—6 bytes—just squeaks under it. So the
     //      *winning* side here, the Mac, received the iPhone's advertisement
-    //      with `CBAdvertisementDataLocalNameKey` silently dropped — exactly
-    //      like ATTEMPT #1's postmortem — and fell back to `peripheral.name`,
+    //      with `CBAdvertisementDataLocalNameKey` silently dropped—exactly
+    //      like ATTEMPT #1's postmortem—and fell back to `peripheral.name`,
     //      the cached *system* Bluetooth name "Sully-iPhone". Lexicographic
     //      comparison of "RetiOS"/"Sully-iPhone" happened to pick the same
-    //      winner "RetiOS"/"sully-iphone" would have — pure luck of where
-    //      capital vs. lowercase letters fall in ASCII — so the election
+    //      winner "RetiOS"/"sully-iphone" would have—pure luck of where
+    //      capital vs. lowercase letters fall in ASCII—so the election
     //      *looked* perfectly correct in this trace. The actual failure was
     //      one layer further downstream: that winning side's `connect(_:)`
     //      call against the resulting peripheral simply never resolved.)
     //   2. `deferralTimeout`'s self-heal was only ever evaluated from inside
-    //      `didDiscover` — but `scanForPeripherals` runs with
+    //      `didDiscover`—but `scanForPeripherals` runs with
     //      `allowDuplicates: false` (the only sane choice for an always-on
     //      background scan), under which CoreBluetooth typically does *not*
     //      redeliver `didDiscover` for a peripheral it already reported. So
     //      the side that yielded the election had no event left to ever
-    //      re-run `connectionDecision` — it would defer *forever*, blind to
+    //      re-run `connectionDecision`—it would defer *forever*, blind to
     //      the winner being stuck on (1).
     //
     // Fixed both with watchdogs that don't depend on any particular
     // CoreBluetooth callback recurring: `scheduleConnectTimeout` cancels and
     // releases a `connect(_:)` attempt that's produced neither success nor
     // failure within `connectTimeout`, and `recheckDeferrals` is a periodic
-    // timer — wholly independent of `didDiscover` — that promotes a
+    // timer—wholly independent of `didDiscover`—that promotes a
     // long-deferred peer to "connect ourselves" once `deferralTimeout`
     // elapses. Together they guarantee forward progress no matter *why*
-    // CoreBluetooth went quiet — the same "an occasional redundant link
+    // CoreBluetooth went quiet—the same "an occasional redundant link
     // beats a permanent deadlock" trade-off `deferralTimeout` was already
     // built around.
     //
@@ -204,7 +204,7 @@ final class CoreBluetoothMeshTransport: NSObject {
     //
     //   1. The name-truncation failure mode (see ATTEMPT #1/#3) was never
     //      actually fixed, only avoided by luck of which names happened to
-    //      be short enough — "sully-iphone" at 12 bytes was already past the
+    //      be short enough—"sully-iphone" at 12 bytes was already past the
     //      ~8-character ceiling this device's own headroom allows once the
     //      128-bit service UUID is also advertised. Any user whose device
     //      name (or a future longer default display name) doesn't fit
@@ -212,34 +212,34 @@ final class CoreBluetoothMeshTransport: NSObject {
     //      short length sized safely under that ceiling closes this off
     //      structurally instead of hoping names stay short.
     //   2. Interop with a from-scratch, non-Swift implementation of this
-    //      protocol (a real possibility raised in review — nothing about the
+    //      protocol (a real possibility raised in review—nothing about the
     //      GATT scheme is Apple-specific) makes the risk worse, not just
     //      persistent: a different BLE stack (WinRT, Android
     //      `BluetoothLeAdvertiser`, BlueZ) builds and truncates its
-    //      advertisement payload differently, so two independently-written
+    //      advertisement payload differently, so two independently written
     //      implementations aren't even guaranteed to agree on how much name
     //      headroom exists, let alone fall back identically when it's
     //      exceeded.
     //
     // Deliberately a random per-session nonce, not a hash of the node's
-    // permanent Reticulum `Identity` — a stable identifier broadcast in the
+    // permanent Reticulum `Identity`—a stable identifier broadcast in the
     // clear on every advertisement would be a durable tracking fingerprint
     // (defeating BLE MAC randomization's entire purpose, since anyone
     // passively scanning could correlate a specific identity's physical
     // presence over time without ever connecting to it). The nonce never
     // needed to carry meaning beyond breaking a tie, so a fresh random value
-    // per `start()` gets every property the old scheme needed — fixed
+    // per `start()` gets every property the old scheme needed—fixed
     // length, deterministic symmetric comparison, negligible collision odds
-    // — with none of that cost.
+    //—with none of that cost.
     //
     // `CBAdvertisementDataLocalNameKey` remains the only place to put it:
     // per Apple's documented behavior, `CBPeripheralManager.startAdvertising`
     // on iOS accepts *only* `CBAdvertisementDataLocalNameKey` and
-    // `CBAdvertisementDataServiceUUIDsKey` — any other key (e.g. Service
+    // `CBAdvertisementDataServiceUUIDsKey`—any other key (for example, Service
     // Data or Manufacturer Data, which would otherwise be the natural home
     // for a compact binary payload) is rejected outright. So the nonce is
     // hex-encoded and now *is* the advertised local name, in place of the
-    // human-readable display name the field used to carry — the display
+    // human-readable display name the field used to carry—the display
     // name is purely cosmetic now and never transmitted; peers show
     // `peripheral.name` (the system-cached Bluetooth device name) in logs
     // instead, exactly like the old code's foreign-peer fallback already
@@ -252,14 +252,14 @@ final class CoreBluetoothMeshTransport: NSObject {
     /// `2 * arbitrationNonceByteCount` characters for advertising.
     ///
     /// Six hex
-    /// characters matches "RetiOS" — a name already field-proven to survive
-    /// advertising intact alongside the 128-bit service UUID — rather than
+    /// characters matches "RetiOS"—a name already field-proven to survive
+    /// advertising intact alongside the 128-bit service UUID—rather than
     /// pushing to the theoretical ~8-character ceiling with no margin left
     /// for error.
     private static let arbitrationNonceByteCount = 3
 
-    /// Generates this device's arbitration nonce for one meshing session —
-    /// see ATTEMPT #4 above for why a nonce replaced the advertised display
+    /// Generates this device's arbitration nonce for one meshing session—see
+    /// ATTEMPT #4 above for why a nonce replaced the advertised display
     /// name. `internal` (not `private`) so it's directly unit-testable
     /// without live CoreBluetooth.
     static func makeArbitrationNonce() -> String {
@@ -268,15 +268,15 @@ final class CoreBluetoothMeshTransport: NSObject {
             .joined()
     }
 
-    /// Pure comparison, no CoreBluetooth involved — directly unit-testable.
+    /// Pure comparison, no CoreBluetooth involved—directly unit-testable.
     /// `ourNonce`/`peerNonce` are fixed-length lowercase-hex strings from
     /// `makeArbitrationNonce()`.
     ///
     /// A missing peer nonce (a peer not running
     /// this arbitration scheme) compares as the empty string, the smallest
-    /// possible value, so we always defer to it — this can't occur in
+    /// possible value, so the local side always defers to it. This can't occur in
     /// practice, since anything reaching this comparison already advertised
-    /// our exact custom service UUID to be discovered at all, but the
+    /// the exact custom service UUID to be discovered at all, but the
     /// comparison still needs to resolve deterministically rather than
     /// force-unwrapping.
     static func arbitrationDecision(ourNonce: String, peerNonce: String) -> ConnectionDecision {
@@ -288,34 +288,34 @@ final class CoreBluetoothMeshTransport: NSObject {
     ///
     /// Guards
     /// against a stuck mesh in the (rare) event the winning side's attempt
-    /// silently fails, both sides tie (identical nonces — vanishingly
+    /// silently fails, both sides tie (identical nonces—vanishingly
     /// unlikely at `arbitrationNonceByteCount` bytes, but the one case
-    /// comparison can't break), or only one side understands arbitration —
-    /// better an occasional redundant link (which
+    /// comparison can't break), or only one side understands arbitration—better
+    /// an occasional redundant link (which
     /// `BLEMeshInterface`'s flood-and-suppress model absorbs for free, per
     /// its "Peer identity" doc comment) than two devices deadlocked forever
     /// each waiting on the other.
     private static let deferralTimeout: TimeInterval = 8
 
     /// How often `recheckDeferrals` re-evaluates `deferredPeripherals`
-    /// against `deferralTimeout` — see ATTEMPT #3 above for why this can't
+    /// against `deferralTimeout`—see ATTEMPT #3 above for why this can't
     /// simply ride on `didDiscover` recurring.
     private static let deferralRecheckInterval: TimeInterval = 2
 
-    /// How long we wait for `didConnect`/`didFailToConnect` to fire after
+    /// How long to wait for `didConnect`/`didFailToConnect` to fire after
     /// calling `central.connect(_:)` before cancelling the attempt
-    /// ourselves and giving the next `didDiscover` a clean slate to retry —
-    /// see ATTEMPT #3 above for the field evidence that CoreBluetooth's
+    /// ourselves and giving the next `didDiscover` a clean slate to retry—see
+    /// ATTEMPT #3 above for the field evidence that CoreBluetooth's
     /// `connect` has no timeout of its own and can simply go silent forever.
     private static let connectTimeout: TimeInterval = 12
 
-    /// A peer whose election we lost (their nonce sorted lower) —
-    /// recorded so `recheckDeferrals` can self-heal if they never finish
-    /// connecting to us within `deferralTimeout`.
+    /// A peer that won the election (its nonce sorted lower)—recorded
+    /// so `recheckDeferrals` can self-heal if it never finishes
+    /// connecting within `deferralTimeout`.
     ///
     /// Carries the `CBPeripheral`
     /// (not just its identifier) because healing means dialing out
-    /// ourselves, which needs the live object — and `displayName` purely so
+    /// ourselves, which needs the live object—and `displayName` purely so
     /// the eventual "connecting ourselves instead" log line can name them.
     private struct DeferredPeer {
         let peripheral: CBPeripheral
@@ -337,7 +337,7 @@ final class CoreBluetoothMeshTransport: NSObject {
     /// Fired whenever the device's Bluetooth radio state changes.
     ///
     /// This is
-    /// deliberately NOT part of `BLEMeshTransport` — it's a CoreBluetooth-only
+    /// deliberately NOT part of `BLEMeshTransport`—it's a CoreBluetooth-only
     /// concept the protocol's mock conformances (and `BLEMeshInterface`,
     /// which only ever speaks in peer IDs and bytes) have no reason to model.
     /// `BLEMeshController` observes it purely to drive "Bluetooth unavailable"
@@ -347,10 +347,10 @@ final class CoreBluetoothMeshTransport: NSObject {
     // MARK: - Shared mutable state
     //
     // CoreBluetooth delivers every delegate callback (central AND peripheral
-    // role — both managers share `queue`) serially on `queue`, but `send`,
+    // role—both managers share `queue`) serially on `queue`, but `send`,
     // `connectedPeers`, and `stop` can be called from any thread (Transport's
     // calling thread, the controller's main-actor thread, …). `lock` is the
-    // single source of truth guarding all of it — exactly the role
+    // single source of truth guarding all of it—exactly the role
     // `BLEMeshInterface.peersLock` plays for the interface's own peer table.
 
     private struct CentralLink {
@@ -361,20 +361,20 @@ final class CoreBluetoothMeshTransport: NSObject {
 
     private let lock = NSLock()
 
-    /// Links we initiated (we are GATT central), keyed by `peripheral.identifier.uuidString`.
+    /// Links dialled from here (GATT central role), keyed by `peripheral.identifier.uuidString`.
     private var centralLinks: [BLEMeshPeerID: CentralLink] = [:]
-    /// Centrals subscribed to our TX characteristic (we are GATT peripheral),
+    /// Centrals subscribed to the local TX characteristic (GATT peripheral role),
     /// keyed by `central.identifier.uuidString`.
     ///
     /// A central becomes sendable
-    /// only once subscribed — that's what makes `updateValue` deliverable.
+    /// only once subscribed—that's what makes `updateValue` deliverable.
     private var subscriptions: [BLEMeshPeerID: CBCentral] = [:]
     /// Outbound notification chunks awaiting `CBPeripheralManager.updateValue`
     /// admission, drained opportunistically and from
     /// `peripheralManagerIsReady(toUpdateSubscribers:)`.
     private var pendingNotifications: [BLEMeshPeerID: [Data]] = [:]
     /// Outbound write-without-response chunks awaiting room in CoreBluetooth's
-    /// transmit buffer (we are GATT central) — the central-role mirror of
+    /// transmit buffer (GATT central role)—the central-role mirror of
     /// `pendingNotifications`, drained opportunistically and from
     /// `peripheralIsReady(toSendWriteWithoutResponse:)`.
     ///
@@ -382,12 +382,12 @@ final class CoreBluetoothMeshTransport: NSObject {
     /// `drainCentralWrites` for why this queue is required at all (it's the
     /// actual fix for "sending doesn't work").
     private var pendingCentralWrites: [BLEMeshPeerID: [Data]] = [:]
-    /// Peripherals we've issued `connect(_:)` for but not yet finished GATT
-    /// setup on — guards against duplicate connection attempts across the
+    /// Peripherals already issued a `connect(_:)` but not yet finished GATT
+    /// setup on—guards against duplicate connection attempts across the
     /// repeated `didDiscover` callbacks CoreBluetooth delivers while a
     /// peripheral remains in range.
     private var connectingPeripheralIDs: Set<UUID> = []
-    /// Peripherals we've yielded the connection to, their nonce having sorted
+    /// Peripherals the connection was yielded to, their nonce having sorted
     /// lower and so won the election.
     ///
     /// See `connectionDecision`, `recheckDeferrals`, and the doc comment of
@@ -401,28 +401,28 @@ final class CoreBluetoothMeshTransport: NSObject {
     private var central: CBCentralManager?
     private var peripheralManager: CBPeripheralManager?
     private let queue = DispatchQueue(label: "CoreBluetoothMeshTransport")
-    /// Cosmetic only — shown in this device's own log lines.
+    /// Cosmetic only—shown in this device's own log lines.
     ///
     /// Never
     /// transmitted; see ATTEMPT #4 above for why the advertised local name
     /// carries the arbitration nonce instead.
     private let displayName: String
-    /// This session's arbitration key — see ATTEMPT #4 above.
+    /// This session's arbitration key—see ATTEMPT #4 above.
     ///
     /// Generated
-    /// once per `init` (i.e. fresh every time `BLEMeshController.enable`
+    /// once per `init` (that is, fresh every time `BLEMeshController.enable`
     /// creates a new transport) and advertised verbatim as the local name.
     private let arbitrationNonce: String = CoreBluetoothMeshTransport.makeArbitrationNonce()
 
     /// Periodic, `didDiscover`-independent liveness check for
-    /// `deferredPeripherals` — see `recheckDeferrals` and ATTEMPT #3 above.
+    /// `deferredPeripherals`—see `recheckDeferrals` and ATTEMPT #3 above.
     private var deferralCheckTimer: DispatchSourceTimer?
 
     // MARK: - Init
 
     /// - Parameter localName: this device's cosmetic display name, used only
-    ///   in its own log lines (e.g. "starting dual-role CoreBluetooth..."). No
-    ///   longer transmitted or used for arbitration — see ATTEMPT #4 above;
+    ///   in its own log lines (for example, "starting dual-role CoreBluetooth..."). No
+    ///   longer transmitted or used for arbitration—see ATTEMPT #4 above;
     ///   peers instead see `peripheral.name`, the system-cached Bluetooth
     ///   device name, in their own logs.
     init(localName: String) {
@@ -481,11 +481,11 @@ extension CoreBluetoothMeshTransport: BLEMeshTransport {
         peripheralManager = nil
     }
 
-    /// Routes to whichever GATT role currently links us to `peer`.
+    /// Routes to whichever GATT role currently links this device to `peer`.
     ///
     /// Writes as central, or notifies as peripheral. `BLEMeshInterface` only ever
     /// calls this with peer IDs it learned from `peerConnected`/`peerDataHandler`,
-    /// but a disconnect can race the call — `unknownPeer`/`notConnected`
+    /// but a disconnect can race the call—`unknownPeer`/`notConnected`
     /// simply propagate to the `try?` in `BLEMeshInterface`, which drops the send
     /// for that one peer without disrupting the broadcast to the others.
     func send(_ data: Data, to peer: BLEMeshPeerID) throws {
@@ -525,10 +525,10 @@ extension CoreBluetoothMeshTransport {
         return pieces
     }
 
-    /// We are GATT central for this peer: write to its RX characteristic
+    /// GATT central role for this peer: write to its RX characteristic
     /// without response.
     ///
-    /// Queues the chunks and kicks off draining — see
+    /// Queues the chunks and kicks off draining—see
     /// `drainCentralWrites` for why a blind write loop (what used to be here)
     /// is the actual root cause of "sending doesn't work".
     private func writeAsCentral(_ data: Data, link: CentralLink) throws {
@@ -557,27 +557,27 @@ extension CoreBluetoothMeshTransport {
     /// empties or CoreBluetooth's outbound transmit buffer fills up.
     ///
     /// **This is the fix for "receiving works, sending doesn't":** unlike
-    /// `CBPeripheralManager.updateValue` — which *tells you* the buffer is
+    /// `CBPeripheralManager.updateValue`—which *tells you* the buffer is
     /// full by returning `false`, exactly what `drainNotifications` already
-    /// checks for — `CBPeripheral.writeValue(type: .withoutResponse)` returns
+    /// checks for—`CBPeripheral.writeValue(type: .withoutResponse)` returns
     /// `Void` and, per Apple's own documentation, **silently drops** the
     /// write if the transmit buffer has no room: no error, no thrown
     /// exception, no delegate callback, nothing observable at all. The
     /// previous code wrote every chunk in a tight blind loop, so anything
     /// past whatever fit in CoreBluetooth's internal queue (in practice,
     /// often just the first chunk of the first packet after connecting)
-    /// vanished without a trace — invisible on the sending side (the call
+    /// vanished without a trace—invisible on the sending side (the call
     /// "succeeded") and invisible on the receiving side (nothing ever
     /// arrived to log). Receiving was never affected because it's purely
-    /// passive — driven by `didUpdateValueFor`/`didReceiveWrite` callbacks
-    /// the *remote* side's send triggers, with no transmit buffer of ours
+    /// passive—driven by `didUpdateValueFor`/`didReceiveWrite` callbacks
+    /// the *remote* side's send triggers, with no local transmit buffer
     /// in the loop.
     ///
     /// The fix is to do for central-role writes exactly what
     /// `drainNotifications` already correctly does for peripheral-role
     /// notifications: check `canSendWriteWithoutResponse` before every
     /// write, stop the instant it goes `false`, and resume from
-    /// `peripheralIsReady(toSendWriteWithoutResponse:)` — the delegate
+    /// `peripheralIsReady(toSendWriteWithoutResponse:)`—the delegate
     /// callback CoreBluetooth fires exactly when buffer space frees up.
     private func drainCentralWrites(for peerID: BLEMeshPeerID, link: CentralLink) {
         while true {
@@ -604,10 +604,10 @@ extension CoreBluetoothMeshTransport {
         }
     }
 
-    /// We are GATT peripheral for this peer: notify it on our TX
+    /// GATT peripheral role for this peer: notify it on the local TX
     /// characteristic.
     ///
-    /// Queues the chunks and kicks off draining — see
+    /// Queues the chunks and kicks off draining—see
     /// `drainNotifications`.
     private func notifyAsPeripheral(_ data: Data, peer: BLEMeshPeerID, central: CBCentral) {
         let pieces = chunked(data, mtu: central.maximumUpdateValueLength)
@@ -617,7 +617,7 @@ extension CoreBluetoothMeshTransport {
         lock.unlock()
 
         // Same serialization as writeAsCentral: drainNotifications also runs from
-        // peripheralManagerIsReady on `queue`, so dispatch here too — otherwise a
+        // peripheralManagerIsReady on `queue`, so dispatch here too—otherwise a
         // concurrent send-path drain and delegate-resume drain duplicate/drop
         // notification chunks.
         queue.async { [weak self] in self?.drainNotifications(for: peer, to: central) }
@@ -625,8 +625,8 @@ extension CoreBluetoothMeshTransport {
 
     /// Pushes queued chunks for `peer` through `updateValue` until either the
     /// queue empties or CoreBluetooth's transmit buffer fills up.
-    /// `updateValue` returning `false` means "try again later" — we stop and
-    /// wait for `peripheralManagerIsReady(toUpdateSubscribers:)` to resume,
+    /// `updateValue` returning `false` means "try again later", so draining stops
+    /// and waits for `peripheralManagerIsReady(toUpdateSubscribers:)` to resume,
     /// rather than busy-spinning or dropping data.
     private func drainNotifications(for peer: BLEMeshPeerID, to central: CBCentral) {
         guard let pm = peripheralManager else { return }
@@ -668,8 +668,8 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
                         advertisementData: [String: Any],
                         rssi: NSNumber) {
         let peerID = peripheral.identifier.uuidString
-        // The advertised local name *is* the peer's arbitration nonce now —
-        // see ATTEMPT #4 above — never a human-readable name. For logging,
+        // The advertised local name *is* the peer's arbitration nonce now—see
+        // ATTEMPT #4 above—never a human-readable name. For logging,
         // `peripheral.name` (the system-cached Bluetooth device name) is the
         // only identity left to show; "unnamed" only as a last resort.
         let peerNonce = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? ""
@@ -694,23 +694,23 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
             central.connect(peripheral, options: nil)
             scheduleConnectTimeout(for: peripheral)
         case .defer:
-            // Their nonce sorted lower and won the election for this pair —
-            // they'll connect to *us* (we're advertising + they're scanning
+            // Their nonce sorted lower and won the election for this pair—they'll
+            // dial in (this device is advertising and the peer is scanning
             // too). Logged at .info since this is the expected steady-state
             // for roughly half of all pairings, not an anomaly.
             Reticulum.log("[BLEMesh] discovered peer \(Self.short(peerID))… (\"\(peerDisplayName)\", RSSI \(rssi)) — yielding the connection to them (nonce sorts higher)", level: .info)
         }
     }
 
-    /// Decides whether *we* should dial out to a newly discovered peer or
-    /// wait to be dialed — see ATTEMPT #4 above.
+    /// Decides whether this device should dial out to a newly discovered peer or
+    /// wait to be dialed—see ATTEMPT #4 above.
     ///
     /// Must be called with `lock`
     /// held; mutates `deferredPeripherals`.
     ///
     /// Note this no longer self-heals inline (ATTEMPT #2 did): that logic
-    /// only ever ran when `didDiscover` fired again, which — per ATTEMPT
-    /// #3's finding — CoreBluetooth routinely never does once a peripheral's
+    /// only ever ran when `didDiscover` fired again, which—per ATTEMPT
+    /// #3's finding—CoreBluetooth routinely never does once a peripheral's
     /// been reported under `allowDuplicates: false`. `recheckDeferrals`'
     /// timer now owns the self-heal exclusively, so a deferral recorded here
     /// is guaranteed to be revisited on a clock instead of a maybe-callback.
@@ -722,7 +722,7 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
         case .connect:
             // Deliberately asymmetric with the tie case: exactly one side of
             // any pair with distinct nonces gets `.connect` here, and a tie
-            // must make *both* sides defer — see `deferralTimeout`'s doc
+            // must make *both* sides defer—see `deferralTimeout`'s doc
             // comment for why "both connect" would be the one outcome to
             // avoid.
             deferredPeripherals.removeValue(forKey: id)
@@ -741,8 +741,8 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
     /// and in the field simply went silent forever, calling neither
     /// `didConnect` nor `didFailToConnect`.
     ///
-    /// Runs on `queue` — the same serial queue every delegate callback lands
-    /// on — so there's no race with a legitimate `didConnect`/
+    /// Runs on `queue`—the same serial queue every delegate callback lands
+    /// on—so there's no race with a legitimate `didConnect`/
     /// `didFailToConnect` arriving right around the deadline. Checks
     /// `peripheral.state` in addition to `connectingPeripheralIDs`
     /// deliberately: `didConnect` doesn't clear that set itself (GATT
@@ -770,13 +770,13 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
     }
 
     /// Periodic, `didDiscover`-independent self-heal for `deferredPeripherals`
-    /// — see ATTEMPT #3 above for why this can no longer live inside
+    ///—see ATTEMPT #3 above for why this can no longer live inside
     /// `connectionDecision`.
     ///
     /// Runs every `deferralRecheckInterval` on `queue`;
     /// promotes any peer that's been waiting past `deferralTimeout` to
     /// "connect ourselves", on the theory that the side that should have
-    /// dialed in by now (the election's actual winner) is stuck — most
+    /// dialed in by now (the election's actual winner) is stuck—most
     /// likely on exactly the silent-`connect`-hang `scheduleConnectTimeout`
     /// guards against on *their* end.
     private func recheckDeferrals() {
@@ -787,7 +787,7 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
             guard now.timeIntervalSince(deferred.since) >= Self.deferralTimeout else { continue }
             guard centralLinks[id.uuidString] == nil, !connectingPeripheralIDs.contains(id) else {
                 // A link formed (or is forming) some other way in the
-                // meantime — e.g. they connected to *us* as planned, or a
+                // meantime—for example, the peer dialled in as planned, or a
                 // prior `recheckDeferrals` tick already promoted this one.
                 // Nothing left to heal.
                 deferredPeripherals.removeValue(forKey: id)
@@ -820,9 +820,9 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
         connectingPeripheralIDs.remove(peripheral.identifier)
         deferredPeripherals.removeValue(forKey: peripheral.identifier)
         lock.unlock()
-        // CoreBluetooth keeps scanning (we never stop it); if the peer is
+        // CoreBluetooth keeps scanning (it is never stopped); if the peer is
         // still advertising it'll surface again via `didDiscover`, and
-        // `connectionDecision` will re-run the election from scratch.
+        // `connectionDecision` re-runs the election from scratch.
     }
 
     func centralManager(_ central: CBCentralManager,
@@ -843,12 +843,12 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
         }
         // No explicit reconnect loop: scanning never stops, so a peer that
         // wanders back into range is rediscovered and relinked automatically
-        // — the same passive-recovery model AutoInterface relies on for its
+        //—the same passive-recovery model AutoInterface relies on for its
         // UDP peer table.
     }
 }
 
-// MARK: - CBPeripheralDelegate (GATT setup + inbound bytes for links where we are central)
+// MARK: - CBPeripheralDelegate (GATT setup + inbound bytes for central-role links)
 
 extension CoreBluetoothMeshTransport: CBPeripheralDelegate {
 
@@ -884,9 +884,9 @@ extension CoreBluetoothMeshTransport: CBPeripheralDelegate {
         Reticulum.log("[BLEMesh] mesh link UP with \(Self.short(peerID))… (we are central)", level: .notice)
 
         // Enable inbound notifications before announcing the peer as
-        // reachable — mirrors `BLEMeshInterface.start` wiring its callbacks
+        // reachable—mirrors `BLEMeshInterface.start` wiring its callbacks
         // before `transport.start()`, for the same reason: don't let early
-        // bytes race past the point where we're ready to receive them.
+        // bytes race past the point where this side is ready to receive them.
         peripheral.setNotifyValue(true, for: tx)
         peerConnected?(peerID)
     }
@@ -909,11 +909,11 @@ extension CoreBluetoothMeshTransport: CBPeripheralDelegate {
     }
 
     /// CoreBluetooth's transmit buffer has drained enough to accept more
-    /// write-without-response data — the central-role mirror of
+    /// write-without-response data—the central-role mirror of
     /// `peripheralManagerIsReady(toUpdateSubscribers:)`, and the other half
     /// of the `drainCentralWrites` fix (see its doc comment for the full
-    /// story of why this callback existing — and previously going
-    /// unimplemented — *is* the "sending doesn't work" bug).
+    /// story of why this callback existing—and previously going
+    /// unimplemented—*is* the "sending doesn't work" bug).
     func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
         let peerID = peripheral.identifier.uuidString
         lock.lock()
@@ -923,7 +923,7 @@ extension CoreBluetoothMeshTransport: CBPeripheralDelegate {
         drainCentralWrites(for: peerID, link: link)
     }
 
-    /// GATT setup didn't complete — drop the half-formed link bookkeeping and
+    /// GATT setup didn't complete—drop the half-formed link bookkeeping and
     /// let CoreBluetooth tear the connection down.
     ///
     /// No `peerConnected` was
@@ -1002,7 +1002,7 @@ extension CoreBluetoothMeshTransport: CBPeripheralManagerDelegate {
             }
         }
         // ATT requires every batched request to be acknowledged exactly once;
-        // since we accept all well-formed writes uniformly, responding to the
+        // since all well-formed writes are accepted uniformly, responding to the
         // first with `.success` satisfies the whole batch (per
         // `CBPeripheralManagerDelegate.peripheralManager(_:didReceiveWrite:)`).
         if let first = requests.first {
@@ -1022,8 +1022,8 @@ extension CoreBluetoothMeshTransport: CBPeripheralManagerDelegate {
         lock.unlock()
 
         // Subscription is what makes this peer *sendable* (notifications are
-        // the only way we can push to a peripheral-role link), so that's the
-        // right moment to announce it — mirrors how the central-role side
+        // the only way to push to a peripheral-role link), so that's the
+        // right moment to announce it—mirrors how the central-role side
         // waits for characteristic discovery before calling `peerConnected`.
         if isNew {
             Reticulum.log("[BLEMesh] mesh link UP with \(Self.short(peerID))… (we are peripheral)", level: .notice)

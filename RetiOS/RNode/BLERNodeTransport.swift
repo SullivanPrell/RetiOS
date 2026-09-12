@@ -17,9 +17,9 @@ import ReticulumSwift
 /// CoreBluetooth implementation of RNodeTransport using the Nordic UART Service (NUS).
 ///
 /// GATT layout:
-///   Service  6E400001 — Nordic UART
-///     RX char 6E400002 — write (phone → RNode, no response)
-///     TX char 6E400003 — notify (RNode → phone)
+///   Service  6E400001—Nordic UART
+///     RX char 6E400002—write (phone → RNode, no response)
+///     TX char 6E400003—notify (RNode → phone)
 ///
 /// write() chunks outbound data to the peripheral's negotiated MTU so BLE
 /// packet boundaries don't truncate KISS frames. Incoming notifications
@@ -37,8 +37,8 @@ final class BLERNodeTransport: NSObject {
     ///
     /// Required by the protocol rather than defaulted, because a transport that cannot report
     /// loss leaves its interface Up over a dead radio forever (`bugs/058`). CoreBluetooth
-    /// already delivers the signal — a write attempted on a disconnected peripheral, or a
-    /// notify that fails — so this is a matter of forwarding what the framework says instead of
+    /// already delivers the signal—a write attempted on a disconnected peripheral, or a
+    /// notify that fails—so this is a matter of forwarding what the framework says instead of
     /// dropping it. `RNodeInterface` reacts by going offline and redialling, which is what the
     /// scanner previously did by hand for disconnects it happened to observe.
     var onTransportError: ((Error) -> Void)?
@@ -65,7 +65,7 @@ final class BLERNodeTransport: NSObject {
 
 extension BLERNodeTransport: RNodeTransport {
 
-    /// Enable TX notifications so the RNode can push bytes to us.
+    /// Enable TX notifications so the RNode can push bytes in.
     func open() throws {
         peripheral.setNotifyValue(true, for: txChar)
     }
@@ -118,7 +118,7 @@ extension BLERNodeTransport: CBPeripheralDelegate {
         }
     }
 
-    /// The peripheral told us a characteristic write failed.
+    /// The peripheral reported a failed characteristic write.
     ///
     /// On a link that has gone away
     /// CoreBluetooth reports it here rather than by throwing from `writeValue`.

@@ -3,8 +3,8 @@
 RetiOS can run a full [Yggdrasil](https://yggdrasil-network.github.io/) node on
 iOS and macOS. When enabled, the device joins the Yggdrasil mesh and gains a real
 Yggdrasil IPv6 address (`0200::/7`). Reticulum then rides over that address using
-ordinary TCP/Backbone interfaces — exactly how the Python Reticulum stack uses
-Yggdrasil (`device = tun0` / `target_host = 201:…`) — so a RetiOS node is
+ordinary TCP/Backbone interfaces—exactly how the Python Reticulum stack uses
+Yggdrasil (`device = tun0` / `target_host = 201:…`)—so a RetiOS node is
 **wire-compatible with Python RNS-over-Yggdrasil nodes** and every other node on
 the Yggdrasil network.
 
@@ -51,47 +51,47 @@ and project wiring are all in place; you supply the team + capabilities:
    make generate
    ```
 
-   Do **not** set `DEVELOPMENT_TEAM` in `project.yml` — that file is public, and
+   Do **not** set `DEVELOPMENT_TEAM` in `project.yml`—that file is public, and
    `make generate` substitutes the value from `.xcode-team` into every target.
    Setting it in Xcode's UI instead does not survive the next regeneration:
    `xcodegen` rewrites `project.pbxproj` wholesale. See
    [docs/BUILDING.md](docs/BUILDING.md).
 
 2. **Enable capabilities on both App IDs** (`dev.sprell.retios` and
-   `dev.sprell.retios.YggdrasilTunnel`) in the Apple Developer portal — or let
+   `dev.sprell.retios.YggdrasilTunnel`) in the Apple Developer portal—or let
    Xcode's automatic signing add them:
    - **Network Extensions** (Packet Tunnel Provider)
    - **Personal VPN** (`allow-vpn`)
-   - **App Groups** — create `group.dev.sprell.retios` and add it to both App IDs.
-   - **Multicast Networking** (`com.apple.developer.networking.multicast`) — OPTIONAL,
+   - **App Groups**—create `group.dev.sprell.retios` and add it to both App IDs.
+   - **Multicast Networking** (`com.apple.developer.networking.multicast`)—OPTIONAL,
      only for LAN peer discovery, and **not declared by default** (see below).
 
    Network Extensions, Personal VPN, and App Groups are available to any paid team
    with no manual approval, and are declared in the `.entitlements` files.
    **Multicast Networking is deliberately NOT declared** so that signed public
-   builds ship without waiting on Apple's separate multicast approval — see "LAN
+   builds ship without waiting on Apple's separate multicast approval—see "LAN
    peer discovery" below to opt back in.
 
 3. **Run on a real device.** Packet Tunnel Providers do not tunnel in the iOS
-   Simulator — install on a physical iPhone/iPad (or run the Mac app). The first
+   Simulator—install on a physical iPhone/iPad (or run the Mac app). The first
    time you enable the node, iOS shows the system "… would like to add VPN
    configurations" prompt; approve it.
 
-### LAN peer discovery (multicast) — opt-in, entitlement required
+### LAN peer discovery (multicast)—opt-in, entitlement required
 
 IPv6 multicast is used for LAN discovery by **both** RetiOS's `AutoInterface`
 (nearby Reticulum nodes) and the Yggdrasil engine (nearby Yggdrasil nodes). iOS 14+
 gates all multicast behind the **Multicast Networking** entitlement
 (`com.apple.developer.networking.multicast`), which **needs a separate approval
-from Apple** — <https://developer.apple.com/contact/request/networking-multicast>.
+from Apple**—<https://developer.apple.com/contact/request/networking-multicast>.
 If a signed build declares it but the provisioning profile hasn't been granted it,
 **code signing fails**.
 
 Because that approval blocks public distribution, the key is **deliberately NOT
 declared** in either entitlements file:
 
-- `RetiOS/RetiOS.entitlements` (app — would enable `AutoInterface` LAN discovery)
-- `YggdrasilTunnel/YggdrasilTunnel.entitlements` (extension — Yggdrasil LAN discovery)
+- `RetiOS/RetiOS.entitlements` (app—would enable `AutoInterface` LAN discovery)
+- `YggdrasilTunnel/YggdrasilTunnel.entitlements` (extension—Yggdrasil LAN discovery)
 
 Each file keeps an inline comment with the exact key to paste back. The
 `NSLocalNetworkUsageDescription` strings (app `Info.plist` + the extension's
@@ -118,22 +118,22 @@ macOS App Groups differ from iOS:
 - The Mac app + extension must be sandboxed (`com.apple.security.app-sandbox`).
 
 Adjust `RetiOS/RetiOS.entitlements` and `YggdrasilTunnel/YggdrasilTunnel.entitlements`
-for a macOS build accordingly (e.g. via per-SDK `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`
+for a macOS build accordingly (for example, via per-SDK `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`
 entries pointing at macOS-specific entitlements files). The Packet Tunnel Provider
 itself works on macOS as an app extension, as in the reference app.
 
 ## Using it
 
 1. **Interfaces ▸ Overlay Networks ▸ Yggdrasil Node**.
-2. Add one or more peer URIs (one per line), e.g.
-   `tls://peer.example.com:443` — public peers are listed at
+2. Add one or more peer URIs (one per line), for example,
+   `tls://peer.example.com:443`—public peers are listed at
    <https://publicpeers.neilalexander.dev>.
 3. Toggle **Run Yggdrasil node** on and tap **Apply**. Approve the VPN prompt.
 4. The status section shows your node's IPv6 address, subnet, and connected peers.
 
 To reach other Reticulum nodes over Yggdrasil, add them as peers with
 **Interfaces ▸ Overlay Networks ▸ Add Yggdrasil Peer…**, entering the peer's
-Yggdrasil IPv6 address (`0200::/7`) and Reticulum port (e.g. 4242). This is an
+Yggdrasil IPv6 address (`0200::/7`) and Reticulum port (for example, 4242). This is an
 ordinary `TCPClientInterface` over the Yggdrasil address, wire-compatible with a
 Python RNS `TCPServerInterface`/`BackboneInterface` bound to the Yggdrasil tun.
 

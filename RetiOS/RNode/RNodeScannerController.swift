@@ -60,7 +60,7 @@ final class RNodeScannerController: NSObject {
     private(set) var rNodeInterface: RNodeInterface?
 
     /// Called after this controller adds or removes its interface from
-    /// `Transport` — see `BLEMeshController.onInterfacesChanged`.
+    /// `Transport`—see `BLEMeshController.onInterfacesChanged`.
     @ObservationIgnored var onInterfacesChanged: (() -> Void)?
 
     // MARK: - Discovered device

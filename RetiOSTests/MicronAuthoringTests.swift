@@ -11,8 +11,8 @@
 import XCTest
 @testable import RetiOS
 
-/// Covers the markup the app *generates* — the starter template and the two
-/// builder sheets — against the same lexer and linter the editor shows the
+/// Covers the markup the app *generates*—the starter template and the two
+/// builder sheets—against the same lexer and linter the editor shows the
 /// author.
 ///
 /// This is the gap that mattered most in review: every construct here is
@@ -38,15 +38,15 @@ final class MicronAuthoringTests: XCTestCase {
     ///
     /// The original draft produced four
     /// warnings and rendered as "This page is 8ffMicron markup" and "Lines
-    /// starting with are headings, a lone draws a divider" — it used the
+    /// starting with are headings, a lone draws a divider"—it used the
     /// 3-nibble `` `F `` with six digits, and wrapped `>` and `-` in backticks,
     /// which the parser deletes.
     func testStarterTemplateIsWellFormedMicron() {
         assertLintClean(MicronPageStore.starterTemplate, "starterTemplate")
     }
 
-    /// Lint-clean is necessary but not sufficient — the colour tag has to
-    /// actually be a colour tag, not a 3-nibble read of the first three digits.
+    /// Lint-clean is necessary but not sufficient—the color tag has to
+    /// actually be a color tag, not a 3-nibble read of the first three digits.
     func testStarterTemplateColourTagIsTheSixDigitForm() {
         let tokens = MicronSyntax.tokens(in: MicronPageStore.starterTemplate)
         let ns = MicronPageStore.starterTemplate as NSString
@@ -67,7 +67,7 @@ final class MicronAuthoringTests: XCTestCase {
     // MARK: - Link builder
 
     /// Python NomadNet's `Browser.retrieve_url` splits the URL on ":" and, with
-    /// a single component, requires exactly 32 hex characters — so a bare
+    /// a single component, requires exactly 32 hex characters—so a bare
     /// "/page/about.mu" raises ValueError("Malformed URL") on every Python peer.
     ///
     /// RetiOS's own browser accepts both forms, which is exactly why this was

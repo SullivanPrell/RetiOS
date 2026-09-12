@@ -22,7 +22,7 @@ extension TreeSitterLanguage {
 // bundled resource: TreeSitterMicron is a pure C target (no Swift/Obj-C
 // sources), which never gets a synthesized `Bundle.module` accessor, so there
 // is no supported way to read a copied resource file from it. Keep this in
-// sync BY HAND when that file changes — it rarely does.
+// sync BY HAND when that file changes—it rarely does.
 private let highlightsQuerySource = """
 (comment) @comment
 

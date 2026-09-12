@@ -17,14 +17,14 @@ import SwiftData
 // The segmented picker lives in the content area (not the toolbar) so that:
 //  • Section switches don't touch the navigation bar at all, preventing
 //    iOS 26 Liquid Glass animation artifacts.
-//  • The navigation bar is minimal — no extra height from a toolbar principal item.
+//  • The navigation bar is minimal—no extra height from a toolbar principal item.
 struct NomadNetContainerView: View {
     @Environment(NomadNetController.self) private var nomadNet
     @State private var section: NomadSection = .launchSelection
 
     var body: some View {
         NavigationStack {
-            // Content — each case fills all remaining space.
+            // Content—each case fills all remaining space.
             Group {
                 switch section {
                 case .browse:
@@ -48,7 +48,7 @@ struct NomadNetContainerView: View {
                 }
             }
             .rnsSectionPicker(Self.sections, selection: $section)
-            // Flush pinned title (no large-title dead space) — matches the
+            // Flush pinned title (no large-title dead space)—matches the
             // Messages tab. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
             .rnsPinnedTitle("NomadNet")
         }
@@ -57,7 +57,7 @@ struct NomadNetContainerView: View {
     /// Segments offered by the picker, in order.
     ///
     /// Built from `NomadSection.allCases` rather than spelled out a second time,
-    /// so the picker cannot drift from the switch above — on macOS `.pages` does
+    /// so the picker cannot drift from the switch above—on macOS `.pages` does
     /// not exist as a case at all, and a hand-written array would still offer a
     /// segment that resolves to nothing.
     private static let sections: [(String, NomadSection)] =
@@ -69,8 +69,8 @@ struct NomadNetContainerView: View {
 /// `.pages` is **iOS/iPadOS only**. The Micron page editor is built on
 /// Runestone, a UIKit-only code editor (see MicronSourceEditor.swift); the Mac
 /// had no equivalent surface, so rather than ship a degraded one the section is
-/// compiled out of the Mac slice entirely. Omitting the *case* — not just the
-/// picker entry — is what makes it unreachable by construction: `allCases` has
+/// compiled out of the Mac slice entirely. Omitting the *case*—not just the
+/// picker entry—is what makes it unreachable by construction: `allCases` has
 /// no `.pages` on macOS, so the DEBUG `-startSection pages` launch argument
 /// matches nothing there and falls through to `.browse` rather than selecting a
 /// segment with no content behind it.
@@ -155,7 +155,7 @@ struct NomadNetPeersContent: View {
         .rnsScreenBackground()
         // Standard no-results state instead of a blank list when the query
         // matches no node. Applied to the List *before* the field is stacked
-        // above it — after, it would cover the field and a no-results query
+        // above it—after, it would cover the field and a no-results query
         // could never be cleared.
         .overlay {
             if filtered.isEmpty && !searchText.isEmpty {
@@ -164,7 +164,7 @@ struct NomadNetPeersContent: View {
         }
         // NOT `.searchable`: this is a tab root under `rnsPinnedTitle`, which
         // hides the navigation bar that every iOS SearchFieldPlacement resolves
-        // into — the field renders nothing at all, silently. See
+        // into—the field renders nothing at all, silently. See
         // `rnsInlineSearch`.
         .rnsInlineSearch(text: $searchText)
     }
@@ -194,7 +194,7 @@ private struct NomadNodeRow: View {
             .buttonStyle(.plain)
             .accessibilityLabel(node.isFavorite ? "Remove from favorites" : "Add to favorites")
 
-            // Shared identity block — same as the LXMF/LXST peer rows.
+            // Shared identity block—same as the LXMF/LXST peer rows.
             PeerIdentityView(name: node.displayName ?? "Unknown Node",
                              hash: node.destinationHash,
                              lastSeen: node.lastSeen)
@@ -210,7 +210,7 @@ private struct NomadNodeRow: View {
 
 // MARK: - NomadNet Favorites content
 
-/// Nodes the user has starred for quick access — a curated subset of the
+/// Nodes the user has starred for quick access—a curated subset of the
 /// full announce-derived Peers list (mirrors the Messages/Contacts pattern).
 struct NomadNetFavoritesContent: View {
     @Environment(\.modelContext) private var context
@@ -219,7 +219,7 @@ struct NomadNetFavoritesContent: View {
     @State private var searchText = ""
     let onBrowse: (String) -> Void
 
-    /// Same filter as the Peers list — name or hash, case-insensitively.
+    /// Same filter as the Peers list—name or hash, case-insensitively.
     private var filtered: [NomadNodeEntity] {
         guard let q = RNSSearch.query(searchText) else { return favorites }
         return favorites.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }

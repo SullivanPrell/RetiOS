@@ -14,7 +14,7 @@
 //
 //  The Yggdrasil node configuration (the JSON the embedded engine's StartJSON
 //  consumes), wrapped as an editable dictionary. Trimmed adaptation of the
-//  reference yggdrasil-ios `ConfigurationProxy` — no UIKit / share-sheet.
+//  reference yggdrasil-ios `ConfigurationProxy`—no UIKit / share-sheet.
 //
 //  Config + keygen are produced by the engine itself (MobileGenerateConfigJSON)
 //  so the private-key format is always exactly what yggdrasil-go expects. The
@@ -32,7 +32,7 @@ final class YggdrasilConfig {
 
     /// Create a fresh configuration with a newly generated node key.
     /// - Parameter multicastEnabled: enable LAN peer discovery over IPv6
-    ///   multicast. Off by default — it needs the multicast entitlement
+    ///   multicast. Off by default—it needs the multicast entitlement
     ///   (separate Apple approval). Internet peers work without it.
     init(multicastEnabled: Bool = false) {
         if let data = MobileGenerateConfigJSON(),
@@ -45,7 +45,7 @@ final class YggdrasilConfig {
         setMulticastEnabled(multicastEnabled)
     }
 
-    /// Rehydrate a configuration from previously-saved JSON.
+    /// Rehydrate a configuration from previously saved JSON.
     init?(json: Data) {
         guard let parsed = (try? JSONSerialization.jsonObject(with: json)) as? [String: Any] else {
             return nil
@@ -58,7 +58,7 @@ final class YggdrasilConfig {
     /// what was generated or previously stored.
     ///
     /// The system tunnel provides the
-    /// TUN, so we never listen for inbound peerings and never bind an admin
+    /// TUN, so it never listens for inbound peerings and never binds an admin
     /// socket (the sandbox can't anyway).
     private func normalize() {
         dict["Listen"] = [String]()
@@ -67,7 +67,7 @@ final class YggdrasilConfig {
 
     // MARK: - Editable fields
 
-    /// Yggdrasil peer URIs, e.g. "tls://host:port", "quic://host:port",
+    /// Yggdrasil peer URIs, for example, "tls://host:port", "quic://host:port",
     /// "tcp://host:port".
     ///
     /// The node dials these to join the mesh.
@@ -112,7 +112,7 @@ final class YggdrasilConfig {
 
     /// The node's ed25519 public key in hex. yggdrasil-go stores PrivateKey as
     /// the 64-byte ed25519 key (32-byte seed ‖ 32-byte public key), so the
-    /// public key is the trailing 32 bytes — derivable without the engine.
+    /// public key is the trailing 32 bytes—derivable without the engine.
     var publicKeyHex: String? {
         guard let priv = dict["PrivateKey"] as? String, priv.count == 128 else { return nil }
         return String(priv.suffix(64))

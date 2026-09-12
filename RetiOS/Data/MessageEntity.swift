@@ -42,7 +42,7 @@ final class MessageEntity {
     /// decoding the packed payload. Defaulted so pre-existing rows migrate cleanly.
     var hasAttachments: Bool = false
 
-    /// The inbound message's raw packed bytes — present only when the message
+    /// The inbound message's raw packed bytes—present only when the message
     /// carries `fields`.
     ///
     /// Re-decoded lazily via `MessageAttachments.decode` to

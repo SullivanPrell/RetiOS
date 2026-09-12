@@ -13,11 +13,11 @@ import ReticulumSwift
 
 // MARK: - ToolsView
 //
-// Top-level "RNS Tools" menu item — four sub-pages via a segmented control:
-//   Paths       — the live transport path table
-//   Announces   — raw announce log from the transport
-//   Ping        — path ping / node info
-//   Visualizer  — live network graph (nodes, edges, connection types)
+// Top-level "RNS Tools" menu item—four sub-pages via a segmented control:
+//   Paths—the live transport path table
+//   Announces—raw announce log from the transport
+//   Ping—path ping / node info
+//   Visualizer—live network graph (nodes, edges, connection types)
 
 struct ToolsView: View {
     @Environment(StackController.self) private var stack
@@ -34,7 +34,7 @@ struct ToolsView: View {
         /// Normally Paths. A DEBUG build additionally honours
         /// `-startSection <raw>`, mirroring `AppTab.launchSelection`'s
         /// `-startTab`. Without it `scripts/mac-screens.sh` could only ever
-        /// photograph the Paths segment — the Ping and Visualizer panes, both of
+        /// photograph the Paths segment—the Ping and Visualizer panes, both of
         /// which had reported visual defects, were unreachable by any harness in
         /// the repo, so there was no way to check a fix without a manual build
         /// and click-through. Case-insensitive because the raw values are
@@ -154,7 +154,7 @@ private struct PathRow: View {
             }
         }
         .padding(.vertical, 2)
-        // The hash is shown truncated; let people copy the full value (e.g. to
+        // The hash is shown truncated; let people copy the full value (for example, to
         // paste into the Ping field). Copying the full hash, not the ellipsis form.
         .contextMenu {
             Button {
@@ -251,7 +251,7 @@ private struct NetworkToolsView: View {
     ///
     /// Writing
     /// `@State` unconditionally re-rendered the whole pane every 3 s even when
-    /// the counts were identical — the same defect
+    /// the counts were identical—the same defect
     /// `SettingsView.refreshCachedStats` already carries a comment about. It
     /// matters more here than there: a 3-second full-pane invalidation next to a
     /// focused macOS text field is a focus and selection hazard.
@@ -263,9 +263,9 @@ private struct NetworkToolsView: View {
 
     /// The outcome of a ping, as data rather than a "✓"-prefixed string.
     ///
-    /// The result row used to pick its colour with `result.hasPrefix("✓")`,
-    /// which put the success/failure signal inside the presentation string — any
-    /// wording change silently flipped the colour.
+    /// The result row used to pick its color with `result.hasPrefix("✓")`,
+    /// which put the success/failure signal inside the presentation string—any
+    /// wording change silently flipped the color.
     private enum PingOutcome {
         case reachable(String)
         case unreachable(String)
@@ -301,7 +301,7 @@ private struct NetworkToolsView: View {
 
     var body: some View {
         // `rnsSettingsContainer`, not a bare `Form`. An unstyled Form on macOS
-        // resolves to the *columns* layout — "a non-scrolling form style with a
+        // resolves to the *columns* layout—"a non-scrolling form style with a
         // trailing aligned column of labels next to a leading aligned column of
         // values". Both halves of that were visible here:
         //   • the label column tore the hash field's title out of the field and
@@ -310,9 +310,9 @@ private struct NetworkToolsView: View {
         //     and footer into the value column as loose prose;
         //   • non-scrolling means the ping result and the Node Info rows simply
         //     fall out of reach in a short window, with no scrollbar.
-        // `rnsSettingsContainer` gives macOS `Form` + `.formStyle(.grouped)` —
-        // scrolling, grouped rows with leading labels and trailing controls —
-        // and keeps iOS on `List` + `.insetGrouped`. Nothing here uses
+        // `rnsSettingsContainer` gives macOS `Form` + `.formStyle(.grouped)`—scrolling,
+        // grouped rows with leading labels and trailing controls—and
+        // keeps iOS on `List` + `.insetGrouped`. Nothing here uses
         // `swipeActions`, the one thing that would rule out the macOS branch.
         //
         // This is a *pushed pane*, not a sheet, so it needs no macOS frame. The
@@ -366,8 +366,8 @@ private struct NetworkToolsView: View {
                          compactPrompt: "Destination hash (32 hex chars)",
                          text: $pingTarget)
                 .onChange(of: pingTarget) { _, new in
-                    // Assign only when the filter actually changed something —
-                    // writing the binding on every keystroke schedules a
+                    // Assign only when the filter actually changed something—writing
+                    // the binding on every keystroke schedules a
                     // redundant update pass.
                     let filtered = String(new.filter(\.isHexDigit).prefix(32))
                     if filtered != new { pingTarget = filtered }
@@ -397,9 +397,9 @@ private struct NetworkToolsView: View {
                     Text(isPinging ? "Pinging…" : "Ping")
                 }
                 // The frame belongs on the *label*, inside the style. Outside
-                // `.buttonStyle` it does not stretch the bezel — the style body
+                // `.buttonStyle` it does not stretch the bezel—the style body
                 // is `label.padding().background(…)`, and `.background` sizes to
-                // its content, so a wider proposal just centres a content-sized
+                // its content, so a wider proposal just centers a content-sized
                 // capsule in a box of inert space. Clicking the row anywhere but
                 // the capsule would do nothing.
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -411,7 +411,7 @@ private struct NetworkToolsView: View {
             //
             // This also changes iOS, where an unstyled Button fills the row and
             // a bordered-prominent one would otherwise collapse to a
-            // content-sized capsule — hence the frame on the label above, which
+            // content-sized capsule—hence the frame on the label above, which
             // keeps the ≥44 pt target the full-width row had.
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.defaultAction)
@@ -427,7 +427,7 @@ private struct NetworkToolsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
                 } icon: {
-                    // Decorative — the state is carried by the accessibility
+                    // Decorative—the state is carried by the accessibility
                     // label below, matching PathRow's treatment of its hop glyph.
                     Image(systemName: outcome.symbol)
                         .foregroundStyle(outcome.tint)
@@ -449,14 +449,14 @@ private struct NetworkToolsView: View {
         Section("Node Info") {
             if let info = nodeInfo {
                 // The wide label/value gap under grouped style is the *correct*
-                // native appearance — leading-aligned labels with trailing
+                // native appearance—leading-aligned labels with trailing
                 // controls is exactly how System Settings renders a row. No
                 // `.fixedSize` or width frame is warranted.
                 LabeledContent("Paths known")      { Text("\(info.paths)").foregroundStyle(.secondary) }
                 LabeledContent("Identities known") { Text("\(info.identities)").foregroundStyle(.secondary) }
                 LabeledContent("Interfaces")       { Text("\(info.interfaces)").foregroundStyle(.secondary) }
             } else {
-                // Not an error — an unavailable-because-not-running state.
+                // Not an error—an unavailable-because-not-running state.
                 Label("Stack not running", systemImage: "bolt.horizontal.circle")
                     .foregroundStyle(.secondary)
             }

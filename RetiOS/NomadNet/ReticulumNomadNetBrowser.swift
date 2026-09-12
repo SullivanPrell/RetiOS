@@ -18,12 +18,12 @@ import NomadNet
 /// Protocol (mirrors Python Browser.request_page):
 ///   1. Check transport has a path to the destination hash.
 ///   2. If missing, request a path and *wait* for it to resolve (up to
-///      `firstHopTimeout + timeout`) before proceeding — auto-retrying rather
+///      `firstHopTimeout + timeout`) before proceeding—auto-retrying rather
 ///      than dead-ending on an error the user has to dismiss and retry by hand.
 ///   3. Recall the remote identity, build an outbound Destination.
 ///   4. Initiate a Link; on established, call link.request(path:nativeValue:)
-///      with the field/var map INLINE (so a Python node reads it as a dict —
-///      see swift_devel/bugs/008; the old encode()+data: path double-packed it).
+///      with the field/var map INLINE (so a Python node reads it as a dict—see
+///      swift_devel/bugs/008; the old encode()+data: path double-packed it).
 ///   5. Hand response bytes to handleResponse(_:url:) for Micron parsing.
 ///
 /// Threading: `performRequest` is only ever invoked from `NomadNetController`
@@ -47,10 +47,10 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
     ///
     /// Called at link
     /// establishment with the node's destination hash; return `true` to reveal
-    /// our identity to that node ("log in"). Nil / `false` → browse anonymously.
+    /// the local identity to that node ("log in"). Nil / `false` → browse anonymously.
     /// Backed by a persisted per-node toggle in `NomadNetController`, so the
-    /// answer is always fresh for whichever node is actually being contacted —
-    /// correct for navigate, back/forward and reload alike (no pushed state).
+    /// answer is always fresh for whichever node is actually being contacted—correct
+    /// for navigate, back/forward and reload alike (no pushed state).
     var shouldIdentify: ((Data) -> Bool)?
 
     /// How often to re-check `hasPath` while waiting for a path to resolve.
@@ -60,7 +60,7 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
     ///
     /// A pending path-wait poll compares
     /// against this and abandons itself if the user has since navigated
-    /// elsewhere — so a late-resolving path can't clobber a newer page.
+    /// elsewhere—so a late-resolving path can't clobber a newer page.
     private var currentGeneration = 0
 
     init(transport: Transport,
@@ -148,14 +148,14 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
         }
 
         // Build the request data as an INLINE msgpack map and submit it via the
-        // nativeValue overload — NOT encode()+data:, which re-wraps the already-packed
+        // nativeValue overload—NOT encode()+data:, which re-wraps the already-packed
         // Data as a msgpack .bytes value (double-packing), so a Python NomadNet node
         // reads bytes instead of a dict and drops every field/var. See bugs/008.
         let requestValue = NomadNetBrowser.encodeValue(fields: fields, variables: url.variables) ?? .nil
 
         // One-shot latch shared by every terminal path (response / failure /
         // establishment timeout / link close). Ensures exactly one of them
-        // surfaces a result, and — crucially — that tearing the link down after a
+        // surfaces a result, and—crucially—that tearing the link down after a
         // successful load does NOT make `onClosed` fire a spurious error over the
         // page the user just loaded.
         let concluded = ConclusionLatch()
@@ -166,16 +166,16 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
                 guard let self else { return }
                 // Identify to the node ONLY when the per-node toggle is set,
                 // exactly like Python's Browser (which identifies solely when
-                // `should_identify_on_connect(destination_hash)` is true) — never
-                // unconditionally, or we'd leak the user's identity to every node
+                // `should_identify_on_connect(destination_hash)` is true)—never
+                // unconditionally, which would leak the user's identity to every node
                 // they browse. Best-effort: a node that doesn't require identity
                 // still serves, and a genuine failure surfaces via the request path.
                 if self.shouldIdentify?(destHash) == true, let identity = self.appIdentity {
                     try? l.identify(as: identity)
                 }
-                // Route a thrown request (e.g. the link went stale between
+                // Route a thrown request (for example, the link went stale between
                 // establishment and this call) to onError instead of swallowing it
-                // with `try?` — otherwise no callback ever fires and the UI spins
+                // with `try?`—otherwise no callback ever fires and the UI spins
                 // forever with no feedback.
                 do {
                     try l.request(

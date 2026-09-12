@@ -22,7 +22,7 @@ import LXMF
 /// `@Query`, which then re-runs its fetch (`ConversationsView` re-scans the
 /// whole message table on each one).
 ///
-/// That is survivable for a trickle of live traffic but not for a burst — and a
+/// That is survivable for a trickle of live traffic but not for a burst—and a
 /// propagation-node sync produces exactly a burst: the router replays the whole
 /// offline backlog through this callback back-to-back, so the app hung for the
 /// duration of the sync that runs on every launch.
@@ -30,10 +30,10 @@ import LXMF
 /// This mirrors `LXMFPeerAnnounceHandler`, which already solved the identical
 /// problem for announce storms:
 ///   1. Extract plain value types on the calling thread and buffer them under a
-///      lock (cheap, safe from any thread — no `@Model` object escapes).
+///      lock (cheap, safe from any thread—no `@Model` object escapes).
 ///   2. Flush at most once per `flushInterval` on a private serial queue against
 ///      its own background `ModelContext`, doing ONE bulk dedup fetch, ONE bulk
-///      peer-name fetch, and ONE `save()` for the whole batch — so a backlog of
+///      peer-name fetch, and ONE `save()` for the whole batch—so a backlog of
 ///      hundreds collapses into a single write, and none of that fetch/insert/
 ///      save work runs on the main thread. Only the resulting notifications hop
 ///      to the main actor.
@@ -58,7 +58,7 @@ final class LXMFMessageIngest {
     }
 
     private let container: ModelContainer
-    /// Our own lxmf.delivery hash (hex) — decides inbound vs outbound.
+    /// The local lxmf.delivery hash (hex)—decides inbound vs outbound.
     private let myHash: String
     private weak var notificationManager: NotificationManager?
 
@@ -98,7 +98,7 @@ final class LXMFMessageIngest {
     func enqueue(_ message: LXMessage) {
         let senderHex    = message.sourceHash.map { String(format: "%02x", $0) }.joined()
         let recipientHex = message.destinationHash.map { String(format: "%02x", $0) }.joined()
-        // conversationHash is always the peer's side — not us.
+        // conversationHash is always the peer's side, never the local one.
         let isInbound = senderHex != myHash
         let peerHex   = isInbound ? senderHex : recipientHex
         let msgHash   = message.hash?.map { String(format: "%02x", $0) }.joined() ?? UUID().uuidString
@@ -133,7 +133,7 @@ final class LXMFMessageIngest {
 
     /// Drains the buffer and writes the whole batch in one transaction.
     ///
-    /// Runs on `queue`, against the background context — never the main actor.
+    /// Runs on `queue`, against the background context—never the main actor.
     private func flush() {
         dispatchPrecondition(condition: .onQueue(queue))
         let context = ingestContext
@@ -178,7 +178,7 @@ final class LXMFMessageIngest {
 
         guard !inserted.isEmpty else { return }
 
-        // ONE save for the batch — this is the invalidation that re-runs the
+        // ONE save for the batch—this is the invalidation that re-runs the
         // on-screen @Query views, so it must happen once, not N times.
         try? context.save()
 

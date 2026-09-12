@@ -17,7 +17,7 @@ import SwiftUI
 /// The bug being locked down is a *scaling* one, so these tests are about a
 /// bound, not about a picture. With a real path table of 341 entries over three
 /// interfaces the old layout fanned ~113 bubbles across a 110° sector at a
-/// ~177 pt radius — 3.0 pt of arc per node against a 22 pt bubble and a ~78 pt
+/// ~177 pt radius—3.0 pt of arc per node against a 22 pt bubble and a ~78 pt
 /// label, a 7× overlap that rendered as two solid crescent-shaped smears. The
 /// only fix that survives contact with a growing mesh is one where node count
 /// stops tracking path-table size, and that is exactly what is asserted here.
@@ -81,14 +81,14 @@ final class NetworkGraphTests: XCTestCase {
         XCTAssertEqual(destinationCount(graph), 341)
         XCTAssertLessThan(graph.nodes.count, 24,
                           "341 destinations must not produce anything near 341 bubbles")
-        // 1 "me" + 3 interfaces + at most one bead per (interface, band).
+        // 1 local node + 3 interfaces + at most one bead per (interface, band).
         let ceiling = 1 + 3 * (1 + HopBand.allCases.count)
         XCTAssertLessThanOrEqual(graph.nodes.count, ceiling)
     }
 
     // MARK: - Aggregation behaviour
 
-    /// Below the threshold a band shows the destinations themselves — hiding
+    /// Below the threshold a band shows the destinations themselves—hiding
     /// two hashes behind a "2" the user has to tap would be worse than useless.
     func testSmallBandsRenderIndividualDestinations() {
         let graph = NetworkGraph.build(interfaces: [iface("tcp", .tcp, members(2, hops: [1]))])
@@ -109,8 +109,8 @@ final class NetworkGraphTests: XCTestCase {
         XCTAssertEqual(clusters.first?.label, "200", "the count is the bubble's label")
     }
 
-    /// An active link anywhere inside a cluster has to survive aggregation —
-    /// it is the one piece of live state the graph shows.
+    /// An active link anywhere inside a cluster has to survive aggregation—it
+    /// is the one piece of live state the graph shows.
     func testActiveLinkCountSurvivesAggregation() {
         let graph = NetworkGraph.build(interfaces: [
             iface("tcp", .tcp, members(50, hops: [1], active: 3))
@@ -140,7 +140,7 @@ final class NetworkGraphTests: XCTestCase {
     /// Every band gets its own radius, increasing outward.
     ///
     /// The old code packed
-    /// all levels into [0.35, 0.47] — the outer quarter of the canvas — which is
+    /// all levels into [0.35, 0.47]—the outer quarter of the canvas—which is
     /// why the middle of the graph was empty while its rim was a smear.
     func testBandRadiiAreDistinctAndIncreasing() {
         let radii = HopBand.allCases.map(\.radius)
@@ -149,7 +149,7 @@ final class NetworkGraphTests: XCTestCase {
         XCTAssertGreaterThan(radii.last! - radii.first!, 0.2,
                              "bands must use the canvas, not huddle in one ring")
         // 0.5 reaches the edge exactly. A cluster bubble is up to 48 pt across,
-        // so a centre placed at 0.5 loses its outer half — and `polarPoint`
+        // so a center placed at 0.5 loses its outer half—and `polarPoint`
         // deliberately applies no clamp, because the old code's clamp collapsed
         // distinct positions onto the same edge point. The radii themselves have
         // to leave room for the bubble.
@@ -157,7 +157,7 @@ final class NetworkGraphTests: XCTestCase {
                                  "outermost band must leave room for a 48 pt bubble")
     }
 
-    /// Only the bands that contain something get a ring guide — an empty ring
+    /// Only the bands that contain something get a ring guide—an empty ring
     /// labelled "8+ hops" claims knowledge the node does not have.
     func testOnlyOccupiedBandsGetRingGuides() {
         let graph = NetworkGraph.build(interfaces: [
@@ -174,11 +174,11 @@ final class NetworkGraphTests: XCTestCase {
         XCTAssertTrue(graph.edges.isEmpty)
     }
 
-    /// An interface with no known paths is still worth drawing — "this radio is
+    /// An interface with no known paths is still worth drawing—"this radio is
     /// up and has found nobody" is real information.
     func testInterfaceWithNoPathsStillAppears() {
         let graph = NetworkGraph.build(interfaces: [iface("lonely", .lora, [])])
-        XCTAssertEqual(graph.nodes.count, 2)          // me + the interface
+        XCTAssertEqual(graph.nodes.count, 2)          // local node + the interface
         XCTAssertEqual(graph.edges.count, 1)
     }
 
@@ -196,7 +196,7 @@ final class NetworkGraphTests: XCTestCase {
         }
     }
 
-    /// Node ids must be unique — `indexByID` dedupes on collision, so a
+    /// Node ids must be unique—`indexByID` dedupes on collision, so a
     /// duplicate would make `node(_:)` return the wrong bubble for an edge.
     func testNodeIDsAreUnique() {
         let graph = NetworkGraph.build(interfaces: [
@@ -223,7 +223,7 @@ final class NetworkGraphTests: XCTestCase {
 
     /// Ring captions must not land on a spoke. `angleFor(index: 0, count:)` is
     /// `-.pi/2` for every count, so interface 0's spoke always runs straight up
-    /// — a caption pinned to the top of each ring was drawn inside one of that
+    ///—a caption pinned to the top of each ring was drawn inside one of that
     /// spoke's bubbles and painted over.
     func testCaptionAngleAvoidsEverySpoke() {
         for count in 1...8 {
@@ -254,7 +254,7 @@ final class NetworkGraphTests: XCTestCase {
         }
     }
 
-    /// Cluster bubbles grow with membership but stay on the canvas — a linear
+    /// Cluster bubbles grow with membership but stay on the canvas—a linear
     /// map would make a 300-member cluster twelve times a 25-member one.
     func testClusterDiameterIsBoundedAndMonotonic() {
         let small = NetworkGraph.Node.Kind.cluster(.tcp, band: .direct, count: 4, activeCount: 0)

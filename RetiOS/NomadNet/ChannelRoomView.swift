@@ -24,7 +24,7 @@ struct ChannelRoomView: View {
 
     @Query private var messages: [ChannelMessageEntity]
 
-    /// The room we're composing into — set from the join-room prompt.
+    /// The room being composed into—set from the join-room prompt.
     @State private var activeRoom: String? = nil
     @State private var roomInput   = "general"
     @State private var composeDraft = ""
@@ -48,14 +48,14 @@ struct ChannelRoomView: View {
         // observation support, so this counter is the ONLY thing that makes hub
         // status and the room list refresh. Reading it inside `activeHub` alone
         // made the dependency contingent on some caller of `activeHub` being
-        // evaluated unconditionally during `body` — true today only via the
+        // evaluated unconditionally during `body`—true today only via the
         // toolbar badge. Restructuring that badge would silently kill live
         // updates with no compile error, so establish the dependency up front.
         let _ = nomadNet.rrcRevision
         messageList
             // Was `VStack { messageList; Divider(); bar }`. A trailing VStack
             // element sits outside the scroll view's safe area, so iOS keyboard
-            // avoidance resizes the *whole stack* rather than the inset — the
+            // avoidance resizes the *whole stack* rather than the inset—the
             // shove-and-settle this screen had and MessageThreadView (already on
             // a safe-area inset) did not. Same helper, metrics and material as
             // the Messages compose bar now; the hand-drawn Divider goes with it,
@@ -112,12 +112,12 @@ struct ChannelRoomView: View {
         }
         // Not a row in the LazyVStack any more. `rnsBottomScrollAnchor` also
         // governs how a scroll view aligns content *smaller* than its container,
-        // and on the iOS 17 fallback path that is unconditionally `.bottom` —
-        // which would render this placeholder jammed against the compose bar
+        // and on the iOS 17 fallback path that is unconditionally `.bottom`—which
+        // would render this placeholder jammed against the compose bar
         // with its top padding meaningless. As an overlay it is not scroll
         // content at all, so the anchor cannot touch it. `RNSEmptyState` also
-        // handles the macOS/iOS split, which this file's hand-rolled VStack —
-        // a pre-existing duplicate of it — did not.
+        // handles the macOS/iOS split, which this file's hand-rolled VStack—a
+        // pre-existing duplicate of it—did not.
         .overlay {
             if messages.isEmpty {
                 RNSEmptyState(
@@ -131,13 +131,13 @@ struct ChannelRoomView: View {
         }
         // Replaces the ScrollViewReader. Note this screen was also the one still
         // doing `withAnimation { proxy.scrollTo(…) }`, which MessageThreadView
-        // had already dropped — "avoids jank when keyboard and new messages
+        // had already dropped—"avoids jank when keyboard and new messages
         // arrive together".
         .rnsBottomScrollAnchor()
         .scrollDismissesKeyboard(.interactively)
         .onChange(of: messages.count) { _, _ in
-            // Clear unread for messages that arrive while the room is open —
-            // otherwise the badge lingers even though the user is reading it
+            // Clear unread for messages that arrive while the room is open—otherwise
+            // the badge lingers even though the user is reading it
             // (onAppear alone only covers messages present when opened).
             clearUnread()
         }
@@ -248,7 +248,7 @@ struct ChannelRoomView: View {
 
     private var activeHub: RRCHub? {
         // `RRCHub` / `RRCManager` are plain library types with no observation
-        // support — reading `hub.status` or `hub.rooms` below creates no
+        // support—reading `hub.status` or `hub.rooms` below creates no
         // dependency. `rrcRevision` is the observable stand-in the controller
         // bumps from `onChangeCallback`; touching it here is what makes hub
         // status and the room list refresh live.
