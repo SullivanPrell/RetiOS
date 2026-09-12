@@ -100,6 +100,7 @@ final class NotificationManager: NSObject {
     // MARK: - Injected dependencies
 
     /// Needed to Accept / Decline calls from notification action buttons.
+    ///
     /// Set by RetiOSApp after CallsController is created.
     weak var callsController: CallsController?
 
@@ -230,6 +231,7 @@ final class NotificationManager: NSObject {
 extension NotificationManager: UNUserNotificationCenterDelegate {
 
     /// Called while the app is in the foreground.
+    ///
     /// Message banners are shown as usual; call banners are suppressed because the
     /// in-app incoming-call UI is already visible.
     nonisolated func userNotificationCenter(

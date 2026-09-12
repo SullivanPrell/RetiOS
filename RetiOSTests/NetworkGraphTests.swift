@@ -68,6 +68,7 @@ final class NetworkGraphTests: XCTestCase {
     }
 
     /// The scale the user actually reported: 341 paths over three interfaces.
+    ///
     /// A phone canvas holds roughly 60 nodes at legible spacing on a full
     /// circle, so this is the number that has to stay small.
     func testReportedScaleStaysWellUnderTheLegibilityCeiling() {
@@ -136,7 +137,9 @@ final class NetworkGraphTests: XCTestCase {
         XCTAssertEqual(HopBand(hops: 255), .far)
     }
 
-    /// Every band gets its own radius, increasing outward. The old code packed
+    /// Every band gets its own radius, increasing outward.
+    ///
+    /// The old code packed
     /// all levels into [0.35, 0.47] — the outer quarter of the canvas — which is
     /// why the middle of the graph was empty while its rim was a smear.
     func testBandRadiiAreDistinctAndIncreasing() {
@@ -203,7 +206,9 @@ final class NetworkGraphTests: XCTestCase {
         XCTAssertEqual(Set(graph.nodes.map(\.id)).count, graph.nodes.count)
     }
 
-    /// Every node lands inside the canvas. The old layout clamped positions to
+    /// Every node lands inside the canvas.
+    ///
+    /// The old layout clamped positions to
     /// 0.05...0.95 after the fact, which collapsed distinct polar positions onto
     /// the same edge point; the band radii are chosen so no clamp is needed.
     func testAllNodesLandInsideTheCanvas() {

@@ -24,7 +24,9 @@ final class NomadNetNodeAnnounceHandler: AnnounceHandler {
 
     private let container: ModelContainer
     /// Serial queue that owns `ingestContext`; all SwiftData work happens here so
-    /// node-announce ingest never runs on the main thread. See
+    /// node-announce ingest never runs on the main thread.
+    ///
+    /// See
     /// `LXMFPeerAnnounceHandler` for the full rationale.
     private let queue = DispatchQueue(label: "dev.sprell.retios.node-announce-ingest",
                                       qos: .utility)

@@ -73,7 +73,9 @@ final class RNSDateTests: XCTestCase {
                        sevenDaysAgo.formatted(date: .numeric, time: .omitted))
     }
 
-    /// The header above claims every case pins `now`. It didn't hold:
+    /// The header above claims every case pins `now`.
+    ///
+    /// It didn't hold:
     /// `listTimestamp` branched on `isDateInToday`/`isDateInYesterday`, which
     /// read the real clock and ignored the injected `now`, so this suite agreed
     /// with the function only on the day it was written — CI went red the next

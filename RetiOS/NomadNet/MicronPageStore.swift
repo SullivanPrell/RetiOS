@@ -26,7 +26,9 @@ struct MicronPage: Identifiable, Hashable, Sendable {
     let byteCount: Int
 
     /// The node's home page — what a peer gets when they browse without naming
-    /// a page. Only the one at the root counts: `sub/index.mu` is an ordinary
+    /// a page.
+    ///
+    /// Only the one at the root counts: `sub/index.mu` is an ordinary
     /// page, matching `Node.register_pages`.
     var isIndex: Bool { relativePath == MicronPageStore.indexPageName }
 }
@@ -91,27 +93,39 @@ final class MicronPageStore {
     // MARK: Published state
 
     /// Every page under `rootURL`, `index.mu` first then case-insensitive
-    /// alphabetical. Refreshed by `reload()` and by every mutating call.
+    /// alphabetical.
+    ///
+    /// Refreshed by `reload()` and by every mutating call.
     private(set) var pages: [MicronPage] = []
 
-    /// Directory currently being edited. Either `defaultRoot` or a folder the
+    /// Directory currently being edited.
+    ///
+    /// Either `defaultRoot` or a folder the
     /// user picked, restored from a security-scoped bookmark.
     private(set) var rootURL: URL
 
     /// True when `rootURL` came from a user-chosen bookmark rather than the
-    /// app's own storage. Views use this to warn that edits may be live.
+    /// app's own storage.
+    ///
+    /// Views use this to warn that edits may be live.
     private(set) var isUsingCustomRoot: Bool = false
 
-    /// Last non-fatal problem, for display. Set by the paths that cannot throw
+    /// Last non-fatal problem, for display.
+    ///
+    /// Set by the paths that cannot throw
     /// (init, `reload`) and also recorded by the throwing calls so a view that
     /// swallows an error still has something to show.
     private(set) var lastError: String?
 
-    /// Dismiss the current error. Needed because `lastError` is `private(set)`
+    /// Dismiss the current error.
+    ///
+    /// Needed because `lastError` is `private(set)`
     /// and a SwiftUI alert has to be able to clear what it presented.
     func clearError() { lastError = nil }
 
-    /// The root, abbreviated for a one-line footer. Shows `~/…` for a path
+    /// The root, abbreviated for a one-line footer.
+    ///
+    /// Shows `~/…` for a path
     /// inside the home directory; the full path is left to `.help()`.
     ///
     /// `NSHomeDirectory()` rather than `FileManager.homeDirectoryForCurrentUser`,
@@ -130,19 +144,25 @@ final class MicronPageStore {
     /// Python NomadNet's home page filename (`Node.register_pages`).
     static let indexPageName = "index.mu"
 
-    /// Suffix of a per-page access list. Never a page.
+    /// Suffix of a per-page access list.
+    ///
+    /// Never a page.
     static let allowedSuffix = ".allowed"
 
     /// Extension applied to a new page created without one.
     static let pageExtension = "mu"
 
-    /// Depth cap for the recursive scan. Python recurses without a limit and is
+    /// Depth cap for the recursive scan.
+    ///
+    /// Python recurses without a limit and is
     /// safe only because nobody symlinks a node's pages directory into itself;
     /// a user-relocated root is arbitrary, so bound it.
     private static let maxScanDepth = 8
 
     /// A well-formed page to start from: heading, divider, colour tag with an
-    /// explicit reset, and a link. Kept deliberately small — it is a starting
+    /// explicit reset, and a link.
+    ///
+    /// Kept deliberately small — it is a starting
     /// point, not a tutorial.
     ///
     /// Every construct here is asserted lint-clean by
@@ -173,7 +193,9 @@ final class MicronPageStore {
 
     @ObservationIgnored private let defaults: UserDefaults
 
-    /// Where `resetRootToDefault()` goes back to. Normally the app's own
+    /// Where `resetRootToDefault()` goes back to.
+    ///
+    /// Normally the app's own
     /// storage; tests inject a temporary directory here.
     @ObservationIgnored private let defaultRoot: URL
 
@@ -286,7 +308,9 @@ final class MicronPageStore {
 
     /// Bookmark options differ per platform and the wrong constant is a compile
     /// error rather than a runtime one, which is the good outcome:
-    /// `.withSecurityScope` simply does not exist on iOS. There, a bookmark to a
+    /// `.withSecurityScope` simply does not exist on iOS.
+    ///
+    /// There, a bookmark to a
     /// URL outside our container is security-scoped automatically, and
     /// `.minimalBookmark` keeps the blob small (a full bookmark embeds resource
     /// values we never read).
@@ -306,7 +330,9 @@ final class MicronPageStore {
         #endif
     }
 
-    /// Re-resolve the persisted bookmark, if any. Any failure here falls back to
+    /// Re-resolve the persisted bookmark, if any.
+    ///
+    /// Any failure here falls back to
     /// the default root and reports why: silently editing the wrong directory —
     /// or worse, editing a stale path that now points somewhere else — is far
     /// more damaging than losing the user's folder choice.
@@ -356,7 +382,9 @@ final class MicronPageStore {
 
     // MARK: - Scanning
 
-    /// Rescan `rootURL`. Never throws: a browser that cannot list is still
+    /// Rescan `rootURL`.
+    ///
+    /// Never throws: a browser that cannot list is still
     /// usable, and the reason lands in `lastError`.
     func reload() {
         ensureRootExists()
@@ -423,7 +451,9 @@ final class MicronPageStore {
     }
 
     /// `index.mu` at the root sorts first — it is the page a visiting node gets
-    /// when it asks for nothing in particular. A nested `sub/index.mu` is just
+    /// when it asks for nothing in particular.
+    ///
+    /// A nested `sub/index.mu` is just
     /// another page and sorts normally.
     private static func isOrderedBefore(_ a: MicronPage, _ b: MicronPage) -> Bool {
         if a.relativePath == indexPageName { return b.relativePath != indexPageName }
@@ -610,7 +640,9 @@ final class MicronPageStore {
     }
 
     /// Recompute a page's URL from its `relativePath` against the *current*
-    /// root, rather than trusting the URL captured when it was scanned. Cheap
+    /// root, rather than trusting the URL captured when it was scanned.
+    ///
+    /// Cheap
     /// insurance against a stale `MicronPage` held by a view across a root
     /// change, and the only place a multi-component relative path is accepted.
     private func resolvedURL(for page: MicronPage) throws -> URL {
@@ -645,7 +677,9 @@ final class MicronPageStore {
     }
 
     /// Resolve symlinks and collapse "." / ".." so containment is decided on the
-    /// real path. Applied to both sides, so /var vs /private/var (and any other
+    /// real path.
+    ///
+    /// Applied to both sides, so /var vs /private/var (and any other
     /// symlinked prefix) cannot produce a false mismatch.
     private static func canonicalPath(_ url: URL) -> String {
         url.resolvingSymlinksInPath().standardizedFileURL.path
@@ -664,7 +698,9 @@ final class MicronPageStore {
     /// Micron is line-oriented: every directive is matched at column 0 and a
     /// trailing CR from a desktop-authored page becomes part of the last token
     /// on the line, so `"-\r"` stops being a divider and `` `= `` with a trailing
-    /// CR stops closing a literal block. Normalise on the way in *and* out so a
+    /// CR stops closing a literal block.
+    ///
+    /// Normalise on the way in *and* out so a
     /// round-trip through the editor cannot reintroduce it.
     ///
     /// This walks unicode scalars rather than using `String.contains` /

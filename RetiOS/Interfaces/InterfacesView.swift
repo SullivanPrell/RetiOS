@@ -641,7 +641,9 @@ struct I2PConfigSheet: View {
 // MARK: - Yggdrasil node sheet
 
 /// Configure and control the embedded Yggdrasil node (a system-VPN packet
-/// tunnel). Enabling it gives the device a real Yggdrasil IPv6 address; Reticulum
+/// tunnel).
+///
+/// Enabling it gives the device a real Yggdrasil IPv6 address; Reticulum
 /// then rides over it, interoperable with Python RNS-over-Yggdrasil nodes.
 struct YggdrasilNodeSheet: View {
     @Environment(StackController.self) private var stack

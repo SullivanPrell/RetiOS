@@ -204,7 +204,9 @@ struct PagesContent: View {
         }
     }
 
-    /// Where the pages actually live. Worth permanent screen space rather than
+    /// Where the pages actually live.
+    ///
+    /// Worth permanent screen space rather than
     /// burying it in a menu: with a custom root these files may be a live node's
     /// served pages, and editing those has consequences the author should not
     /// have to remember.

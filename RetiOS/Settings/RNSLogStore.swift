@@ -41,14 +41,18 @@ struct RNSLogEntry: Identifiable {
 // MARK: - Log store
 
 /// Thread-safe hand-off between the RNS log handler (called from arbitrary
-/// transport threads) and the main-actor store. Keeps the hot path to a lock +
+/// transport threads) and the main-actor store.
+///
+/// Keeps the hot path to a lock +
 /// array append so logging never blocks the caller.
 private final class RNSLogBuffer: @unchecked Sendable {
     private let lock = NSLock()
     private var pending: [RNSLogEntry] = []
     private var flushScheduled = false
 
-    /// Buffers an entry. Returns `true` when the caller should schedule a flush.
+    /// Buffers an entry.
+    ///
+    /// Returns `true` when the caller should schedule a flush.
     func append(_ entry: RNSLogEntry, cap: Int) -> Bool {
         lock.lock()
         defer { lock.unlock() }

@@ -13,7 +13,9 @@ import XCTest
 
 /// Every expectation here was derived by hand-executing
 /// `NomadNetSwift/Sources/NomadNet/MicronParser.swift`, not by observing what
-/// this lexer happened to produce. Where the parser's behaviour is surprising
+/// this lexer happened to produce.
+///
+/// Where the parser's behaviour is surprising
 /// the test says so — those are the cases where a "cleanup" of the lexer would
 /// silently desync the editor from the renderer.
 final class MicronSyntaxTests: XCTestCase {

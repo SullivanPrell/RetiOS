@@ -17,6 +17,7 @@ import NomadNet
 // MARK: - NomadNetAppAdapter
 
 /// Thin adapter satisfying NomadNetworkAppProtocol for use by RRCManager.
+///
 /// Holds strong references to the production Reticulum + Identity so that
 /// RRCHub.connectWorker() can reach the transport. RRCManager holds this
 /// via a `weak var app` so there is no retain cycle.
@@ -171,7 +172,9 @@ final class NomadNetController {
 
     /// Navigate to a page, optionally carrying form-field values. `fields` are
     /// sent to the node as `field_<name>` (widget/form inputs), distinct from the
-    /// URL's `var_<name>` variables — matching Python's NomadNet Browser. Passing
+    /// URL's `var_<name>` variables — matching Python's NomadNet Browser.
+    ///
+    /// Passing
     /// them here (rather than flattening them into the URL string) is what keeps
     /// a submitted form field from being mis-sent as a URL variable.
     func navigate(to url: NomadNetURL, fields: [String: String] = [:]) {
@@ -184,7 +187,9 @@ final class NomadNetController {
     /// Toggle whether we identify ("log in") to the current node, persist the
     /// choice per-node, and reload so it takes effect immediately — turning it on
     /// re-requests the page with our identity revealed (so the node can serve
-    /// logged-in content); turning it off re-requests anonymously. Mirrors Python
+    /// logged-in content); turning it off re-requests anonymously.
+    ///
+    /// Mirrors Python
     /// NomadNet's per-node "Identify when connecting" setting, surfaced in the URL
     /// bar. No-op when no page is loaded (nothing to identify to).
     func setIdentify(_ on: Bool) {
@@ -195,6 +200,7 @@ final class NomadNetController {
     }
 
     /// UserDefaults key for a node's persisted "identify on connect" toggle.
+    ///
     /// Static so the browser's `shouldIdentify` predicate can read it without a
     /// MainActor hop.
     static func identifyKey(for destinationHash: Data) -> String {
@@ -228,6 +234,7 @@ final class NomadNetController {
     // MARK: - RRC channel management
 
     /// Join an RRC hub and start receiving messages.
+    ///
     /// Returns the hub (existing one if already joined; new one otherwise).
     @discardableResult
     func joinChannel(hubHash: Data,
@@ -256,6 +263,7 @@ final class NomadNetController {
     }
 
     /// Reconnect any auto-reconnect hubs that have dropped their link.
+    ///
     /// Called after setup (restoring persisted hubs) and whenever the app
     /// returns to the foreground — iOS tears down idle network connections
     /// while backgrounded, so open hubs are usually dead on resume.

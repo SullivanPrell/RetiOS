@@ -12,7 +12,9 @@ import XCTest
 @testable import RetiOS
 
 /// Every test runs against a fresh temporary directory and a throwaway
-/// UserDefaults suite. Nothing here may touch the real Documents container —
+/// UserDefaults suite.
+///
+/// Nothing here may touch the real Documents container —
 /// that is where the Reticulum identity private key lives.
 @MainActor
 final class MicronPageStoreTests: XCTestCase {

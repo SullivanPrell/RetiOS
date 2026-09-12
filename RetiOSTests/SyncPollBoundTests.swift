@@ -15,7 +15,9 @@ import ReticulumSwift
 
 /// `swift_devel/bugs/020`, the RetiOS half (design D5): the 2 Hz sync poll exited only on
 /// `.done` or `.failed` — two states the library might never set — so a misbehaving callee hung
-/// the caller for the lifetime of the process. The library now bounds its own stalls
+/// the caller for the lifetime of the process.
+///
+/// The library now bounds its own stalls
 /// (`cleanLinks(syncStallTimeout:)`), but this loop must terminate *independently of that*: a
 /// caller that can only stop when its callee behaves is the same class of fault one level up.
 @MainActor

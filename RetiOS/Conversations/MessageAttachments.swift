@@ -41,7 +41,9 @@ struct MessageAttachments {
         image == nil && files.isEmpty && audio == nil && telemetryBytes == nil
     }
 
-    /// Decode the attachments from a message's raw packed bytes. Returns `nil`
+    /// Decode the attachments from a message's raw packed bytes.
+    ///
+    /// Returns `nil`
     /// when the bytes can't be unpacked or carry no recognised attachment.
     static func decode(from packed: Data) -> MessageAttachments? {
         guard let msg = try? LXMessage.unpack(packed) else { return nil }

@@ -345,7 +345,9 @@ struct NetworkVisualizerView: View {
 
     // MARK: Edges
 
-    /// A straight segment between two points in canvas-space. Conforming to
+    /// A straight segment between two points in canvas-space.
+    ///
+    /// Conforming to
     /// `Shape` (rather than drawing into a `Canvas`) gives it `animatableData`,
     /// so when an edge's endpoints move between refreshes SwiftUI interpolates
     /// the line smoothly instead of snapping, and it renders crisply at any zoom
@@ -517,7 +519,9 @@ enum HopBand: Int, CaseIterable, Hashable, Comparable {
 
     static func < (lhs: HopBand, rhs: HopBand) -> Bool { lhs.rawValue < rhs.rawValue }
 
-    /// Normalized ring radius. Spread across [0.23, 0.47] — the old layout
+    /// Normalized ring radius.
+    ///
+    /// Spread across [0.23, 0.47] — the old layout
     /// packed every level into [0.35, 0.47], the outer quarter of the canvas,
     /// which is why the centre of the graph was empty while its rim was a smear.
     /// 0.47 is very close to the 0.5 that reaches the canvas edge.
@@ -574,7 +578,9 @@ struct NetworkGraph {
         /// is truncated.
         let fullID: String
         let kind: Kind
-        /// The destinations this node stands for. Empty for `.me`; the whole
+        /// The destinations this node stands for.
+        ///
+        /// Empty for `.me`; the whole
         /// subtree for `.interface`; the cluster's contents for `.cluster`.
         let members: [Member]
         var normPosition: CGPoint
@@ -615,7 +621,9 @@ struct NetworkGraph {
         /// `.inferred` — the destinations are N hops away through this
         /// interface, but the local path table records only the next-hop
         /// *transport ID*, never the intermediate destinations, so the route is
-        /// genuinely unknown here. Drawn dashed to say so.
+        /// genuinely unknown here.
+        ///
+        /// Drawn dashed to say so.
         enum PathKind { case known, inferred }
 
         let id: String
@@ -628,7 +636,9 @@ struct NetworkGraph {
     /// `let`, not `var`: `indexByID` is derived once in `init`, so a property
     /// that could be reassigned afterwards would silently desynchronise the map
     /// from `nodes` — and `node(_:)` would start returning nil for real nodes,
-    /// so edges would vanish rather than crash. Nothing mutates a graph in
+    /// so edges would vanish rather than crash.
+    ///
+    /// Nothing mutates a graph in
     /// place (`refresh()` whole-assigns), so this costs nothing and turns the
     /// invariant into a compile-time guarantee.
     let nodes: [Node]
@@ -717,7 +727,9 @@ extension NetworkGraph {
     }
 
     /// Builds the graph: "me" at centre, a ring of interfaces around it, and
-    /// along each interface's spoke one bead per occupied hop band. A band
+    /// along each interface's spoke one bead per occupied hop band.
+    ///
+    /// A band
     /// holding fewer than `clusterThreshold` destinations draws them
     /// individually; anything larger becomes a single cluster bubble labelled
     /// with its count and openable as a list.
@@ -812,7 +824,9 @@ extension NetworkGraph {
     }
 
     /// Midpoint of the widest gap between spokes — where a ring caption can sit
-    /// without a bubble landing on top of it. Spokes are evenly spaced, so the
+    /// without a bubble landing on top of it.
+    ///
+    /// Spokes are evenly spaced, so the
     /// widest gap is simply half a step past the last one.
     private static func captionAngle(spokeCount: Int) -> Double {
         guard spokeCount > 0 else { return .pi / 2 }
@@ -921,7 +935,9 @@ private struct NodeBubble: View {
     }
 
     /// Inside the bubble: a glyph for a node that *is* something, the count for
-    /// a cluster that stands for many things. Putting the count inside is what
+    /// a cluster that stands for many things.
+    ///
+    /// Putting the count inside is what
     /// lets clusters sit on a spoke without their captions colliding with the
     /// next bead out.
     @ViewBuilder
@@ -942,7 +958,9 @@ private struct NodeBubble: View {
         }
     }
 
-    /// Only nodes with a name worth reading carry an external caption. Clusters
+    /// Only nodes with a name worth reading carry an external caption.
+    ///
+    /// Clusters
     /// do not — their number is inside the bubble, and the ring guide already
     /// names the band.
     private var caption: String? {
@@ -1194,7 +1212,9 @@ enum ConnectionType: CaseIterable, Hashable {
 
     /// A distinct SF Symbol per connection type, so type is distinguishable in
     /// the graph without relying on hue alone (several of the type colors are
-    /// near-identical blues/purples/greens). Used on node bubbles and in the
+    /// near-identical blues/purples/greens).
+    ///
+    /// Used on node bubbles and in the
     /// legend; node *kind* stays encoded by bubble size and ring position.
     var glyph: String {
         switch self {

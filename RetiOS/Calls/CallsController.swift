@@ -99,7 +99,9 @@ final class CallsController {
     @ObservationIgnored private var telephone: Telephone?
 
     /// Display hash for the active/ringing call (dialled hash for outbound,
-    /// caller identity hash for inbound). Used to label the call UI.
+    /// caller identity hash for inbound).
+    ///
+    /// Used to label the call UI.
     @ObservationIgnored private var activePeerHash: Data?
     // In-progress call record — pushed to history when the call ends.
     @ObservationIgnored private var pendingRecord: CallRecord?
@@ -189,7 +191,9 @@ final class CallsController {
     // MARK: - Path query
 
     /// Returns `true` if a path to the peer's `lxst.telephony` destination is
-    /// known. Pass the peer's **lxmf.delivery** destination hash (16 bytes); the
+    /// known.
+    ///
+    /// Pass the peer's **lxmf.delivery** destination hash (16 bytes); the
     /// method derives the corresponding `lxst.telephony` hash internally.
     func hasLXSTCallPath(for lxmfHash: Data) -> Bool {
         guard let transport,
@@ -436,6 +440,7 @@ final class CallsController {
 // MARK: - LXST announce handler
 
 /// Listens for `lxst.telephony` announces and notifies the controller on the main actor.
+///
 /// Traffic is low (LXST announces are rare) so no coalescing is needed.
 private final class LXSTCallAnnounceHandler: AnnounceHandler {
     var aspectFilter: String? { "lxst.telephony" }

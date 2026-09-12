@@ -40,6 +40,7 @@ import LXMF
 final class LXMFMessageIngest {
 
     /// A received message reduced to value types, captured off the main actor.
+    ///
     /// Deliberately holds no `LXMessage` / `@Model` reference so nothing
     /// thread-confined escapes the transport thread.
     private struct Incoming {
@@ -61,7 +62,9 @@ final class LXMFMessageIngest {
     private let myHash: String
     private weak var notificationManager: NotificationManager?
 
-    /// Serial queue owning `ingestContext`. A `ModelContext` is not thread-safe,
+    /// Serial queue owning `ingestContext`.
+    ///
+    /// A `ModelContext` is not thread-safe,
     /// so it is created lazily *on* this queue and only ever touched here.
     private let queue = DispatchQueue(label: "dev.sprell.retios.lxmf-ingest", qos: .utility)
     private var cachedIngestContext: ModelContext?
@@ -77,7 +80,9 @@ final class LXMFMessageIngest {
     private var pending: [Incoming] = []
     private var flushScheduled = false
 
-    /// Coalescing window. Short enough that a single live message still lands
+    /// Coalescing window.
+    ///
+    /// Short enough that a single live message still lands
     /// promptly, long enough that a backlog burst collapses into one write.
     private let flushInterval: TimeInterval = 0.4
 
@@ -87,7 +92,9 @@ final class LXMFMessageIngest {
         self.notificationManager = notificationManager
     }
 
-    /// Buffer a received message. Safe to call from any thread.
+    /// Buffer a received message.
+    ///
+    /// Safe to call from any thread.
     func enqueue(_ message: LXMessage) {
         let senderHex    = message.sourceHash.map { String(format: "%02x", $0) }.joined()
         let recipientHex = message.destinationHash.map { String(format: "%02x", $0) }.joined()
@@ -125,6 +132,7 @@ final class LXMFMessageIngest {
     }
 
     /// Drains the buffer and writes the whole batch in one transaction.
+    ///
     /// Runs on `queue`, against the background context — never the main actor.
     private func flush() {
         dispatchPrecondition(condition: .onQueue(queue))
@@ -186,7 +194,9 @@ final class LXMFMessageIngest {
     }
 
     /// Resolve sender names and post local notifications for the inbound
-    /// messages in a flushed batch. The name fetch runs here on the ingest
+    /// messages in a flushed batch.
+    ///
+    /// The name fetch runs here on the ingest
     /// queue; only the finished `Banner` values hop to the main actor.
     private func notify(_ inserted: [Incoming], context: ModelContext) {
         dispatchPrecondition(condition: .onQueue(queue))

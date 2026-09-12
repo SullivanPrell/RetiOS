@@ -249,7 +249,9 @@ final class CoreBluetoothMeshTransport: NSObject {
     enum ConnectionDecision: Equatable { case connect, `defer` }
 
     /// Number of random bytes in the arbitration nonce, hex-encoded to
-    /// `2 * arbitrationNonceByteCount` characters for advertising. Six hex
+    /// `2 * arbitrationNonceByteCount` characters for advertising.
+    ///
+    /// Six hex
     /// characters matches "RetiOS" — a name already field-proven to survive
     /// advertising intact alongside the 128-bit service UUID — rather than
     /// pushing to the theoretical ~8-character ceiling with no margin left
@@ -268,7 +270,9 @@ final class CoreBluetoothMeshTransport: NSObject {
 
     /// Pure comparison, no CoreBluetooth involved — directly unit-testable.
     /// `ourNonce`/`peerNonce` are fixed-length lowercase-hex strings from
-    /// `makeArbitrationNonce()`. A missing peer nonce (a peer not running
+    /// `makeArbitrationNonce()`.
+    ///
+    /// A missing peer nonce (a peer not running
     /// this arbitration scheme) compares as the empty string, the smallest
     /// possible value, so we always defer to it — this can't occur in
     /// practice, since anything reaching this comparison already advertised
@@ -280,7 +284,9 @@ final class CoreBluetoothMeshTransport: NSObject {
     }
 
     /// How long a deferring side waits for the winning peer to complete the
-    /// connection before giving up and connecting itself anyway. Guards
+    /// connection before giving up and connecting itself anyway.
+    ///
+    /// Guards
     /// against a stuck mesh in the (rare) event the winning side's attempt
     /// silently fails, both sides tie (identical nonces — vanishingly
     /// unlikely at `arbitrationNonceByteCount` bytes, but the one case
@@ -305,7 +311,9 @@ final class CoreBluetoothMeshTransport: NSObject {
 
     /// A peer whose election we lost (their nonce sorted lower) —
     /// recorded so `recheckDeferrals` can self-heal if they never finish
-    /// connecting to us within `deferralTimeout`. Carries the `CBPeripheral`
+    /// connecting to us within `deferralTimeout`.
+    ///
+    /// Carries the `CBPeripheral`
     /// (not just its identifier) because healing means dialing out
     /// ourselves, which needs the live object — and `displayName` purely so
     /// the eventual "connecting ourselves instead" log line can name them.
@@ -326,7 +334,9 @@ final class CoreBluetoothMeshTransport: NSObject {
         return Array(Set(centralLinks.keys).union(subscriptions.keys))
     }
 
-    /// Fired whenever the device's Bluetooth radio state changes. This is
+    /// Fired whenever the device's Bluetooth radio state changes.
+    ///
+    /// This is
     /// deliberately NOT part of `BLEMeshTransport` — it's a CoreBluetooth-only
     /// concept the protocol's mock conformances (and `BLEMeshInterface`,
     /// which only ever speaks in peer IDs and bytes) have no reason to model.
@@ -354,7 +364,9 @@ final class CoreBluetoothMeshTransport: NSObject {
     /// Links we initiated (we are GATT central), keyed by `peripheral.identifier.uuidString`.
     private var centralLinks: [BLEMeshPeerID: CentralLink] = [:]
     /// Centrals subscribed to our TX characteristic (we are GATT peripheral),
-    /// keyed by `central.identifier.uuidString`. A central becomes sendable
+    /// keyed by `central.identifier.uuidString`.
+    ///
+    /// A central becomes sendable
     /// only once subscribed — that's what makes `updateValue` deliverable.
     private var subscriptions: [BLEMeshPeerID: CBCentral] = [:]
     /// Outbound notification chunks awaiting `CBPeripheralManager.updateValue`
@@ -364,7 +376,9 @@ final class CoreBluetoothMeshTransport: NSObject {
     /// Outbound write-without-response chunks awaiting room in CoreBluetooth's
     /// transmit buffer (we are GATT central) — the central-role mirror of
     /// `pendingNotifications`, drained opportunistically and from
-    /// `peripheralIsReady(toSendWriteWithoutResponse:)`. See
+    /// `peripheralIsReady(toSendWriteWithoutResponse:)`.
+    ///
+    /// See
     /// `drainCentralWrites` for why this queue is required at all (it's the
     /// actual fix for "sending doesn't work").
     private var pendingCentralWrites: [BLEMeshPeerID: [Data]] = [:]
@@ -385,11 +399,15 @@ final class CoreBluetoothMeshTransport: NSObject {
     private var central: CBCentralManager?
     private var peripheralManager: CBPeripheralManager?
     private let queue = DispatchQueue(label: "CoreBluetoothMeshTransport")
-    /// Cosmetic only — shown in this device's own log lines. Never
+    /// Cosmetic only — shown in this device's own log lines.
+    ///
+    /// Never
     /// transmitted; see ATTEMPT #4 above for why the advertised local name
     /// carries the arbitration nonce instead.
     private let displayName: String
-    /// This session's arbitration key — see ATTEMPT #4 above. Generated
+    /// This session's arbitration key — see ATTEMPT #4 above.
+    ///
+    /// Generated
     /// once per `init` (i.e. fresh every time `BLEMeshController.enable`
     /// creates a new transport) and advertised verbatim as the local name.
     private let arbitrationNonce: String = CoreBluetoothMeshTransport.makeArbitrationNonce()
@@ -504,7 +522,9 @@ extension CoreBluetoothMeshTransport {
     }
 
     /// We are GATT central for this peer: write to its RX characteristic
-    /// without response. Queues the chunks and kicks off draining — see
+    /// without response.
+    ///
+    /// Queues the chunks and kicks off draining — see
     /// `drainCentralWrites` for why a blind write loop (what used to be here)
     /// is the actual root cause of "sending doesn't work".
     private func writeAsCentral(_ data: Data, link: CentralLink) throws {
@@ -581,7 +601,9 @@ extension CoreBluetoothMeshTransport {
     }
 
     /// We are GATT peripheral for this peer: notify it on our TX
-    /// characteristic. Queues the chunks and kicks off draining — see
+    /// characteristic.
+    ///
+    /// Queues the chunks and kicks off draining — see
     /// `drainNotifications`.
     private func notifyAsPeripheral(_ data: Data, peer: BLEMeshPeerID, central: CBCentral) {
         let pieces = chunked(data, mtu: central.maximumUpdateValueLength)
@@ -677,7 +699,9 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
     }
 
     /// Decides whether *we* should dial out to a newly discovered peer or
-    /// wait to be dialed — see ATTEMPT #4 above. Must be called with `lock`
+    /// wait to be dialed — see ATTEMPT #4 above.
+    ///
+    /// Must be called with `lock`
     /// held; mutates `deferredPeripherals`.
     ///
     /// Note this no longer self-heals inline (ATTEMPT #2 did): that logic
@@ -742,7 +766,9 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
 
     /// Periodic, `didDiscover`-independent self-heal for `deferredPeripherals`
     /// — see ATTEMPT #3 above for why this can no longer live inside
-    /// `connectionDecision`. Runs every `deferralRecheckInterval` on `queue`;
+    /// `connectionDecision`.
+    ///
+    /// Runs every `deferralRecheckInterval` on `queue`;
     /// promotes any peer that's been waiting past `deferralTimeout` to
     /// "connect ourselves", on the theory that the side that should have
     /// dialed in by now (the election's actual winner) is stuck — most
@@ -893,7 +919,9 @@ extension CoreBluetoothMeshTransport: CBPeripheralDelegate {
     }
 
     /// GATT setup didn't complete — drop the half-formed link bookkeeping and
-    /// let CoreBluetooth tear the connection down. No `peerConnected` was
+    /// let CoreBluetooth tear the connection down.
+    ///
+    /// No `peerConnected` was
     /// ever fired for it, so no `peerDisconnected` is owed either.
     private func abandonCentralLink(to peripheral: CBPeripheral) {
         lock.lock()

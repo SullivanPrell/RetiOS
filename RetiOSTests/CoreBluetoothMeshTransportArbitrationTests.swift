@@ -12,7 +12,9 @@ import XCTest
 @testable import RetiOS
 
 /// Covers the pure, CoreBluetooth-free half of connection arbitration —
-/// nonce generation and the comparison that decides who dials out. The
+/// nonce generation and the comparison that decides who dials out.
+///
+/// The
 /// CoreBluetooth-entangled half (advertising, scanning, GATT setup) needs
 /// live radio hardware and stays untested here, same as `BLERNodeTransport`.
 final class CoreBluetoothMeshTransportArbitrationTests: XCTestCase {

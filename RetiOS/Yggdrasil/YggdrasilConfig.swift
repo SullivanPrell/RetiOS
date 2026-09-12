@@ -25,7 +25,9 @@ import Yggdrasil
 
 /// An editable Yggdrasil node configuration.
 final class YggdrasilConfig {
-    /// The underlying config dictionary (JSON object). Mutated in place.
+    /// The underlying config dictionary (JSON object).
+    ///
+    /// Mutated in place.
     private(set) var dict: [String: Any]
 
     /// Create a fresh configuration with a newly generated node key.
@@ -53,7 +55,9 @@ final class YggdrasilConfig {
     }
 
     /// Force the mobile-safe settings the extension requires, regardless of
-    /// what was generated or previously stored. The system tunnel provides the
+    /// what was generated or previously stored.
+    ///
+    /// The system tunnel provides the
     /// TUN, so we never listen for inbound peerings and never bind an admin
     /// socket (the sandbox can't anyway).
     private func normalize() {
@@ -64,7 +68,9 @@ final class YggdrasilConfig {
     // MARK: - Editable fields
 
     /// Yggdrasil peer URIs, e.g. "tls://host:port", "quic://host:port",
-    /// "tcp://host:port". The node dials these to join the mesh.
+    /// "tcp://host:port".
+    ///
+    /// The node dials these to join the mesh.
     var peers: [String] {
         get { dict["Peers"] as? [String] ?? [] }
         set { dict["Peers"] = newValue }

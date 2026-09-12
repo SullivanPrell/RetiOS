@@ -34,7 +34,9 @@ final class MicronAuthoringTests: XCTestCase {
 
     // MARK: - Starter template
 
-    /// The first thing a user ever sees. The original draft produced four
+    /// The first thing a user ever sees.
+    ///
+    /// The original draft produced four
     /// warnings and rendered as "This page is 8ffMicron markup" and "Lines
     /// starting with are headings, a lone draws a divider" — it used the
     /// 3-nibble `` `F `` with six digits, and wrapped `>` and `-` in backticks,
@@ -67,6 +69,7 @@ final class MicronAuthoringTests: XCTestCase {
     /// Python NomadNet's `Browser.retrieve_url` splits the URL on ":" and, with
     /// a single component, requires exactly 32 hex characters — so a bare
     /// "/page/about.mu" raises ValueError("Malformed URL") on every Python peer.
+    ///
     /// RetiOS's own browser accepts both forms, which is exactly why this was
     /// invisible in the preview pane.
     func testPageLinkIsColonPrefixedForPythonCompatibility() {
@@ -103,7 +106,9 @@ final class MicronAuthoringTests: XCTestCase {
 
     /// A "]" ends the link at the FIRST occurrence and a backtick starts a new
     /// component, so either one silently truncates the link into markup the
-    /// author did not write. The sheet must refuse rather than emit it.
+    /// author did not write.
+    ///
+    /// The sheet must refuse rather than emit it.
     func testLinkBuilderRefusesCharactersThatTruncateTheLink() {
         for hostile in ["Spec [draft]", "back`tick"] {
             var sheet = MicronLinkSnippet()
@@ -179,7 +184,9 @@ final class MicronAuthoringTests: XCTestCase {
 
     // MARK: - Round trip
 
-    /// Everything the palette inserts must survive its own linter. A button that
+    /// Everything the palette inserts must survive its own linter.
+    ///
+    /// A button that
     /// produces a warning is worse than no button.
     func testInsertPaletteSnippetsAreLintClean() {
         // Mirrors MicronPageEditorView.insertPalette. Kept as literals rather

@@ -412,7 +412,9 @@ private struct OnboardingView: View {
 
     @State private var step = 0
     @State private var draftName = ""
-    /// Rendered once, off the main thread. Calling `rnsQRImage` inline in `body`
+    /// Rendered once, off the main thread.
+    ///
+    /// Calling `rnsQRImage` inline in `body`
     /// re-rendered the whole QR (including a fresh CIContext) on *every* body
     /// evaluation — on the very first screen a new user ever sees.
     @State private var qrImage: Image?

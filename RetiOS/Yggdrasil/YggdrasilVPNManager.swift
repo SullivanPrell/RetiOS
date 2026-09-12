@@ -73,7 +73,9 @@ final class YggdrasilVPNManager {
     /// True once we have located (or created) the VPN profile.
     private(set) var isConfigured: Bool = false
     /// True once a `NETunnelProviderManager.loadAllFromPreferences()` has
-    /// succeeded this session. Distinguishes "queried NE, genuinely no profile"
+    /// succeeded this session.
+    ///
+    /// Distinguishes "queried NE, genuinely no profile"
     /// from "couldn't query NE" — the caller must not mint a new node key in the
     /// latter case (it would change the node identity). See StackController.
     private(set) var didLoadManagers: Bool = false
@@ -263,7 +265,9 @@ final class YggdrasilVPNManager {
         }
     }
 
-    /// One-shot resume guard for an IPC continuation. Main-actor isolated (hence
+    /// One-shot resume guard for an IPC continuation.
+    ///
+    /// Main-actor isolated (hence
     /// implicitly Sendable) so the timeout and the response race resume it
     /// exactly once.
     @MainActor

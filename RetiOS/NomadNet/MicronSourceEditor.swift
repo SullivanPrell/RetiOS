@@ -68,6 +68,7 @@ import Runestone
 // grew real Tree-sitter highlighting.
 
 /// A colour role from the RNS brand palette (`Design/RNSBrand.swift`).
+///
 /// Deliberately not resolved to `UIColor` here — `UIColor` is UIKit, and this
 /// type must build on macOS for `RetiOSTests`. See `MicronEditorTheme` below
 /// for the half of this that does resolve to `UIColor`, which has no reason
@@ -83,7 +84,9 @@ struct MicronCaptureStyle: Equatable {
 }
 
 /// tree-sitter-micron's `queries/highlights.scm` capture names, mapped to a
-/// colour and weight. Real, per-construct colour (closer to VS Code/Zed)
+/// colour and weight.
+///
+/// Real, per-construct colour (closer to VS Code/Zed)
 /// rather than the Pages editor's earlier background-tint scheme, which this
 /// replaces. Every colour is drawn from the existing RNS palette — no new
 /// hues introduced. `rnsWarning`/`rnsError` are deliberately excluded: they
@@ -314,7 +317,9 @@ struct MicronSourceEditor: UIViewRepresentable {
 private final class MicronEditorTheme: Theme {
     static let shared = MicronEditorTheme()
 
-    /// Dynamic Type-aware, but capped. Runestone caches an estimated line
+    /// Dynamic Type-aware, but capped.
+    ///
+    /// Runestone caches an estimated line
     /// height off `theme.font` when the state is built, so this is sampled at
     /// state-construction time — a content-size change mid-session needs a new
     /// `setState` to take effect. The cap keeps the gutter from eating half the

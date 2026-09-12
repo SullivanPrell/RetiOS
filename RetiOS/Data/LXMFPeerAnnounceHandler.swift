@@ -41,7 +41,9 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
     /// Also receive path responses, so a peer whose path was requested (e.g. when
     /// the user tries to message a not-yet-known peer) is recorded — with its
     /// display name — as soon as the path response arrives, without waiting for a
-    /// fresh broadcast announce. Mirrors NomadNet's `receive_path_responses = True`.
+    /// fresh broadcast announce.
+    ///
+    /// Mirrors NomadNet's `receive_path_responses = True`.
     public var receivePathResponses: Bool { true }
 
     private let container: ModelContainer
@@ -55,7 +57,9 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
     private var pending: [String: (name: String?, date: Date)] = [:]
     private var flushScheduled = false
 
-    /// Coalescing window. Bursts collapse into a single batched save per window.
+    /// Coalescing window.
+    ///
+    /// Bursts collapse into a single batched save per window.
     private let flushInterval: TimeInterval = 1.0
 
     init(container: ModelContainer) {
@@ -88,6 +92,7 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
     }
 
     /// Drains the pending buffer and writes it in one transaction.
+    ///
     /// Runs on `queue` against the background context — never the main thread.
     private func flush() {
         let context: ModelContext
@@ -128,6 +133,7 @@ final class LXMFPeerAnnounceHandler: AnnounceHandler {
     }
 
     /// LXMF announce app_data is msgpack([display_name_bytes?, stamp_cost?, ...]).
+    ///
     /// Delegates to the canonical `displayNameFromAppData` from LXMF, which handles
     /// both bin (.bytes) and legacy str (.string) first elements, plus plain-UTF-8
     /// fallback for pre-0.5.0 announces.

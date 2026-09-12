@@ -245,7 +245,9 @@ struct MessageThreadView: View {
 private struct ComposeBar: View {
     /// Called with trimmed, non-empty text when the user sends.
     let onSend: (String) -> Void
-    /// Called when the user edits the draft. The parent uses it to clear a stale
+    /// Called when the user edits the draft.
+    ///
+    /// The parent uses it to clear a stale
     /// send error, which otherwise pinned a red caption above the bar for the
     /// life of the view — and, now that the error line sits inside the bottom
     /// bar, permanently inflated the bottom safe area with it.
@@ -416,7 +418,9 @@ private struct MessageBubble: View {
 // MARK: - Attachments
 
 /// Renders the image / file / audio / telemetry attachments carried by an LXMF
-/// message. Display-only for now — playback of audio and saving of files are
+/// message.
+///
+/// Display-only for now — playback of audio and saving of files are
 /// follow-on work; this surfaces what the C1 fix recovered on the wire.
 private struct AttachmentsView: View {
     let attachments: MessageAttachments

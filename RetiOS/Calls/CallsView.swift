@@ -391,7 +391,9 @@ private struct CallRecordRow: View {
 /// address routes nowhere and whose messages could never be delivered, so every
 /// contact action here resolves first and is simply unavailable when it cannot.
 private enum CallPeerResolver {
-    /// Name hash of `lxmf.delivery`. Constant for the life of the process.
+    /// Name hash of `lxmf.delivery`.
+    ///
+    /// Constant for the life of the process.
     private static let lxmfDeliveryNameHash =
         Destination.computeNameHash(appName: "lxmf", aspects: ["delivery"])
 
@@ -489,6 +491,7 @@ private enum CallPeerResolver {
 }
 
 /// Creates or updates the `PeerEntity` for an already-resolved delivery hash.
+///
 /// Mirrors the Messages tab's add-contact idiom (flip `isContact`, then save).
 private func saveCallPeerAsContact(lxmfHex: String, in context: ModelContext) {
     let descriptor = FetchDescriptor<PeerEntity>(

@@ -149,7 +149,9 @@ struct NomadNetBrowserContent: View {
         .onAppear { syncURLBar() }
     }
 
-    /// Mirror the loaded page's address into the field. Never clobbers text the
+    /// Mirror the loaded page's address into the field.
+    ///
+    /// Never clobbers text the
     /// user is actively editing — only syncs while the field isn't focused.
     private func syncURLBar() {
         guard !urlBarFocused, let url = nomadNet.currentURL else { return }
@@ -158,7 +160,9 @@ struct NomadNetBrowserContent: View {
 
     // MARK: - Favorites
 
-    /// Hex form of the browsed node's hash. NomadNetURL carries `Data`; the
+    /// Hex form of the browsed node's hash.
+    ///
+    /// NomadNetURL carries `Data`; the
     /// entity keys on the 32-char hex string, so everything here goes through
     /// this one conversion.
     private var currentNodeHash: String? {

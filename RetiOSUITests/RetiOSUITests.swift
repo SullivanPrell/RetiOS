@@ -88,7 +88,9 @@ final class RetiOSUITests: XCTestCase {
     }
 
     /// The app brings up a real Reticulum stack on launch, so the first frame
-    /// can lag. Waits for any of the top-level destinations to exist.
+    /// can lag.
+    ///
+    /// Waits for any of the top-level destinations to exist.
     @discardableResult
     private func waitForMainUI(_ app: XCUIApplication, timeout: TimeInterval = 60) -> Bool {
         let anchor = app.staticTexts["Messages"].firstMatch
@@ -125,7 +127,9 @@ final class RetiOSUITests: XCTestCase {
     }
 
     #if os(macOS)
-    /// macOS-only: the Preferences window is its own scene. This is the path
+    /// macOS-only: the Preferences window is its own scene.
+    ///
+    /// This is the path
     /// that could not be covered by driving the app by hand, because macOS
     /// withholds Accessibility permission from ad-hoc automation.
     func testRNodeScreenIsReachableFromPreferencesScene() {
@@ -230,7 +234,9 @@ final class RetiOSUITests: XCTestCase {
     }
 
     /// Finds `label` as a button, static text, or table/outline cell and
-    /// activates it. Returns false rather than failing so callers can attach
+    /// activates it.
+    ///
+    /// Returns false rather than failing so callers can attach
     /// the element tree to a more specific message.
     @discardableResult
     private func tapFirstMatch(_ app: XCUIApplication,

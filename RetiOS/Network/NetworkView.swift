@@ -247,7 +247,9 @@ private struct NetworkToolsView: View {
     @State private var isPinging = false
     @State private var nodeInfo: NodeInfo?
 
-    /// `Equatable` so `refreshNodeInfo` can assign only on change. Writing
+    /// `Equatable` so `refreshNodeInfo` can assign only on change.
+    ///
+    /// Writing
     /// `@State` unconditionally re-rendered the whole pane every 3 s even when
     /// the counts were identical — the same defect
     /// `SettingsView.refreshCachedStats` already carries a comment about. It

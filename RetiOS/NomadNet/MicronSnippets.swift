@@ -137,7 +137,9 @@ struct MicronFieldSnippet: Equatable {
 
     /// `>` closes the field at the first occurrence, a backtick separates the
     /// descriptor from the data, and `|` splits the descriptor into its
-    /// segments. Any of them inside a value truncates the field and spills the
+    /// segments.
+    ///
+    /// Any of them inside a value truncates the field and spills the
     /// remainder into the page as body text.
     static let forbiddenInName: Set<Character> = [">", "`", "|"]
     static let forbiddenInValue: Set<Character> = [">", "`"]

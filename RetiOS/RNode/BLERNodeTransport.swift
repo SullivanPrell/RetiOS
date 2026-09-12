@@ -118,7 +118,9 @@ extension BLERNodeTransport: CBPeripheralDelegate {
         }
     }
 
-    /// The peripheral told us a characteristic write failed. On a link that has gone away
+    /// The peripheral told us a characteristic write failed.
+    ///
+    /// On a link that has gone away
     /// CoreBluetooth reports it here rather than by throwing from `writeValue`.
     func peripheral(_ peripheral: CBPeripheral,
                     didWriteValueFor characteristic: CBCharacteristic,

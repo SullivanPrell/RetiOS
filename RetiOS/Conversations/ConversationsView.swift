@@ -155,7 +155,9 @@ private struct ConversationListContent: View {
         ConversationList(summaries: summarize())
     }
 
-    /// One entry per peer hash: latest message, unread count. O(messages), run
+    /// One entry per peer hash: latest message, unread count.
+    ///
+    /// O(messages), run
     /// only when the message table itself changes.
     private func summarize() -> [ConversationSummary] {
         var latest: [String: MessageEntity] = [:]
@@ -229,7 +231,9 @@ private struct ConversationList: View {
     }
 
     /// Same match rule as the sibling Peers and Contacts lists: display name or
-    /// hash, case-insensitively. Matching on the hash matters more here than in
+    /// hash, case-insensitively.
+    ///
+    /// Matching on the hash matters more here than in
     /// those lists — a conversation with a peer that has never announced a name
     /// has no other handle to search by.
     private func filtered(_ names: [String: String]) -> [ConversationSummary] {
@@ -237,7 +241,9 @@ private struct ConversationList: View {
         return summaries.filter { RNSSearch.matches(q, name: names[$0.peerHash], hash: $0.peerHash) }
     }
 
-    /// Names for the peers we actually have conversations with. Restricting to
+    /// Names for the peers we actually have conversations with.
+    ///
+    /// Restricting to
     /// those hashes keeps the map small on a node that has heard thousands of
     /// announces but only ever messaged a handful of them.
     private func nameLookup() -> [String: String] {
@@ -249,7 +255,9 @@ private struct ConversationList: View {
         return out
     }
 
-    /// Remove every message in a conversation. The peer/contact record is
+    /// Remove every message in a conversation.
+    ///
+    /// The peer/contact record is
     /// deliberately kept — deleting a thread shouldn't forget the person.
     private func deleteConversation(peerHash: String) {
         let descriptor = FetchDescriptor<MessageEntity>(
@@ -394,7 +402,9 @@ private struct LXMFPeerRow: View {
 // MARK: - Contacts list
 
 /// Peers the user has explicitly saved as contacts (manually added or pinned
-/// from the discovered-peers list). Distinct from the raw announce-derived
+/// from the discovered-peers list).
+///
+/// Distinct from the raw announce-derived
 /// Peers list — contacts are a deliberate, user-curated address book.
 private struct ContactsContent: View {
     @Environment(\.modelContext) private var context
@@ -404,7 +414,9 @@ private struct ContactsContent: View {
 
     /// The user asked for search on the *peers* lists, but a contact list is the
     /// same shape and sits one segment away; omitting it here would be the more
-    /// surprising inconsistency. Same match rule as the sibling lists.
+    /// surprising inconsistency.
+    ///
+    /// Same match rule as the sibling lists.
     private var filtered: [PeerEntity] {
         guard let q = RNSSearch.query(searchText) else { return contacts }
         return contacts.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }
@@ -481,6 +493,7 @@ private struct ContactRow: View {
 // MARK: - Add contact sheet
 
 /// Manually save a contact by destination hash, with an optional nickname.
+///
 /// Updates the existing PeerEntity if the peer has already announced, or
 /// creates a new one (which will be filled in by future announces).
 struct AddContactSheet: View {

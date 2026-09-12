@@ -63,7 +63,9 @@ struct MicronPageEditorView: View {
     }
 
     /// Micron is a terminal markup — NomadNet renders it into a fixed-width
-    /// pane. Previewing at the device width alone tells the author nothing about
+    /// pane.
+    ///
+    /// Previewing at the device width alone tells the author nothing about
     /// how the page reads where it is actually read.
     enum PreviewWidth: String, CaseIterable, Hashable {
         case fit, cols80 = "80", cols132 = "132"
@@ -150,7 +152,9 @@ struct MicronPageEditorView: View {
         }
     }
 
-    /// Split needs two panes' worth of width. On a phone it collapses to Edit
+    /// Split needs two panes' worth of width.
+    ///
+    /// On a phone it collapses to Edit
     /// rather than rendering two unusable columns.
     private var effectiveMode: EditorMode {
         (mode == .split && sizeClass == .compact) ? .edit : mode
@@ -191,7 +195,9 @@ struct MicronPageEditorView: View {
 
     // MARK: - Insert palette
 
-    /// The backtick codes nobody memorises. Buttons wrap the selection where
+    /// The backtick codes nobody memorises.
+    ///
+    /// Buttons wrap the selection where
     /// that makes sense; the two hardest constructs get their own builders.
     private var insertPalette: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -348,11 +354,15 @@ struct MicronPageEditorView: View {
         loaded = true
     }
 
-    /// Whether this page may be written at all. False until a successful read,
+    /// Whether this page may be written at all.
+    ///
+    /// False until a successful read,
     /// so a failed load can never be saved over.
     private var canSave: Bool { loaded && !loadFailed }
 
-    /// Debounced autosave. There is no dirty flag and no unsaved-changes dialog:
+    /// Debounced autosave.
+    ///
+    /// There is no dirty flag and no unsaved-changes dialog:
     /// this is a file the user is editing in place, and the whole feature is
     /// worth less if a page they typed is not the page on disk.
     ///
@@ -421,7 +431,9 @@ struct MicronPageEditorView: View {
 
 // MARK: - Link builder
 
-/// Wraps `MicronLinkSnippet`. All markup construction lives in that value type
+/// Wraps `MicronLinkSnippet`.
+///
+/// All markup construction lives in that value type
 /// so it can be unit-tested — as `@State private` fields in here it was
 /// unreachable from a test, and it was wrong (see the `.page` case).
 struct MicronLinkBuilderSheet: View {

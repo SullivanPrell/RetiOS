@@ -282,7 +282,9 @@ struct RetiOSApp: App {
 @MainActor
 final class MacAppDelegate: NSObject, NSApplicationDelegate {
 
-    /// Wired up by `RetiOSApp` when the scene appears. Weak: the controller is
+    /// Wired up by `RetiOSApp` when the scene appears.
+    ///
+    /// Weak: the controller is
     /// owned by the `App`, and a delegate outliving it should not keep the whole
     /// stack alive.
     weak var stack: StackController?

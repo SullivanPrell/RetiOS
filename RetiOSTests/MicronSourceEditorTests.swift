@@ -25,7 +25,9 @@ import XCTest
 final class MicronSourceEditorTests: XCTestCase {
 
     /// Every capture name tree-sitter-micron's own `queries/highlights.scm`
-    /// actually emits (mirrored in `MicronTreeSitterLanguage.swift`). Pinning
+    /// actually emits (mirrored in `MicronTreeSitterLanguage.swift`).
+    ///
+    /// Pinning
     /// the full set, not just a sample, is what catches a capture silently
     /// falling through to "unstyled" when the query file gains a new one.
     private let realCaptureNames: Set<String> = [

@@ -39,7 +39,9 @@ enum DemoData {
         #endif
     }
 
-    /// Reserved prefixes. A real Reticulum destination hash is a truncated
+    /// Reserved prefixes.
+    ///
+    /// A real Reticulum destination hash is a truncated
     /// SHA-256, so these are astronomically unlikely to collide — but the
     /// deletion path is still gated on the message check below, not on this
     /// alone.

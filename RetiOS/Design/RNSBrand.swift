@@ -198,7 +198,9 @@ extension View {
             .tint(Color.accentColor)
     }
 
-    /// No-op. The navigation bar now renders with its native system material
+    /// No-op.
+    ///
+    /// The navigation bar now renders with its native system material
     /// (iOS 26 Liquid Glass), which looks correct in both Light and Dark once
     /// the rest of the UI uses adaptive system colors. Previously this forced a
     /// solid surface fill to stop the bar disappearing against the dark theme —
@@ -206,7 +208,9 @@ extension View {
     func rnsNavigationBar() -> some View { self }
 
     /// Lets `List` / `Form` use their native (grouped) system background instead
-    /// of a custom fill — the HIG-native look. A `systemGroupedBackground` page
+    /// of a custom fill — the HIG-native look.
+    ///
+    /// A `systemGroupedBackground` page
     /// color is placed *behind* the content so non-scrolling screens (plain
     /// `ScrollView` / `VStack`) still get a proper page color; for a `List`/`Form`
     /// the system's own background draws on top, so this is invisible there.
@@ -342,7 +346,9 @@ extension View {
         }
     }
 
-    /// No-op. Rows now use the system's native row background, which keeps
+    /// No-op.
+    ///
+    /// Rows now use the system's native row background, which keeps
     /// correct selection / highlight / swipe-action behavior. The system row
     /// color already matches `rnsSurface` (secondary grouped background), so this
     /// changes nothing visually — it just stops overriding system row chrome.
@@ -367,7 +373,9 @@ extension View {
     }
 
     /// Pins a large, left-aligned screen title flush to the top of the content,
-    /// with an optional trailing action button. This replaces the system
+    /// with an optional trailing action button.
+    ///
+    /// This replaces the system
     /// collapsing large-title nav bar — which reserves an empty ~44 pt inline
     /// bar *above* the big title (the "huge dead space" between the status bar
     /// and the title) — with an in-content title that sits right under the safe
@@ -463,7 +471,9 @@ extension View {
     /// Standard entry styling for a destination-hash `TextField`, so every
     /// hash-entry form in the app behaves identically (monospaced glyphs, no
     /// autocorrect/autocapitalization, ASCII keyboard on iOS, a "Done" submit
-    /// key). The live hex-filtering is applied at each call site since it needs
+    /// key).
+    ///
+    /// The live hex-filtering is applied at each call site since it needs
     /// the binding. Centralizing the styling here is the HIG "be consistent"
     /// fix — the four hand-rolled forms previously diverged on keyboard type
     /// and submit label.
@@ -663,7 +673,9 @@ struct RNSHashField: View {
     private let label: LocalizedStringKey
     private let prompt: LocalizedStringKey
     /// Written out by hand for iOS, where the label never renders and the prompt
-    /// has to carry the whole meaning. Interpolating `"\(label) (\(prompt))"`
+    /// has to carry the whole meaning.
+    ///
+    /// Interpolating `"\(label) (\(prompt))"`
     /// instead measures ~345 pt of monospaced `.body` against ~290 pt of usable
     /// row width on an iPhone SE — it truncates the only hint iOS shows.
     private let compactPrompt: LocalizedStringKey
@@ -720,7 +732,9 @@ struct RNSHashField: View {
 
 // MARK: - Section picker (native segmented control)
 
-/// A thin convenience wrapper over a native segmented `Picker`. Call sites keep
+/// A thin convenience wrapper over a native segmented `Picker`.
+///
+/// Call sites keep
 /// passing `[(label, value)]` plus a binding; this renders the standard system
 /// segmented control — the HIG-native choice — instead of a custom underline
 /// tab bar that had to hand-roll its own colors, animation, and a11y traits.
@@ -763,7 +777,9 @@ enum RNSSearch {
     }
 }
 
-/// The field `rnsInlineSearch` stacks above a list. See that modifier for why
+/// The field `rnsInlineSearch` stacks above a list.
+///
+/// See that modifier for why
 /// these screens cannot use `.searchable`.
 ///
 /// `prompt` is a `LocalizedStringKey`, not a `String`, for the same reason
@@ -874,6 +890,7 @@ func rnsSettingsContainer<Content: View>(@ViewBuilder _ content: () -> Content) 
 
 extension View {
     /// Style for a *content* list — conversations, peers, paths, channels, logs.
+    ///
     /// (Settings-style screens use `rnsSettingsContainer` instead.)
     ///
     /// iOS keeps `.plain`, the edge-to-edge phone idiom. macOS uses `.inset`:
@@ -1074,7 +1091,9 @@ struct RNSBadge: View {
 // MARK: - Peer identity block (shared row content)
 
 /// The shared name + hash + last-seen block used by every peer row (Messages
-/// Peers, Destinations, LXST call peers). Unifies three hand-rolled rows that
+/// Peers, Destinations, LXST call peers).
+///
+/// Unifies three hand-rolled rows that
 /// had diverged on the name font (`.headline` vs `.body.weight(.medium)`). When
 /// `name` is nil the truncated hash becomes the primary label (no duplicate
 /// hash line).
@@ -1134,6 +1153,7 @@ enum RNSDate {
     }
 
     /// How long ago something was, in words — "21 hours ago", "2 days ago".
+    ///
     /// For recency ("last seen"), where the elapsed time *is* the point.
     static func ago(_ date: Date, now: Date = Date()) -> String {
         agoFormatter.localizedString(for: date, relativeTo: now)
@@ -1179,6 +1199,7 @@ import AppKit
 #endif
 
 /// Returns true-ish (non-nil) when a bundled asset with the given name exists.
+///
 /// Resolves through AppKit on macOS and UIKit on iOS without shadowing either
 /// framework's image initializer.
 private func loadBrandImage(named name: String) -> Any? {
@@ -1200,7 +1221,9 @@ private func loadBrandImage(named name: String) -> Any? {
 /// Identity screen appeared, on top of the render itself.
 private let rnsCIContext = CIContext()
 
-/// Rendered QR bitmaps keyed by "string@scale". Identity hashes are stable, so
+/// Rendered QR bitmaps keyed by "string@scale".
+///
+/// Identity hashes are stable, so
 /// this is effectively a one-entry cache that makes every revisit free.
 private final class RNSQRCache: @unchecked Sendable {
     static let shared = RNSQRCache()
@@ -1219,7 +1242,9 @@ private final class RNSQRCache: @unchecked Sendable {
     }
 }
 
-/// Renders the QR bitmap. Safe to call off the main thread.
+/// Renders the QR bitmap.
+///
+/// Safe to call off the main thread.
 private func rnsQRCGImage(_ string: String, scale: CGFloat) -> CGImage? {
     RNSQRCache.shared.image(for: "\(string)@\(scale)") {
         let filter = CIFilter.qrCodeGenerator()
@@ -1241,7 +1266,9 @@ private func rnsWrap(_ cg: CGImage) -> Image {
 #endif
 
 /// Generates a crisp QR-code SwiftUI `Image` for `string`, or `nil` if Core
-/// Image is unavailable. Cross-platform (UIImage / NSImage under the hood).
+/// Image is unavailable.
+///
+/// Cross-platform (UIImage / NSImage under the hood).
 /// Render it with `.interpolation(.none).resizable()` to keep the modules sharp.
 ///
 /// Results are cached, but a *cold* call still renders synchronously — never

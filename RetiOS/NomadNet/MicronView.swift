@@ -18,7 +18,9 @@ import NomadNet
 /// the current form values dictionary keyed by field name.
 struct MicronView: View {
     let nodes: [MicronNode]
-    /// Called when a link is tapped. Second argument is the current form state
+    /// Called when a link is tapped.
+    ///
+    /// Second argument is the current form state
     /// (field-name → value); empty when the page has no form fields.
     var onLinkTapped: ((MicronLink, [String: String]) -> Void)?
 
@@ -164,6 +166,7 @@ private struct MicronSpanView: View {
 
     /// Link label: underlined, using the markup's own color when it specifies
     /// one, otherwise the app accent (the default tappable-link color).
+    ///
     /// Previously a hardcoded `.blue` overrode any markup-specified link color.
     private func linkLabel(for link: MicronLink) -> Text {
         let text = styledText(link.label.isEmpty ? link.url : link.label, style: link.style)
@@ -266,6 +269,7 @@ private struct MicronFieldView: View {
     private var placeholder: String { field.label.isEmpty ? field.name : field.label }
 
     /// Translate the `width` column-count to a SwiftUI point width.
+    ///
     /// Assumes monospaced character ≈ 8 pt wide; clamp to [64, 320] so a very
     /// wide `width` can't overflow / clip its container.
     private var fieldWidth: CGFloat {

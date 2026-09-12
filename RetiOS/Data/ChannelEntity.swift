@@ -16,7 +16,9 @@ import SwiftData
 /// Keyed by `channelHash` — the hex-encoded `RRCHub.hubHash` (16 bytes, 32 hex chars).
 @Model
 final class ChannelEntity {
-    /// Hub destination hash in hex (32 chars / 16 bytes). Unique identifier.
+    /// Hub destination hash in hex (32 chars / 16 bytes).
+    ///
+    /// Unique identifier.
     @Attribute(.unique) var channelHash: String
     /// Human-readable room name received in the T_WELCOME frame (`RRCHub.name`).
     var name: String

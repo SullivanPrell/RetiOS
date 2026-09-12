@@ -80,7 +80,9 @@ enum NomadSection: String, Hashable, CaseIterable {
     case pages
     #endif
 
-    /// Picker label. Derived here rather than at the call site so a new case
+    /// Picker label.
+    ///
+    /// Derived here rather than at the call site so a new case
     /// cannot be added without naming it.
     var title: String {
         switch self {
@@ -94,7 +96,9 @@ enum NomadSection: String, Hashable, CaseIterable {
         }
     }
 
-    /// Which segment this tab starts on. Normally Browse; a DEBUG build also
+    /// Which segment this tab starts on.
+    ///
+    /// Normally Browse; a DEBUG build also
     /// honours `-startSection <raw>`, the same convention `NetworkView.Tab` uses
     /// so `scripts/mac-screens.sh` can photograph a segment other than the
     /// default. Never compiled into Release.
@@ -120,7 +124,9 @@ struct NomadNetPeersContent: View {
     let onBrowse: (String) -> Void
 
     /// Same filter as Destinations ▸ Peers: display name OR destination hash,
-    /// case-insensitively. Announce-derived nodes often have no name at all, so
+    /// case-insensitively.
+    ///
+    /// Announce-derived nodes often have no name at all, so
     /// matching the hash is the only way to find one of those.
     private var filtered: [NomadNodeEntity] {
         guard let q = RNSSearch.query(searchText) else { return nodes }

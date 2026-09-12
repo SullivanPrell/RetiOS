@@ -39,7 +39,9 @@ import Foundation
 
 // MARK: - Tokens
 
-/// Lexical classes an editor cares about. Deliberately *not* a mirror of
+/// Lexical classes an editor cares about.
+///
+/// Deliberately *not* a mirror of
 /// `MicronNode` — these are ranges to colour, not semantics to render.
 ///
 /// Note there is no `text` case: ordinary body text produces no token at all.
@@ -71,7 +73,9 @@ struct MicronToken: Equatable, Sendable {
 }
 
 enum MicronSyntax {
-    /// Tokenize a whole Micron document. Never throws, never loops: every branch
+    /// Tokenize a whole Micron document.
+    ///
+    /// Never throws, never loops: every branch
     /// of the scanner advances at least one character.
     static func tokens(in text: String) -> [MicronToken] {
         MicronScanner.scan(text, collectDiagnostics: false).tokens
@@ -88,7 +92,9 @@ struct MicronDiagnostic: Equatable, Sendable {
     let message: String
 }
 
-/// A small, opinionated set of lints. The bar for inclusion is that the parser
+/// A small, opinionated set of lints.
+///
+/// The bar for inclusion is that the parser
 /// *silently* does something other than what the author wrote — Micron has no
 /// error reporting of its own, so a mistyped tag just vanishes from the page and
 /// the author is left staring at a hole. Each message therefore says what will
@@ -167,7 +173,9 @@ enum MicronLinter {
 // MARK: - Scanner
 
 /// The single state machine behind both `MicronSyntax.tokens` and
-/// `MicronLinter.diagnostics`. They must agree — a token stream that says
+/// `MicronLinter.diagnostics`.
+///
+/// They must agree — a token stream that says
 /// "field" where the linter says "not a field" is worse than either alone — so
 /// there is exactly one walk of the document and the two public entry points are
 /// thin projections of its result.
@@ -196,6 +204,7 @@ private struct MicronScanner {
     /// indexing would silently disagree with it on non-ASCII input.
     private let chars: [Character]
     /// `offsets[i]` is the UTF-16 offset of `chars[i]`; `offsets[count]` is the end.
+    ///
     /// This is what keeps an emoji earlier in the document from shifting every
     /// range after it.
     private let offsets: [Int]
@@ -271,7 +280,9 @@ private struct MicronScanner {
 
     // MARK: Line
 
-    /// Mirrors `MicronParser.parseLine`, in its exact order. The order is load
+    /// Mirrors `MicronParser.parseLine`, in its exact order.
+    ///
+    /// The order is load
     /// bearing: it is why `#` is a comment even inside a table, why `` `= ``
     /// toggles literal mode even inside a table, and why an escaped `` \`t ``
     /// still toggles table mode.
@@ -392,7 +403,9 @@ private struct MicronScanner {
         scanInline(work, hi, escaped: preEscape, plainKind: nil)
     }
 
-    /// Does this line contain a field opener? `parseLine` tests the raw line
+    /// Does this line contain a field opener?
+    ///
+    /// `parseLine` tests the raw line
     /// (including the ">" run) with `contains("`<")`.
     private func containsFieldOpener(_ lo: Int, _ hi: Int) -> Bool {
         var index = lo
@@ -405,7 +418,9 @@ private struct MicronScanner {
 
     // MARK: Inline
 
-    /// Mirrors `MicronParser.makeOutput`. Index arithmetic is kept identical to
+    /// Mirrors `MicronParser.makeOutput`.
+    ///
+    /// Index arithmetic is kept identical to
     /// the parser's (`i += 7; i += 1` and friends) because the off-by-ones there
     /// are exactly what decides which characters survive into the page.
     ///
@@ -598,6 +613,7 @@ private struct MicronScanner {
 
     /// `parseField`: the first "`" at or after the opener ends the flags|name
     /// part, and the first ">" at or after *that* backtick closes the field.
+    ///
     /// Both searches run to end of line, so a field can swallow a lot.
     private func parseField(from start: Int, to hi: Int) -> FieldParse {
         guard let backtick = firstIndex(of: "`", from: start, to: hi) else { return .missingBacktick }
@@ -665,7 +681,9 @@ private struct MicronScanner {
     }
 
     /// `parseColor3`: "gNN" is a greyscale percentage (two *decimal* digits),
-    /// anything else is three hex nibbles. Flagging "`Fg50" as a bad colour
+    /// anything else is three hex nibbles.
+    ///
+    /// Flagging "`Fg50" as a bad colour
     /// would be a false positive on perfectly good markup.
     private func isColor3(_ hex: String) -> Bool {
         let characters = Array(hex)

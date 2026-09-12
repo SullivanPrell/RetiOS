@@ -80,7 +80,9 @@ final class BLEMeshController: NSObject {
     private(set) var rxPackets: Int = 0
     private(set) var rxBytes: Int = 0
     /// Called after this controller adds or removes its interface from
-    /// `Transport`. Wired to `StackController.noteInterfacesChanged()` so the
+    /// `Transport`.
+    ///
+    /// Wired to `StackController.noteInterfacesChanged()` so the
     /// Interfaces screen refreshes — it lists `transport.interfaces`, which is
     /// not observable and so cannot signal the change itself.
     @ObservationIgnored var onInterfacesChanged: (() -> Void)?
@@ -190,7 +192,9 @@ final class BLEMeshController: NSObject {
     }
 
     /// `BLEMeshInterface.peerCount` is a thread-safe snapshot, not a
-    /// publisher. Polling at UI-refresh cadence is the simplest correct way
+    /// publisher.
+    ///
+    /// Polling at UI-refresh cadence is the simplest correct way
     /// to keep `peerCount` current — wiring up a bespoke
     /// peer-table change notification through `BLEMeshTransport` would add
     /// real protocol surface for what is purely a display nicety.

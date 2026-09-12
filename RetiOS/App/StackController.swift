@@ -30,6 +30,7 @@ final class StackController {
     // MARK: - Saved interface model
 
     /// The wire-level interface type for a saved entry.
+    ///
     /// Defaults to `.tcp` so existing persisted data (pre-multi-kind) decodes unchanged.
     enum SavedInterfaceKind: String, Codable {
         case tcp
@@ -108,7 +109,9 @@ final class StackController {
         }
     }
 
-    /// Editable Yggdrasil node preferences that survive app restarts. The node's
+    /// Editable Yggdrasil node preferences that survive app restarts.
+    ///
+    /// The node's
     /// private key + full engine config live in the VPN profile (secure, not
     /// UserDefaults); this record only carries the UI-editable settings and the
     /// on/off flag. See `YggdrasilConfig` / `YggdrasilVPNManager`.
@@ -136,13 +139,16 @@ final class StackController {
     /// Saved I2P configuration (one I2PInterface, multiple peers).
     private(set) var savedI2PConfig: SavedI2PConfig?
     /// `true` when the saved I2P config no longer matches what is running, and
-    /// only a relaunch can reconcile them. See `saveI2PConfig(_:)` for why the
+    /// only a relaunch can reconcile them.
+    ///
+    /// See `saveI2PConfig(_:)` for why the
     /// interface can't just be restarted in place. Never persisted: a launch
     /// applies whatever is saved, so it is false by construction at startup.
     private(set) var i2pRestartRequired = false
     /// Saved Yggdrasil node preferences (system-VPN packet tunnel).
     private(set) var savedYggdrasilConfig: SavedYggdrasilConfig?
     /// Drives the Yggdrasil packet-tunnel extension and exposes live node status.
+    ///
     /// Observe this directly for address / peer updates.
     let yggdrasilVPN = YggdrasilVPNManager()
 
@@ -191,13 +197,16 @@ final class StackController {
     private(set) var transport: Transport?
 
     /// Human-readable name for this node, included in LXMF announces.
+    ///
     /// Peers see this name instead of a raw hash in their peer lists.
     private(set) var nodeDisplayName: String = {
         UserDefaults.standard.string(forKey: "nodeDisplayName") ?? ""
     }()
 
     @ObservationIgnored private var peerAnnounceHandler: LXMFPeerAnnounceHandler?
-    /// Coalesces inbound LXMF messages into batched SwiftData writes. Held so it
+    /// Coalesces inbound LXMF messages into batched SwiftData writes.
+    ///
+    /// Held so it
     /// outlives `bringUp` — the router's callback captures it.
     @ObservationIgnored private var messageIngest: LXMFMessageIngest?
     @ObservationIgnored private var notificationManager: NotificationManager?
@@ -453,7 +462,9 @@ final class StackController {
     }
 
     /// Register and start a client interface of the given kind immediately,
-    /// then persist it for restoration on next launch. Used by both the
+    /// then persist it for restoration on next launch.
+    ///
+    /// Used by both the
     /// manual "Add TCP Gateway" sheet and the public-directory quick-add.
     func addAndSaveInterface(name: String, host: String, port: UInt16, kind: SavedInterfaceKind,
                              networkName: String? = nil, passphrase: String? = nil) throws {
@@ -496,7 +507,9 @@ final class StackController {
 
     // MARK: - I2P interface persistence
 
-    /// Save (or replace) the I2P configuration. Takes effect at the next launch.
+    /// Save (or replace) the I2P configuration.
+    ///
+    /// Takes effect at the next launch.
     ///
     /// The absence of a live restart here is deliberate, not an oversight: i2pd's
     /// router is a set of process-global singletons, and `C_TerminateI2P` — which
@@ -553,7 +566,9 @@ final class StackController {
     // MARK: - Yggdrasil node persistence
 
     /// Save the Yggdrasil node preferences and (re)start or stop the tunnel to
-    /// match. Starting reuses the node's existing key from the VPN profile if one
+    /// match.
+    ///
+    /// Starting reuses the node's existing key from the VPN profile if one
     /// exists, so the node keeps its identity/address across edits and restarts.
     func saveYggdrasilConfig(_ config: SavedYggdrasilConfig) async {
         savedYggdrasilConfig = config
@@ -654,7 +669,9 @@ final class StackController {
     }
 
     /// Register a newly built interface with the live transport, keeping the
-    /// Interfaces screen in sync. Every path that adds to `transport.interfaces`
+    /// Interfaces screen in sync.
+    ///
+    /// Every path that adds to `transport.interfaces`
     /// must go through here (or call `noteInterfacesChanged()`) — see the
     /// property's note on why an implicit refresh no longer exists.
     func registerLiveInterface(_ iface: any Interface) {
@@ -664,7 +681,9 @@ final class StackController {
 
     /// Signal that `transport.interfaces` changed by a route that owns its own
     /// registration (BLE Mesh and RNode each build and register their interface
-    /// from their own controller). Without this the Interfaces screen keeps
+    /// from their own controller).
+    ///
+    /// Without this the Interfaces screen keeps
     /// showing a stale Active list until the user navigates away and back:
     /// enabling BLE Mesh adds a live interface the list never shows, and
     /// disabling it leaves a ghost row.
@@ -681,7 +700,9 @@ final class StackController {
     #if DEBUG
     /// Integration-test hook: if `RETIOS_INTEROP_TCP` (e.g. "127.0.0.1:4242") is
     /// present in the environment, add a transient TCP client interface dialing
-    /// that host so `bringUp` connects to a Python RNS TCPServer. Not persisted
+    /// that host so `bringUp` connects to a Python RNS TCPServer.
+    ///
+    /// Not persisted
     /// (kept out of UserDefaults) and DEBUG-only, so it never affects Release
     /// builds or a user's saved interfaces. Host must be IPv4/hostname (the
     /// last ':' separates the port — bracketless IPv6 is intentionally unsupported).
@@ -705,6 +726,7 @@ final class StackController {
     // MARK: - Announce
 
     /// Toggle LXMF address announce and persist the choice.
+    ///
     /// When turning on, immediately sends an announce so peers learn the address right away.
     func setLXMFAnnounce(_ enabled: Bool) {
         lxmfAnnounceEnabled = enabled
@@ -722,6 +744,7 @@ final class StackController {
     }
 
     /// Update the display name sent in LXMF announces and persist the choice.
+    ///
     /// An immediate re-announce is sent so peers see the new name right away.
     func setNodeDisplayName(_ name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -742,6 +765,7 @@ final class StackController {
     // MARK: - Lifecycle
 
     /// Tear the stack down and block until it is down.
+    ///
     /// Callers that must not block the main thread want `beginTearDown()`.
     func tearDown() {
         beginTearDown()?()
@@ -776,6 +800,7 @@ final class StackController {
     @ObservationIgnored private var isTearingDown = false
 
     /// Set or clear the LXMF outbound propagation node.
+    ///
     /// Pass a 32-character hex string to configure a node, or `nil` to clear.
     func setPropagationNode(_ hex: String?) {
         guard let router = lxmfRouter else { return }
@@ -795,7 +820,9 @@ final class StackController {
     // MARK: - Propagation node sync
 
     /// Request any messages held for us by the configured propagation node
-    /// (store-and-forward "post box" retrieval). Safe to call repeatedly;
+    /// (store-and-forward "post box" retrieval).
+    ///
+    /// Safe to call repeatedly;
     /// no-ops if no node is configured or a sync is already running.
     func syncFromPropagationNode() {
         guard let router = lxmfRouter, let identity,
@@ -817,14 +844,18 @@ final class StackController {
         propagationSyncProgress = 0
     }
 
-    /// App-side deadline for a propagation sync poll. Deliberately above the library's own
+    /// App-side deadline for a propagation sync poll.
+    ///
+    /// Deliberately above the library's own
     /// stall net (`LXMRouter.cleanLinks(syncStallTimeout:)`, 240 s), so the library gets to
     /// report the failure it detects and this deadline only fires when the library's
     /// protections did not (`swift_devel/bugs/020`, design D5: a caller that can only stop
     /// when its callee behaves is the same class of fault, one level up).
     static let syncPollTimeout: TimeInterval = 300
 
-    /// Whether the sync poll task is live. For the test target, which must be able to assert
+    /// Whether the sync poll task is live.
+    ///
+    /// For the test target, which must be able to assert
     /// the loop *exited* rather than merely published a state.
     var isSyncPolling: Bool { syncPollTask != nil }
 
@@ -835,7 +866,9 @@ final class StackController {
 
     /// Mirror the router's (non-observable) transfer state into observable properties twice a
     /// second until the sync reaches a terminal state — or until `timeout`, after which the
-    /// underlying request is cancelled and the sync is reported failed. The parameters exist so
+    /// underlying request is cancelled and the sync is reported failed.
+    ///
+    /// The parameters exist so
     /// a test can drive the loop against a router that never terminates without waiting out the
     /// production bound.
     func startSyncPolling(router: LXMRouter, timeout: TimeInterval) {
@@ -880,6 +913,7 @@ final class StackController {
     // MARK: - Send
 
     /// Enqueue an outbound LXMF message and record it in SwiftData.
+    ///
     /// Fails if the peer's identity has not been seen yet (no announce received).
     func send(content: String, title: String = "", to peerHash: Data,
               context: ModelContext) throws {

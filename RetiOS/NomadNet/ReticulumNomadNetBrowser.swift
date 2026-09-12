@@ -37,11 +37,15 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
 
     /// Local identity used to identify to the node on the link (Python
     /// `Browser` identifies the browsing peer so nodes can gate / personalise
-    /// pages). Nil → can never identify (always anonymous).
+    /// pages).
+    ///
+    /// Nil → can never identify (always anonymous).
     private let appIdentity: Identity?
 
     /// Per-node "identify on connect" predicate, mirroring Python NomadNet's
-    /// `directory.should_identify_on_connect(destination_hash)`. Called at link
+    /// `directory.should_identify_on_connect(destination_hash)`.
+    ///
+    /// Called at link
     /// establishment with the node's destination hash; return `true` to reveal
     /// our identity to that node ("log in"). Nil / `false` → browse anonymously.
     /// Backed by a persisted per-node toggle in `NomadNetController`, so the
@@ -52,7 +56,9 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
     /// How often to re-check `hasPath` while waiting for a path to resolve.
     private static let pathPollInterval: TimeInterval = 0.25
 
-    /// Bumped on every `performRequest`. A pending path-wait poll compares
+    /// Bumped on every `performRequest`.
+    ///
+    /// A pending path-wait poll compares
     /// against this and abandons itself if the user has since navigated
     /// elsewhere — so a late-resolving path can't clobber a newer page.
     private var currentGeneration = 0
@@ -90,7 +96,9 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
     }
 
     /// Re-check for a resolved path on the main queue until it arrives (→ proceed)
-    /// or the deadline passes (→ error). Self-cancels if superseded.
+    /// or the deadline passes (→ error).
+    ///
+    /// Self-cancels if superseded.
     private func pollForPath(_ url: NomadNetURL,
                              fields: [String: String],
                              destHash: Data,
@@ -114,6 +122,7 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
     }
 
     /// Recall the identity, build the destination, and run the link + page request.
+    ///
     /// Only called once a path is known.
     private func establishAndRequest(_ url: NomadNetURL,
                                      fields: [String: String],
@@ -208,7 +217,9 @@ final class ReticulumNomadNetBrowser: NomadNetBrowser {
 }
 
 /// Thread-safe one-shot latch: `claim()` returns `true` for exactly one caller,
-/// `false` for every subsequent call. Lets several escaping link callbacks race
+/// `false` for every subsequent call.
+///
+/// Lets several escaping link callbacks race
 /// to conclude a page request while guaranteeing only the first one acts.
 private final class ConclusionLatch {
     private var claimed = false

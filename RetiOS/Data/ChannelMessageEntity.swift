@@ -19,9 +19,13 @@ import SwiftData
 final class ChannelMessageEntity {
     /// Hub destination hash (hex) — foreign key to `ChannelEntity.channelHash`.
     var channelHash: String
-    /// RRC message ID (hex of `RRC.Envelope.id`). Used for deduplication.
+    /// RRC message ID (hex of `RRC.Envelope.id`).
+    ///
+    /// Used for deduplication.
     @Attribute(.unique) var messageID: String
-    /// Sender identity hash (hex of `RRC.Envelope.src`). Empty for system messages.
+    /// Sender identity hash (hex of `RRC.Envelope.src`).
+    ///
+    /// Empty for system messages.
     var senderHash: String
     /// Sender nickname from the T_MSG `nick` field, if present.
     var senderNick: String?
