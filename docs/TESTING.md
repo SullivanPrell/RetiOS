@@ -1,4 +1,4 @@
-# RetiOS — Testing Guide
+# RetiOS—Testing Guide
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ See [docs/BUILDING.md](BUILDING.md) for why this is not a bare `xcodegen generat
 
 ---
 
-## 1a. Automated suites
+## 1.1 Automated suites
 
 ```bash
 make test    # scripts/test.sh — RetiOSTests on an iOS Simulator
@@ -41,7 +41,7 @@ network):
 | `MicronSyntaxTests` | The Micron lexer's token ranges and every linter diagnostic |
 | `MicronPageStoreTests` | Page CRUD, name validation, path-escape refusal, root relocation |
 | `MicronAuthoringTests` | Link/field snippet construction for the builder sheets |
-| `MicronSourceEditorTests` | The editor's tinting policy — prose token kinds must stay untinted |
+| `MicronSourceEditorTests` | The editor's tinting policy—prose token kinds must stay untinted |
 | `NetworkGraphTests` | Network-visualizer graph building |
 | `RNSDateTests` | Timestamp formatting |
 | `RetiOSTests` | Smoke test |
@@ -53,15 +53,15 @@ carry no `x86_64` simulator slice, so an unpinned build fails to link.
 
 ## 2. Simulator
 
-### 2a. Install the iOS 26.x runtime
+### 2.1 Install the iOS 26.x runtime
 
 If you see *"iOS 26.x is not installed"* when building:
 
 1. **Xcode → Settings → Components**
 2. Under **Platform Support**, click the download arrow next to **iOS 26.x Simulator**
-3. Wait for the download (~5 GB). Xcode will restart.
+3. Wait for the download (~5 GB). Xcode restarts.
 
-### 2b. Build and run
+### 2.2 Build and run
 
 1. In Xcode, select the **RetiOS** scheme (top-left dropdown).
 2. Choose an **iPhone** simulator from the destination picker.
@@ -71,15 +71,15 @@ The stack starts automatically on launch and prints log lines to the Xcode conso
 
 ### Simulator limitations
 
-- **Bluetooth / RNode BLE** — CoreBluetooth does not function in the simulator. The RNode tab shows the scanner UI but cannot discover devices.
-- **Microphone / LXST calls** — The Calls tab can establish RNS Links. Audio capture and playback require a real mic/speaker; the LXST pipeline (LineSource → Packetizer / LinkSource → LineSink) is fully wired in `CallsController` but audio hardware is unavailable in the simulator.
-- **Network** — TCP interfaces (AutoInterface, TCP gateway) work normally in the simulator and can connect to a live mesh if your Mac is on the network.
+- **Bluetooth / RNode BLE**—CoreBluetooth does not function in the simulator. The RNode tab shows the scanner UI but cannot discover devices.
+- **Microphone / LXST calls**—The Calls tab can establish RNS Links. Audio capture and playback require a real mic/speaker; the LXST pipeline (LineSource → Packetizer / LinkSource → LineSink) is fully wired in `CallsController` but audio hardware is unavailable in the simulator.
+- **Network**—TCP interfaces (AutoInterface, TCP gateway) work normally in the simulator and can connect to a live mesh if your Mac is on the network.
 
 ---
 
 ## 3. Physical device
 
-### 3a. Code signing
+### 3.1 Code signing
 
 The repo carries no team ID: `project.yml` holds `DEVELOPMENT_TEAM:
 "${DEVELOPMENT_TEAM}"`, which `scripts/generate.sh` fills in from the gitignored
@@ -95,9 +95,9 @@ session but is lost at the next `make generate`, which rewrites the project. See
 [docs/BUILDING.md § Signing](BUILDING.md#4-signing) and [docs/SETUP.md](SETUP.md)
 for the full certificate / provisioning walkthrough.
 
-### 3b. Privacy usage strings
+### 3.2 Privacy usage strings
 
-Already configured — the Bluetooth, microphone, local-network, and location usage
+Already configured—the Bluetooth, microphone, local-network, and location usage
 strings live in `project.yml` under the app target's `info.properties`, and
 `make generate` writes them into `RetiOS/Info.plist`.
 
@@ -106,14 +106,14 @@ wholesale on every run, so a key typed into the plist (or added through Xcode's 
 disappears at the next generate. The app traps on launch if it touches Bluetooth or
 the microphone with the key missing.
 
-### 3c. Trust the developer certificate on device
+### 3.3 Trust the developer certificate on device
 
 First run after a fresh sign:
 
-1. On iPhone: **Settings → General → VPN & Device Management**
+1. On iPhone, go to **Settings → General → VPN & Device Management**
 2. Tap your developer name → **Trust**
 
-### 3d. Build and run
+### 3.4 Build and run
 
 1. Connect your iPhone via USB.
 2. Select the device in Xcode's destination picker.
@@ -153,9 +153,10 @@ Work through these after each significant change.
       tapping it flips the peer to a contact and the control disappears
 - [ ] Reopening a thread with an existing contact shows no add-contact control
 
-### Peer lists (Messages ▸ Peers, Calls ▸ Peers, NomadNet ▸ Peers)
+### Peer lists
 
-Repeat for each of the three lists:
+Repeat for each of the three peer lists (Messages ▸ Peers, Calls ▸ Peers,
+NomadNet ▸ Peers):
 
 - [ ] Empty state renders without crash
 - [ ] After an announce arrives: peer row appears with hash and "last seen" time
@@ -190,7 +191,7 @@ Repeat for each of the three lists:
 - [ ] Segmented control switches between Paths / Announces / Tools tabs
 - [ ] **Paths** tab shows all known routes with hop counts
 - [ ] **Announces** tab shows known identities count
-- [ ] **Tools** tab shows path ping — entering a 40-char hash and tapping Ping reports result
+- [ ] **Tools** tab shows path ping—entering a 40-char hash and tapping Ping reports result
 - [ ] Node Info section shows live path/identity/interface counts
 
 ### NomadNet tab
@@ -206,7 +207,7 @@ Repeat for each of the three lists:
       survives navigating away and back
 - [ ] The star is disabled (or absent) when no page is loaded
 
-### NomadNet ▸ Pages (iPhone / iPad only — the section does not exist on macOS)
+### NomadNet ▸ Pages (iPhone / iPad only—the section does not exist on macOS)
 
 - [ ] The section picker offers **Pages** on iOS/iPadOS and does **not** on macOS
 - [ ] Empty state renders, and the footer shows which folder is in use
@@ -217,8 +218,8 @@ Repeat for each of the three lists:
 - [ ] Import a `.mu` from Files, then export one back out
 - [ ] Relocating the pages folder to a different directory keeps the list working after
       relaunch (the security-scoped bookmark is restored)
-- [ ] In the editor: typing colours tokens, the gutter shows line numbers, and the linter
-      flags a deliberately broken construct (e.g. an unterminated link)
+- [ ] In the editor: typing colors tokens, the gutter shows line numbers, and the linter
+      flags a deliberately broken construct (for example, an unterminated link)
 - [ ] Preview matches the Browse tab's rendering of the same file, at Fit / 80 / 132 columns
 - [ ] Edits are saved without an explicit save action; backgrounding the app flushes them
 
@@ -230,12 +231,12 @@ Repeat for each of the three lists:
 
 RetiOS always starts an embedded Reticulum instance with `AutoInterface` (UDP multicast on
 the local LAN). No external daemon is needed. To reach the wider internet mesh, add a TCP
-gateway from the **Interfaces** section (**Add TCP Gateway** — host and port); it is
+gateway from the **Interfaces** section (**Add TCP Gateway**—host and port); it is
 registered, started, and persisted across launches. I2P, RNode, and Yggdrasil interfaces
 are added the same way.
 
 Note that on *signed* device builds, AutoInterface's link-local multicast discovery is
-unavailable — the multicast entitlement is deliberately not requested (see
+unavailable—the multicast entitlement is deliberately not requested (see
 `RetiOS/RetiOS.entitlements`), so a TCP or Yggdrasil interface is how such a build reaches
 peers. Simulator builds are unaffected.
 
@@ -243,9 +244,9 @@ peers. Simulator builds are unaffected.
 
 At startup RetiOS probes `127.0.0.1:37428` (rnsd's default local-interface port):
 
-- **Daemon found** — RetiOS connects as a client via `LocalInterface`. The daemon manages all
+- **Daemon found**—RetiOS connects as a client via `LocalInterface`. The daemon manages all
   physical interfaces (TCP, RNode, I2P, etc.). The Settings tab shows **Mode: Daemon client**.
-- **No daemon** — RetiOS starts its own embedded stack with AutoInterface, exactly like iOS.
+- **No daemon**—RetiOS starts its own embedded stack with AutoInterface, exactly like iOS.
   The Settings tab shows **Mode: Embedded**.
 
 To run an `rnsd` daemon on the same machine (so macOS RetiOS connects to it),
@@ -257,7 +258,7 @@ cd ReticulumSwift
 swift run rnsd
 ```
 
-Launch RetiOS after `rnsd` is running; it will detect the daemon and connect via LocalInterface.
+Launch RetiOS after `rnsd` is running; it detects the daemon and connects via LocalInterface.
 
 ---
 
@@ -268,14 +269,14 @@ What does and doesn't work depends on where you run:
 | Capability | Simulator | Device | Mac |
 |------------|-----------|--------|-----|
 | Networking (TCP / I2P) | ✅ | ✅ | ✅ |
-| AutoInterface (multicast LAN discovery) | ✅ | ⚠️ signed builds need the multicast entitlement — see YGGDRASIL.md | ✅ |
+| AutoInterface (multicast LAN discovery) | ✅ | ⚠️ signed builds need the multicast entitlement—see YGGDRASIL.md | ✅ |
 | Messages (LXMF) / NomadNet | ✅ | ✅ | ✅ |
 | LXST voice calls | links only (no audio HW) | ✅ | ✅ |
 | RNode (BLE) | ❌ CoreBluetooth unavailable | ✅ | ✅ (with adapter) |
 | BLE mesh | ❌ | ✅ | ✅ |
-| NomadNet ▸ Pages (Micron editor) | ✅ | ✅ | ❌ not shipped — Runestone is UIKit-only |
+| NomadNet ▸ Pages (Micron editor) | ✅ | ✅ | ❌ not shipped—Runestone is UIKit-only |
 
-Known limitations are tracked in [CHANGELOG.md](../CHANGELOG.md) — currently:
+Known limitations are tracked in [CHANGELOG.md](../CHANGELOG.md)—currently:
 I2P **inbound** (`connectable`) listening is not yet implemented (outbound peer
 dialing works), the Map tab is an early version, and Micron page authoring is
 iOS/iPadOS-only.

@@ -17,11 +17,11 @@ echo YOURTEAMID > .xcode-team      # optional; simulator-only builds need no tea
 make generate && open RetiOS.xcodeproj
 ```
 
-`RetiOS.xcodeproj` is generated and gitignored — never commit it. Edit
+`RetiOS.xcodeproj` is generated and gitignored—never commit it. Edit
 `project.yml` (sources, Info.plist keys, settings) and run `make generate`.
 
 **Always `make generate`, never a bare `xcodegen generate`.** The bare command
-writes a literal `${DEVELOPMENT_TEAM}` into the project — XcodeGen substitutes
+writes a literal `${DEVELOPMENT_TEAM}` into the project—XcodeGen substitutes
 an environment variable only when it is actually *set*, and `.xcode-team` is
 read by `scripts/generate.sh`, not by XcodeGen. It also skips installing the
 pinned dependency lockfile (see below). Your team ID belongs in the gitignored
@@ -31,8 +31,8 @@ pinned dependency lockfile (see below). Your team ID belongs in the gitignored
 
 Dependency versions are **pinned** in a committed lockfile, `Package.resolved`
 (at the repo root, since the generated `RetiOS.xcodeproj` is gitignored). CI and
-every dev machine build the *exact* same ReticulumSwift-stack versions — no
-silent drift to "latest". `make generate` installs the lockfile into the
+every dev machine build the *exact* same ReticulumSwift-stack versions—no
+silent drift to `latest`. `make generate` installs the lockfile into the
 generated project, and CI and `make ci` run the same `scripts/ci.sh`, which
 enforces it (`-onlyUsePackageVersionsFromResolvedFile`), so a green `make ci`
 means a green CI:
@@ -56,17 +56,35 @@ actually changed.)
 
 ## Working on a package and the app together
 
-See [docs/BUILDING.md](docs/BUILDING.md#developing-the-whole-stack-locally) —
-switch `project.yml` to local package paths, or add local packages in Xcode.
+See [docs/BUILDING.md](docs/BUILDING.md#developing-the-whole-stack-locally)—switch
+`project.yml` to local package paths, or add local packages in Xcode.
 
 ## Conventions
 
 - SwiftUI + `@Observable` controllers; keep protocol work in the packages.
-- Real `#if os(macOS)` branches exist (daemon probe, AppKit clipboard, etc.) —
-  the app builds natively for Mac, not just "Designed for iPad". Don't assume iOS.
+- Real `#if os(macOS)` branches exist (daemon probe, AppKit clipboard, etc.)—the
+  app builds natively for Mac, not just `Designed for iPad`. Don't assume iOS.
 - Add Info.plist keys and build settings in `project.yml`, not the generated project.
 - Run the [manual test checklist](docs/TESTING.md) for UI-affecting changes, and
   `xcodebuild test` for the unit tests.
+- Tests are XCTest, not swift-testing.
+- Style: [Google Swift Style Guide](https://google.github.io/swift/).
+
+## Style checks
+
+```sh
+make fmt      # swift format, license headers
+make check    # what CI runs: format, license headers, Vale prose lint
+```
+
+Vale lints Swift comments as prose, and finds them by scanning for `//`. A `//` inside
+a string literal therefore lints code, and acting on that finding would edit it. After
+a comment-only change, confirm the code is unchanged:
+
+```sh
+git status --porcelain | awk '{print $NF}' | grep '\.swift$' \
+    | xargs python3 .vale/tools/verify_code_unchanged.py
+```
 
 ## Submitting changes
 

@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+#===----------------------------------------------------------------------===#
+# Copyright (c) 2026 RetiOS contributors.
+#
+# Licensed under the Reticulum License. See LICENSE in the repository root for
+# the full license text, and NOTICE for attribution of the upstream project
+# this file is derived from.
+#
+# SPDX-License-Identifier: LicenseRef-Reticulum
+#===----------------------------------------------------------------------===#
+
 #
 # Reproduce the GitHub Actions CI build (.github/workflows/ci.yml) locally.
 #

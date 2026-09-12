@@ -1,5 +1,15 @@
-import SwiftUI
+//===----------------------------------------------------------------------===//
+// Copyright (c) 2026 RetiOS contributors.
+//
+// Licensed under the Reticulum License. See LICENSE in the repository root for
+// the full license text, and NOTICE for attribution of the upstream project
+// this file is derived from.
+//
+// SPDX-License-Identifier: LicenseRef-Reticulum
+//===----------------------------------------------------------------------===//
+
 import LXMF
+import SwiftUI
 
 /// Settings screen for configuring the LXMF outbound propagation node.
 ///
@@ -7,178 +17,184 @@ import LXMF
 /// acting as a mesh post-box. Enter the 32-character destination hash of
 /// any publicly reachable LXMF propagation node.
 struct PropagationNodeView: View {
-    @Environment(StackController.self) private var stack
-    @State private var hashInput = ""
-    @State private var saved = false
-    @State private var validationError: String?
-    @State private var showClearConfirm = false
+  @Environment(StackController.self) private var stack
+  @State private var hashInput = ""
+  @State private var saved = false
+  @State private var validationError: String?
+  @State private var showClearConfirm = false
 
-    var body: some View {
-        // Was a bare `Form` — the same non-scrolling columns layout diagnosed on
-        // Tools ▸ Ping. This screen is reachable twice on macOS: as the ⌘,
-        // Settings scene (framed at 520 pt) and as the detail column of the
-        // 1100 pt main window, so it took the full width damage on the second
-        // path and a real clipping risk on the first.
-        rnsSettingsContainer {
-            inputSection
-            if stack.propagationNodeHash != nil {
-                syncSection
-            }
-            if let current = stack.propagationNodeHash {
-                currentSection(hash: current)
-            }
-        }
-        .rnsScreenBackground()
-        .navigationTitle("Propagation Node")
-        .rnsInlineNavigationTitle()
-        .confirmationDialog(
-            "Clear Propagation Node",
-            isPresented: $showClearConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Clear", role: .destructive) {
-                stack.setPropagationNode(nil)
-                hashInput = ""
-                saved = false
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Messages will no longer be stored and forwarded for you while you're offline.")
-        }
-        .onAppear {
-            hashInput = stack.propagationNodeHash ?? ""
-        }
+  var body: some View {
+    // Was a bare `Form`—the same non-scrolling columns layout diagnosed on
+    // Tools ▸ Ping. This screen is reachable twice on macOS: as the ⌘,
+    // Settings scene (framed at 520 pt) and as the detail column of the
+    // 1100 pt main window, so it took the full width damage on the second
+    // path and a real clipping risk on the first.
+    rnsSettingsContainer {
+      inputSection
+      if stack.propagationNodeHash != nil {
+        syncSection
+      }
+      if let current = stack.propagationNodeHash {
+        currentSection(hash: current)
+      }
     }
-
-    // MARK: - Sections
-
-    private var inputSection: some View {
-        Section {
-            // See RNSHashField: the string passed to `TextField(_:text:)` is a
-            // *label*, and macOS forms never put a label inside the field.
-            // Labelled "Propagation node", not "Node hash" — `currentSection`
-            // already renders a `LabeledContent("Node hash")`, and two rows
-            // reading "Node hash" with different meanings (what you are entering
-            // vs. what is saved) is worse than the bug being fixed.
-            RNSHashField("Propagation node",
-                         prompt: "32 hex characters",
-                         compactPrompt: "32-character hex hash",
-                         text: $hashInput)
-                .onChange(of: hashInput) { _, new in
-                    hashInput = String(new.filter { $0.isHexDigit }.prefix(32))
-                    saved = false
-                    validationError = nil
-                }
-
-            if let err = validationError {
-                Text(err)
-                    .font(.caption)
-                    .foregroundStyle(Color.rnsError)
-            }
-
-            HStack(spacing: 16) {
-                Button(action: save) {
-                    Label(saved ? "Saved" : "Save",
-                          systemImage: saved ? "checkmark.circle.fill" : "square.and.arrow.down")
-                }
-                .disabled(hashInput.count != 32 || !stack.isRunning)
-                .tint(saved ? Color.rnsSuccess : .rnsAccent)
-
-                if stack.propagationNodeHash != nil {
-                    Spacer()
-                    Button("Clear", role: .destructive) {
-                        showClearConfirm = true
-                    }
-                }
-            }
-        } header: {
-            Text("Destination Hash")
-        } footer: {
-            Text("An LXMF propagation node stores and forwards messages on behalf of offline recipients. Enter the 32-character destination hash of any publicly reachable propagation server to enable store-and-forward delivery.")
-        }
-        .rnsRow()
+    .rnsScreenBackground()
+    .navigationTitle("Propagation Node")
+    .rnsInlineNavigationTitle()
+    .confirmationDialog(
+      "Clear Propagation Node",
+      isPresented: $showClearConfirm,
+      titleVisibility: .visible
+    ) {
+      Button("Clear", role: .destructive) {
+        stack.setPropagationNode(nil)
+        hashInput = ""
+        saved = false
+      }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("Messages will no longer be stored and forwarded for you while you're offline.")
     }
-
-    // MARK: - Sync
-
-    private var syncIsRunning: Bool {
-        switch stack.propagationSyncState {
-        case .idle, .done, .failed: return false
-        default:                    return true
-        }
+    .onAppear {
+      hashInput = stack.propagationNodeHash ?? ""
     }
+  }
 
-    private var syncStatusText: String {
-        switch stack.propagationSyncState {
-        case .idle:             return "Not synced this session"
-        case .pathRequested:    return "Requesting path to node…"
-        case .linkEstablishing: return "Connecting to node…"
-        case .linkEstablished:  return "Connected — requesting messages…"
-        case .requestSent:      return "Waiting for message list…"
-        case .receiving:        return "Downloading messages…"
-        case .done:             return "Sync complete"
-        case .failed:           return "Sync failed — check that the node is reachable"
+  // MARK: - Sections
+
+  private var inputSection: some View {
+    Section {
+      // See RNSHashField: the string passed to `TextField(_:text:)` is a
+      // *label*, and macOS forms never put a label inside the field.
+      // Labelled "Propagation node", not "Node hash"—`currentSection`
+      // already renders a `LabeledContent("Node hash")`, and two rows
+      // reading "Node hash" with different meanings (what you are entering
+      // vs. what is saved) is worse than the bug being fixed.
+      RNSHashField(
+        "Propagation node",
+        prompt: "32 hex characters",
+        compactPrompt: "32-character hex hash",
+        text: $hashInput
+      )
+      .onChange(of: hashInput) { _, new in
+        hashInput = String(new.filter { $0.isHexDigit }.prefix(32))
+        saved = false
+        validationError = nil
+      }
+
+      if let err = validationError {
+        Text(err)
+          .font(.caption)
+          .foregroundStyle(Color.rnsError)
+      }
+
+      HStack(spacing: 16) {
+        Button(action: save) {
+          Label(
+            saved ? "Saved" : "Save",
+            systemImage: saved ? "checkmark.circle.fill" : "square.and.arrow.down")
         }
-    }
+        .disabled(hashInput.count != 32 || !stack.isRunning)
+        .tint(saved ? Color.rnsSuccess : .rnsAccent)
 
-    private var syncSection: some View {
-        Section {
-            HStack {
-                Button {
-                    stack.syncFromPropagationNode()
-                } label: {
-                    Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
-                }
-                .disabled(!stack.isRunning || syncIsRunning)
-                .tint(.rnsAccent)
-
-                if syncIsRunning {
-                    Spacer()
-                    Button("Cancel", role: .destructive) {
-                        stack.cancelPropagationSync()
-                    }
-                }
-            }
-
-            HStack(spacing: 8) {
-                if syncIsRunning { ProgressView().controlSize(.small) }
-                Text(syncStatusText)
-                    .font(.caption)
-                    .foregroundStyle(stack.propagationSyncState == .failed
-                                     ? Color.rnsError : Color.secondary)
-            }
-            if case .receiving = stack.propagationSyncState {
-                ProgressView(value: stack.propagationSyncProgress)
-            }
-        } header: {
-            Text("Messages")
-        } footer: {
-            Text("Retrieves messages other nodes left for you while you were offline.")
+        if stack.propagationNodeHash != nil {
+          Spacer()
+          Button("Clear", role: .destructive) {
+            showClearConfirm = true
+          }
         }
-        .rnsRow()
+      }
+    } header: {
+      Text("Destination Hash")
+    } footer: {
+      Text(
+        "An LXMF propagation node stores and forwards messages on behalf of offline recipients. Enter the 32-character destination hash of any publicly reachable propagation server to enable store-and-forward delivery."
+      )
     }
+    .rnsRow()
+  }
 
-    private func currentSection(hash: String) -> some View {
-        Section("Active") {
-            LabeledContent("Node hash") {
-                Text(hash)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-            }
+  // MARK: - Sync
+
+  private var syncIsRunning: Bool {
+    switch stack.propagationSyncState {
+    case .idle, .done, .failed: return false
+    default: return true
+    }
+  }
+
+  private var syncStatusText: String {
+    switch stack.propagationSyncState {
+    case .idle: return "Not synced this session"
+    case .pathRequested: return "Requesting path to node…"
+    case .linkEstablishing: return "Connecting to node…"
+    case .linkEstablished: return "Connected — requesting messages…"
+    case .requestSent: return "Waiting for message list…"
+    case .receiving: return "Downloading messages…"
+    case .done: return "Sync complete"
+    case .failed: return "Sync failed — check that the node is reachable"
+    }
+  }
+
+  private var syncSection: some View {
+    Section {
+      HStack {
+        Button {
+          stack.syncFromPropagationNode()
+        } label: {
+          Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
         }
-        .rnsRow()
-    }
+        .disabled(!stack.isRunning || syncIsRunning)
+        .tint(.rnsAccent)
 
-    // MARK: - Actions
-
-    private func save() {
-        let clean = hashInput.filter { $0.isHexDigit }
-        guard clean.count == 32 else {
-            validationError = "Must be exactly 32 hex characters (16 bytes)."
-            return
+        if syncIsRunning {
+          Spacer()
+          Button("Cancel", role: .destructive) {
+            stack.cancelPropagationSync()
+          }
         }
-        stack.setPropagationNode(clean)
-        withAnimation { saved = true }
+      }
+
+      HStack(spacing: 8) {
+        if syncIsRunning { ProgressView().controlSize(.small) }
+        Text(syncStatusText)
+          .font(.caption)
+          .foregroundStyle(
+            stack.propagationSyncState == .failed
+              ? Color.rnsError : Color.secondary)
+      }
+      if case .receiving = stack.propagationSyncState {
+        ProgressView(value: stack.propagationSyncProgress)
+      }
+    } header: {
+      Text("Messages")
+    } footer: {
+      Text("Retrieves messages other nodes left for you while you were offline.")
     }
+    .rnsRow()
+  }
+
+  private func currentSection(hash: String) -> some View {
+    Section("Active") {
+      LabeledContent("Node hash") {
+        Text(hash)
+          .font(.caption.monospaced())
+          .foregroundStyle(.secondary)
+          .textSelection(.enabled)
+      }
+    }
+    .rnsRow()
+  }
+
+  // MARK: - Actions
+
+  private func save() {
+    let clean = hashInput.filter { $0.isHexDigit }
+    guard clean.count == 32 else {
+      validationError = "Must be exactly 32 hex characters (16 bytes)."
+      return
+    }
+    stack.setPropagationNode(clean)
+    withAnimation { saved = true }
+  }
 }

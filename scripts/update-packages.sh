@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+#===----------------------------------------------------------------------===#
+# Copyright (c) 2026 RetiOS contributors.
+#
+# Licensed under the Reticulum License. See LICENSE in the repository root for
+# the full license text, and NOTICE for attribution of the upstream project
+# this file is derived from.
+#
+# SPDX-License-Identifier: LicenseRef-Reticulum
+#===----------------------------------------------------------------------===#
+
 #
 # Deliberately bump the pinned Swift packages to the latest versions allowed by
 # the `from:` constraints in project.yml, verify the app still builds, and

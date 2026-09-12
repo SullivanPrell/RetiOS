@@ -1,4 +1,4 @@
-# RetiOS — Apple Developer Setup Guide
+# RetiOS—Apple Developer setup guide
 
 Complete walkthrough for configuring code signing, provisioning, and App Store / TestFlight
 distribution. Assumes you already have an Apple Developer Program membership active at
@@ -25,14 +25,14 @@ make generate
 `project.yml` carries `DEVELOPMENT_TEAM: "${DEVELOPMENT_TEAM}"`; XcodeGen
 substitutes it from the environment, and `scripts/generate.sh` exports it from
 `.xcode-team` (or from an already-set `DEVELOPMENT_TEAM`, which wins). Do **not**
-hardcode a team ID in `project.yml` — this repo is public. Details and the trap
+hardcode a team ID in `project.yml`—this repo is public. Details and the trap
 this avoids: [docs/BUILDING.md § Signing](BUILDING.md#4-signing).
 
 After any `project.yml` edit, run `make generate` again.
 
 ---
 
-## 2. Create the App ID (Bundle Identifier)
+## 2. Create the App ID (bundle identifier)
 
 Skip if you have already registered `dev.sprell.retios`.
 
@@ -40,12 +40,12 @@ Skip if you have already registered `dev.sprell.retios`.
 2. Click **+** → **App IDs** → **App** → Continue
 3. Fill in:
    - **Description**: RetiOS
-   - **Bundle ID**: Explicit → `dev.sprell.retios`
+   - **Bundle ID**: choose **Explicit**, then `dev.sprell.retios`
 4. Enable capabilities (scroll down):
-   - **Background Modes** — needed for mesh connectivity in the background
-   - **Network Extensions** and **App Groups** — required by the Yggdrasil packet-tunnel
+   - **Background Modes**—needed for mesh connectivity in the background
+   - **Network Extensions** and **App Groups**—required by the Yggdrasil packet-tunnel
      extension (see [YGGDRASIL.md](../YGGDRASIL.md)); both need a **paid** membership
-   - **Push Notifications** (optional — for future remote-push delivery)
+   - **Push Notifications** (optional—for future remote-push delivery)
 5. **Register**
 
 The tunnel extension needs its own App ID too: `dev.sprell.retios.YggdrasilTunnel`,
@@ -56,7 +56,7 @@ join the app group `group.dev.sprell.retios`.
 
 ## 3. Certificates
 
-### 3a. Development certificate (for device testing)
+### 3.1 Development certificate (for device testing)
 
 If you already have a valid "Apple Development" certificate in Keychain, skip this.
 
@@ -67,7 +67,7 @@ Xcode generates a key pair, creates the CSR, and installs the signed certificate
 If you prefer the manual route: create a CSR in Keychain Access, upload it at
 **Certificates → +** in the developer portal, download the `.cer`, and double-click to install.
 
-### 3b. Distribution certificate (for TestFlight / App Store)
+### 3.2 Distribution certificate (for TestFlight / App Store)
 
 Required for archiving.
 
@@ -75,14 +75,14 @@ Required for archiving.
 2. Choose **Apple Distribution**
 3. Upload a CSR generated from Keychain Access:
    - **Keychain Access → Certificate Assistant → Request a Certificate From a Certificate Authority**
-   - Email: your Apple ID email; check **Saved to disk**
+   - Enter your Apple ID email address; check **Saved to disk**
 4. Download the resulting `.cer` and double-click to install in Keychain
 
 ---
 
 ## 4. Provisioning Profiles
 
-### 4a. Development profile
+### 4.1 Development profile
 
 Authorises specific registered devices to run ad-hoc debug builds.
 
@@ -93,7 +93,7 @@ Authorises specific registered devices to run ad-hoc debug builds.
 5. Name it `RetiOS Development` → **Generate** → **Download**
 6. Double-click the `.mobileprovision` to install it
 
-### 4b. Distribution profile (App Store)
+### 4.2 Distribution profile (App Store)
 
 Used when archiving for TestFlight or the App Store.
 
@@ -120,19 +120,19 @@ Each physical iPhone or iPad you test on must be registered.
 
 Open `RetiOS.xcodeproj`. Two options:
 
-### Option A — Automatic signing (recommended for development)
+### Automatic signing (recommended for development)
 
 `project.yml` already sets `CODE_SIGN_STYLE: Automatic` on every target, so with
-`.xcode-team` written (step 1) the generated project is signed and ready — Xcode
+`.xcode-team` written (step 1) the generated project is signed and ready—Xcode
 creates and refreshes profiles automatically.
 
 If you instead pick the team in **Signing & Capabilities**, be aware that it lands
 only in the gitignored `project.pbxproj`, which the next `make generate`
 overwrites. Put it in `.xcode-team` so it survives.
 
-### Option B — Manual signing
+### Manual signing
 
-1. Uncheck **Automatically manage signing**
+1. Clear **Automatically manage signing**
 2. For **Debug**: set **Provisioning Profile** → `RetiOS Development`
 3. For **Release**: set **Provisioning Profile** → `RetiOS App Store`
 
@@ -143,21 +143,21 @@ entitlements you need to control precisely.
 
 ## 7. Entitlements and privacy keys
 
-These are **already configured** — this section is for understanding and changing
+These are **already configured**—this section is for understanding and changing
 them, not for first-time setup.
 
-### 7a. Privacy usage strings and background modes
+### 7.1 Privacy usage strings and background modes
 
 They live in `project.yml` under the app target's `info.properties` block
 (Bluetooth, microphone, local network, location, `NSBonjourServices`, and
 `UIBackgroundModes`), and `xcodegen generate` writes `RetiOS/Info.plist` from
 them.
 
-> `xcodegen generate` **overwrites** that plist — it does not merge. A key added
+> `xcodegen generate` **overwrites** that plist—it does not merge. A key added
 > through Xcode's UI is silently lost at the next `make generate`. Always edit
 > `project.yml`.
 
-### 7b. Entitlements
+### 7.2 Entitlements
 
 `RetiOS/RetiOS.entitlements` declares the Network Extension (packet-tunnel) and
 app-group entitlements the Yggdrasil node needs, with a twin file for the
@@ -165,9 +165,9 @@ app-group entitlements the Yggdrasil node needs, with a twin file for the
 
 The multicast entitlement (`com.apple.developer.networking.multicast`) is
 **deliberately omitted** so signed TestFlight/App Store builds do not depend on
-Apple's separate multicast approval. The consequence — AutoInterface LAN
+Apple's separate multicast approval. The consequence—AutoInterface LAN
 discovery is unavailable on signed device builds, while TCP and Yggdrasil work
-normally — and how to restore it are documented in the entitlements file itself
+normally—and how to restore it are documented in the entitlements file itself
 and in [YGGDRASIL.md](../YGGDRASIL.md).
 
 ---
@@ -182,7 +182,7 @@ Required for TestFlight and App Store distribution.
    - **Platforms**: iOS
    - **Name**: RetiOS
    - **Primary language**: English
-   - **Bundle ID**: `dev.sprell.retios` (select from dropdown — must match what
+   - **Bundle ID**: `dev.sprell.retios` (select from dropdown—must match what
      you registered in step 2)
    - **SKU**: `retios-001` (internal only, arbitrary)
 4. Click **Create**
@@ -191,13 +191,13 @@ Required for TestFlight and App Store distribution.
 
 ## 9. Archive and upload to TestFlight
 
-### 9a. Archive
+### 9.1 Archive
 
 1. In Xcode, set destination to **Any iOS Device (arm64)** (not a simulator)
 2. **Product → Archive**
 3. Xcode builds a release archive and opens the **Organizer** window
 
-### 9b. Distribute to TestFlight
+### 9.2 Distribute to TestFlight
 
 1. In Organizer, select the archive → **Distribute App**
 2. Choose **TestFlight & App Store** → **Next**
@@ -208,13 +208,13 @@ Required for TestFlight and App Store distribution.
 The upload usually takes 1–5 minutes. Apple's servers process it (another 10–30 min) before
 it appears in App Store Connect.
 
-### 9c. Add testers
+### 9.3 Add testers
 
 1. App Store Connect → your app → **TestFlight → Testers & Groups**
 2. Under **Internal Testing**: add testers from your team (up to 100 internal testers,
    no review required)
 3. Under **External Testing**: add external testers or create a public link
-   (requires a brief TestFlight review — usually < 24 hours for the first build)
+   (requires a brief TestFlight review—usually < 24 hours for the first build)
 
 Testers receive an email with an install link. They need the TestFlight app from the App Store.
 
@@ -227,16 +227,16 @@ When the app is ready for general release:
 ### Prepare metadata (in App Store Connect)
 
 - **App Information**: name, subtitle, category (Utilities or Social Networking)
-- **Pricing**: Free
+- **Pricing**: set to **Free**
 - **App Privacy**: fill in the privacy nutrition label (what data you collect and why)
-- **Screenshots**: required sizes — 6.9", 6.5", 5.5" iPhone; 13" and 12.9" iPad (if targeting iPad)
+- **Screenshots**: required sizes—6.9-inch, 6.5-inch, and 5.5-inch iPhone; 13-inch and 12.9-inch iPad (if targeting iPad)
 - **Description** and **Keywords**
 
 ### Submit for review
 
 1. Select the build you uploaded → **Add for Review**
-2. Answer the export compliance question (RetiOS uses AES via Apple CryptoKit — select
-   **Yes** for encryption, then **Yes** for standard encryption exemption — CryptoKit
+2. Answer the export compliance question (RetiOS uses AES via Apple CryptoKit—select
+   **Yes** for encryption, then **Yes** for standard encryption exemption—CryptoKit
    qualifies as ATS/TLS exempt)
 3. **Submit to App Review**
 
@@ -251,7 +251,7 @@ For automated TestFlight uploads from CI (GitHub Actions, Xcode Cloud, etc.):
 - **Xcode Cloud**: built into Xcode → Product → Xcode Cloud → Create Workflow.
   Handles signing, notarisation, and upload automatically.
 - **Fastlane + GitHub Actions**: `fastlane match` for certificate sync, `fastlane pilot`
-  for TestFlight upload — requires an App Store Connect API key (JSON) stored as a CI secret.
+  for TestFlight upload—requires an App Store Connect API key (JSON) stored as a CI secret.
 
 ---
 
