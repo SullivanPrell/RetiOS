@@ -191,12 +191,10 @@ private struct MicronSpanView: View {
 
   /// Micron color → SwiftUI, normalised by each case's actual value range.
   ///
-  /// The divisors used to be the number of hex *digits* (3 and 5) rather than
-  /// each component's maximum, so every color saturated to white: `` `F888 ``
-  /// gave 8/3 = 2.67, clamped to 1.0. A 3-nibble component is one hex digit
-  /// parsed `radix: 16`, so 0–15; a 6-digit component is two, so 0–255
-  /// (MicronParser.parseColor3/parseColor6). This misrendered every colored
-  /// page in the Browse tab, not just the editor's preview.
+  /// The divisor is each component's maximum, not the number of hex digits. A 3-nibble
+  /// component is one hex digit parsed `radix: 16`, so 0–15; a 6-digit component is two,
+  /// so 0–255 (MicronParser.parseColor3/parseColor6). Dividing by the digit count instead
+  /// saturates every color to white: `` `F888 `` gives 8/3 = 2.67, clamped to 1.0.
   private func micronColor(_ c: MicronColor) -> Color {
     switch c {
     case .default: return .primary

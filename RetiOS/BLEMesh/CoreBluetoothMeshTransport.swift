@@ -440,9 +440,8 @@ extension CoreBluetoothMeshTransport {
   /// GATT central role for this peer: write to its RX characteristic
   /// without response.
   ///
-  /// Queues the chunks and kicks off draining—see
-  /// `drainCentralWrites` for why a blind write loop (what used to be here)
-  /// is the actual root cause of "sending doesn't work".
+  /// Queues the chunks and kicks off draining. See `drainCentralWrites` for why a blind
+  /// write loop drops data here.
   private func writeAsCentral(_ data: Data, link: CentralLink) throws {
     guard link.peripheral.state == .connected else {
       throw CoreBluetoothMeshError.notConnected

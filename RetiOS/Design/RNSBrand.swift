@@ -42,8 +42,8 @@ extension Color {
   }
   /// One step above `rnsCanvas`—message bubbles, compose bars, cards.
   ///
-  /// The macOS mapping is **not** `controlBackgroundColor`, which is what it
-  /// used to be. On macOS that color is byte-identical to
+  /// The macOS mapping is **not** `controlBackgroundColor`. On macOS that color is
+  /// byte-identical to
   /// `windowBackgroundColor` in *both* appearances (0.118 in Dark, 1.000 in
   /// Light), so every surface the app painted was invisible against the page:
   /// received message bubbles had no bubble, and the compose bar was

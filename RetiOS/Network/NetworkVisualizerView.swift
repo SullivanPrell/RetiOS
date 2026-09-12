@@ -564,14 +564,12 @@ enum HopBand: Int, CaseIterable, Hashable, Comparable {
   /// 0.47 is very close to the 0.5 that reaches the canvas edge.
   /// Ring radius as a fraction of the canvas, where 0.5 reaches its edge.
   ///
-  /// The old layout packed every level into [0.35, 0.47]—the outer quarter
-  /// of the canvas—which is why the middle of the graph was empty while its
-  /// rim was a smear. The outer bound stops at 0.42 rather than filling the
-  /// space: a cluster bubble is up to 48 pt across, so a center placed any
-  /// closer to the edge gets its outer half sheared off. `polarPoint` applies
-  /// no clamp, deliberately—the old code's `min(max(raw, 0.05), 0.95)`
-  /// silently collapsed distinct positions onto the same edge point, so the
-  /// radii themselves have to be the thing that keeps nodes on screen.
+  /// Levels span [0.20, 0.42]. The outer bound stops short of the edge because a cluster
+  /// bubble is up to 48 pt across, so a center placed any closer gets its outer half
+  /// sheared off.
+  ///
+  /// `polarPoint` applies no clamp, deliberately: clamping the radius collapses distinct
+  /// positions onto the same edge point, so these radii are what keep nodes on screen.
   var radius: CGFloat { 0.20 + CGFloat(rawValue) * 0.0733 }
 
   var label: String {
