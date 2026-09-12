@@ -1,4 +1,14 @@
 #!/bin/sh
+#===----------------------------------------------------------------------===#
+# Copyright (c) 2026 RetiOS contributors.
+#
+# Licensed under the Reticulum License. See LICENSE in the repository root for
+# the full license text, and NOTICE for attribution of the upstream project
+# this file is derived from.
+#
+# SPDX-License-Identifier: LicenseRef-Reticulum
+#===----------------------------------------------------------------------===#
+
 #
 # Rebuild Yggdrasil.xcframework (the gomobile-bound yggdrasil-go engine that the
 # YggdrasilTunnel network extension runs) and vendor it into RetiOS/Frameworks/.
