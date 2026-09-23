@@ -1,10 +1,11 @@
 # RetiOS
 
-> **Reticulum is the work of [Mark Qvist](https://github.com/markqvist).** RetiOS is an
-> independent, community app built on Swift implementations of his protocols—**not an
-> official Reticulum project**. For Reticulum itself—the protocol specification and the
-> reference (Python) implementation—see
-> **[github.com/markqvist/Reticulum](https://github.com/markqvist/Reticulum)**.
+> **Reticulum is the work of [Mark Qvist](https://github.com/markqvist).** RetiOS is a
+> community app built on Swift translations of his Python implementations—**not an
+> official Reticulum project**. For Reticulum itself—the protocol and the reference
+> implementation—see
+> **[github.com/markqvist/Reticulum](https://github.com/markqvist/Reticulum)**. See
+> [Provenance](#provenance).
 
 > **Credits & acknowledgements.** RetiOS's app structure and UX were **inspired by**
 > **[Meshtastic-Apple](https://github.com/meshtastic/Meshtastic-Apple)**, the
@@ -37,6 +38,9 @@ packages:
 [LXMFSwift](https://github.com/SullivanPrell/LXMFSwift) ·
 [LXSTSwift](https://github.com/SullivanPrell/LXSTSwift) ·
 [NomadNetSwift](https://github.com/SullivanPrell/NomadNetSwift).
+
+RetiOS is **experimental**. It hasn't had an independent security review, and the
+packages it builds on are experimental too.
 
 ## Features
 
@@ -103,7 +107,9 @@ would otherwise reset signing every time.
 
 Dependencies are fetched from their published releases—the four
 ReticulumSwift-stack packages plus [Runestone](https://github.com/simonbs/Runestone)
-(iOS only)—so RetiOS builds on its own with no sibling checkouts.
+(iOS only)—so RetiOS builds with no sibling checkouts. LXSTSwift is a private
+repository while its license is unresolved, so resolving it needs read access to
+that repository.
 
 Full instructions—simulator vs device, signing, the local-development override
 for working on the whole stack at once, and TestFlight/App Store distribution—are
@@ -115,11 +121,24 @@ in:
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)—controllers, tabs, and stack bring-up
 - [CONTRIBUTING.md](CONTRIBUTING.md)—dev workflow and conventions
 
+## Provenance
+
+The four packages RetiOS builds on are translations of Mark Qvist's Python
+implementations, not clean-room implementations; each package's README describes its
+provenance. The app code in this repository is written for RetiOS, and its authors
+wrote most of it with machine assistance (Claude Code). Commits made that way carry a
+`Co-Authored-By: Claude` trailer.
+
 ## License
 
 Released under the **Reticulum License** (no use in harm-capable systems; no use
 for AI/ML training datasets). See [LICENSE](LICENSE) and [NOTICE](NOTICE). RetiOS
 builds on Swift ports of Mark Qvist's Reticulum, LXMF, LXST, and NomadNet.
+
+**Licensing of a built app is unresolved.** RetiOS links NomadNetSwift, which is
+GPL-3.0 because upstream NomadNet is, and LXSTSwift, whose upstream LXST is
+CC BY-NC-ND 4.0 and doesn't permit sharing adapted material. The terms that govern
+a distributed RetiOS binary depend on how those two are settled.
 
 **Third-party code in the app.** iOS and iPadOS builds link
 [Runestone](https://github.com/simonbs/Runestone) (MIT, © 2021 Simon Støvring) and
@@ -129,7 +148,7 @@ neither. Attribution is in [NOTICE](NOTICE); the pinned versions in
 [Package.resolved](Package.resolved).
 
 **On prior art.** RetiOS's structure and UX were *inspired by* the GPL-3.0-licensed
-[Meshtastic-Apple](https://github.com/meshtastic/Meshtastic-Apple) app, but RetiOS is an
-independent implementation that does **not** incorporate its source code—so no GPL-3.0
-obligations attach. (Copyright protects expression, not ideas or layout conventions.) See
-[NOTICE](NOTICE) for full attribution.
+[Meshtastic-Apple](https://github.com/meshtastic/Meshtastic-Apple) app, and its source was
+available to the authors during development. A line-by-line comparison of the two
+source trees on 2026-09-22 found no shared code beyond Apple framework delegate
+signatures and common SwiftUI idioms. See [NOTICE](NOTICE) for full attribution.

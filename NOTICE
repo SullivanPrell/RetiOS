@@ -49,14 +49,18 @@ Third-party components linked into the app (source code incorporated):
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 
-Acknowledgements (inspiration only — no source code incorporated):
+Acknowledgements (inspiration only):
 
   Meshtastic-Apple   — https://github.com/meshtastic/Meshtastic-Apple
                        (GPL-3.0) — RetiOS's app structure/UX took inspiration from
-                       this project. No Meshtastic-Apple source is included, so no
-                       GPL-3.0 obligations attach.
+                       this project, and its source was available during
+                       development. A line-by-line comparison on 2026-09-22 found
+                       no shared code beyond Apple framework delegate signatures
+                       and common SwiftUI idioms.
   Reticulum MeshChat — https://github.com/liamcottle/reticulum-meshchat (Liam Cottle)
   MeshChatX          — https://github.com/Quad4-Software/MeshChatX (Quad4-Software)
                        — feature and UX ideas.
 
-RetiOS is distributed under the Reticulum License (see LICENSE).
+RetiOS's own source is under the Reticulum License (see LICENSE). A built app
+also links NomadNetSwift (GPL-3.0) and LXSTSwift (license unresolved; upstream
+LXST is CC BY-NC-ND 4.0), so the terms of a distributed binary are unresolved.
