@@ -69,6 +69,10 @@ See [docs/BUILDING.md](docs/BUILDING.md#developing-the-whole-stack-locally)—sw
   `xcodebuild test` for the unit tests.
 - Tests are XCTest, not swift-testing.
 - Style: [Google Swift Style Guide](https://google.github.io/swift/).
+- Protocol behavior belongs in the packages, which translate the Python reference
+  implementations. Don't reimplement it in the app.
+- If a tool generated part of a change, say so in the pull request and add a
+  `Co-Authored-By` trailer. The pull request's author answers for all of it.
 
 ## Style checks
 

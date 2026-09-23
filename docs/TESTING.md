@@ -245,9 +245,9 @@ peers. Simulator builds are unaffected.
 At startup RetiOS probes `127.0.0.1:37428` (rnsd's default local-interface port):
 
 - **Daemon found**—RetiOS connects as a client via `LocalInterface`. The daemon manages all
-  physical interfaces (TCP, RNode, I2P, etc.). The Settings tab shows **Mode: Daemon client**.
+  physical interfaces (TCP, RNode, I2P, etc.). The Settings tab shows the mode as **Daemon client**.
 - **No daemon**—RetiOS starts its own embedded stack with AutoInterface, exactly like iOS.
-  The Settings tab shows **Mode: Embedded**.
+  The Settings tab shows the mode as **Embedded**.
 
 To run an `rnsd` daemon on the same machine (so macOS RetiOS connects to it),
 build it from the [ReticulumSwift](https://github.com/SullivanPrell/ReticulumSwift) repo:
