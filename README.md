@@ -83,6 +83,9 @@ Mac app does not ship the Pages section at all.
 - **[XcodeGen](https://github.com/yonaskolb/XcodeGen)**—the Xcode project is
   generated from `project.yml` (`brew install xcodegen`).
 - An Apple Developer account to run on a physical device.
+- Read access to [LXSTSwift](https://github.com/SullivanPrell/LXSTSwift), which is
+  private while its license is resolved: git credentials for the clone, and a
+  `~/.netrc` entry for `api.github.com` for its codec binaries.
 
 ## Building
 
