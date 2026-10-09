@@ -23,3 +23,8 @@ xcuserdata/
 # Coverage artifact dropped by ad-hoc xcodebuild runs
 default.profraw
 __pycache__/
+
+# Agent instructions stay local; they are not published.
+CLAUDE.md
+CLAUDE.local.md
+.claude/
