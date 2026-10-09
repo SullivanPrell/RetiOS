@@ -48,8 +48,8 @@ Skip if you have already registered `dev.sprell.retios`.
    - **Push Notifications** (optional—for future remote-push delivery)
 5. **Register**
 
-The tunnel extension needs its own App ID too: `dev.sprell.retios.YggdrasilTunnel`,
-with the same Network Extensions and App Groups capabilities. Both App IDs must
+The tunnel extension needs its own App ID too, `dev.sprell.retios.YggdrasilTunnel`,
+and that App ID needs the Network Extensions and App Groups capabilities as well. Both App IDs must
 join the app group `group.dev.sprell.retios`.
 
 ---

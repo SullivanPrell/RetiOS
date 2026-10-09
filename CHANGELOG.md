@@ -220,7 +220,7 @@ a half-decoded HDLC frame surviving into a reconnected session.
 ## [0.2.0]—2026-07-19
 
 - Pinned every dependency to a published release with a committed
-  `Package.resolved`, making builds reproducible between CI and dev machines.
+  `Package.resolved`. CI and dev machines now build the same versions.
 
 ## [0.1.0]—2026-07-19—first public release
 
