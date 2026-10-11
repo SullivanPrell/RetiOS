@@ -18,7 +18,7 @@ import ReticulumSwift
 ///
 /// GATT layout:
 ///   Service  6E400001—Nordic UART
-///     RX char 6E400002—write (phone → RNode, no response)
+///     RX char 6E400002—write (phone → RNode)
 ///     TX char 6E400003—notify (RNode → phone)
 ///
 /// write() chunks outbound data to the peripheral's negotiated MTU so BLE
@@ -75,7 +75,12 @@ extension BLERNodeTransport: RNodeTransport {
   }
 
   /// Chunk data to the negotiated BLE MTU (typically 182 bytes for NUS) and
-  /// write each chunk without response for maximum throughput.
+  /// write each chunk with response.
+  ///
+  /// ESP32 RNodes declare RX as write-only (`BLESerial.cpp`, `PROPERTY_WRITE`), and
+  /// CoreBluetooth drops a without-response write to such a characteristic.
+  /// CoreBluetooth queues with-response writes, so none is lost while the
+  /// link is busy. Chunks stay at the without-response size, one ATT packet each.
   func write(_ data: Data) throws {
     guard peripheral.state == .connected else {
       let error = BLETransportError.notConnected
@@ -87,7 +92,7 @@ extension BLERNodeTransport: RNodeTransport {
       var offset = data.startIndex
       while offset < data.endIndex {
         let end = data.index(offset, offsetBy: mtu, limitedBy: data.endIndex) ?? data.endIndex
-        self.peripheral.writeValue(data[offset..<end], for: self.rxChar, type: .withoutResponse)
+        self.peripheral.writeValue(data[offset..<end], for: self.rxChar, type: .withResponse)
         offset = end
       }
     }
@@ -143,12 +148,10 @@ extension BLERNodeTransport: CBPeripheralDelegate {
 
 enum BLETransportError: Error, LocalizedError {
   case notConnected
-  case detectTimeout
 
   var errorDescription: String? {
     switch self {
     case .notConnected: return "BLE peripheral not connected"
-    case .detectTimeout: return "RNode did not respond to detect command"
     }
   }
 }
