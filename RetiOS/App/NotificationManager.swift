@@ -234,18 +234,14 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
 
   /// Called while the app is in the foreground.
   ///
-  /// Message banners are shown as usual; call banners are suppressed because the
-  /// in-app incoming-call UI is already visible.
+  /// Shows call banners too: the in-app ringing UI lives only on the Calls tab,
+  /// and nothing switches to it, so the banner is the only cue elsewhere.
   nonisolated func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    if notification.request.content.categoryIdentifier == NotifCategory.call {
-      completionHandler([])
-    } else {
-      completionHandler([.banner, .sound])
-    }
+    completionHandler([.banner, .sound])
   }
 
   /// Called when the user taps a notification or an action button.
