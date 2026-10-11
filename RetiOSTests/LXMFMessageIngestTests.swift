@@ -38,7 +38,8 @@ final class LXMFMessageIngestTests: XCTestCase {
     let context = ModelContext(container)
     let all = FetchDescriptor<MessageEntity>()
     var polls = 0
-    while try context.fetchCount(all) == 0, polls < 50 {
+    // 30 s: a CI simulator can starve the utility queue the 0.4 s flush runs on.
+    while try context.fetchCount(all) == 0, polls < 300 {
       try await Task.sleep(for: .milliseconds(100))
       polls += 1
     }

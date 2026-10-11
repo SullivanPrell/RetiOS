@@ -10,6 +10,7 @@
 
 import LXST
 import ReticulumSwift
+import SwiftData
 import XCTest
 
 @testable import RetiOS
@@ -25,5 +26,38 @@ final class CallsControllerTests: XCTestCase {
 
     XCTAssertEqual(CallsController.callHash(for: caller), announced.hash)
     XCTAssertNotEqual(CallsController.callHash(for: caller), caller.hash)
+  }
+
+  /// iOS kills a backgrounded app, and Recents must still show the call it missed.
+  func testCallHistoryRoundTripsThroughUserDefaults() throws {
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: "test-\(UUID())"))
+    var record = CallRecord(
+      peerHash: "ab", peerName: "Mom", direction: .inbound,
+      startTime: Date(timeIntervalSince1970: 1), outcome: .failed("busy"))
+    record.endTime = Date(timeIntervalSince1970: 2)
+
+    CallsController.saveHistory([record], to: defaults)
+    let loaded = CallsController.loadHistory(from: defaults)
+
+    XCTAssertEqual(loaded.map(\.id), [record.id])
+    XCTAssertEqual(loaded.first?.outcome, .failed("busy"))
+    XCTAssertEqual(loaded.first?.peerName, "Mom")
+    XCTAssertEqual(loaded.first?.endTime, record.endTime)
+  }
+
+  /// The call screens and the call banner name a saved peer instead of showing a hash.
+  @MainActor
+  func testPeerNameComesFromTheCallersDeliveryPeer() throws {
+    let container = try ModelContainer(
+      for: MessageEntity.self, PeerEntity.self, NomadNodeEntity.self,
+      ChannelEntity.self, ChannelMessageEntity.self,
+      configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+    let caller = Identity()
+    let delivery = Destination.hash(identity: caller, appName: "lxmf", aspects: ["delivery"])
+      .map { String(format: "%02x", $0) }.joined()
+    container.mainContext.insert(PeerEntity(destinationHash: delivery, displayName: "Mom"))
+
+    XCTAssertEqual(CallsController.peerName(for: caller, in: container.mainContext), "Mom")
+    XCTAssertNil(CallsController.peerName(for: Identity(), in: container.mainContext))
   }
 }

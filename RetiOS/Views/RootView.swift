@@ -24,6 +24,8 @@ struct RootView: View {
   @Environment(\.horizontalSizeClass) private var sizeClass
   @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
   @State private var showOnboarding = false
+  // One selection for both layouts, so a size-class change keeps the section.
+  @State private var selectedTab: AppTab = AppTab.launchSelection
 
   var body: some View {
     layout
@@ -31,10 +33,19 @@ struct RootView: View {
       // because RootView is always present and carries the stack.
       .onChange(of: notifs.requestAnnounce) { _, _ in stack.announceLXMFNow() }
       .onChange(of: notifs.requestSync) { _, _ in stack.syncFromPropagationNode() }
+      .onChange(of: notifs.navigateTo) { _, tab in
+        guard let tab else { return }
+        selectedTab = tab
+        notifs.navigateTo = nil
+      }
       #if os(macOS)
     .frame(minWidth: 820, minHeight: 520)
       #endif
       .onAppear { showOnboarding = !hasCompletedOnboarding }
+      // Asked once the user knows the app, not over the welcome screen.
+      .task(id: hasCompletedOnboarding) {
+        if hasCompletedOnboarding { await notifs.requestPermission() }
+      }
       .modifier(
         OnboardingPresenter(isPresented: $showOnboarding) {
           hasCompletedOnboarding = true
@@ -63,12 +74,12 @@ struct RootView: View {
     // macOS windows are always effectively "regular" width—there's no
     // compact/phone-sized macOS window—so route unconditionally there.
     #if os(macOS)
-    SidebarRootView()
+    SidebarRootView(selection: $selectedTab)
     #else
     if sizeClass == .regular {
-      SidebarRootView()
+      SidebarRootView(selection: $selectedTab)
     } else {
-      TabRootView()
+      TabRootView(selection: $selectedTab)
     }
     #endif
   }
@@ -77,11 +88,16 @@ struct RootView: View {
 // MARK: - Phone / compact tab bar
 
 private struct TabRootView: View {
-  @Environment(NotificationManager.self) private var notifs
-  @State private var selectedTab: AppTab = .messages
+  @Binding var selection: AppTab
 
   var body: some View {
-    TabView(selection: $selectedTab) {
+    // `.tools` and `.interfaces` have no phone tabs. Show them as Settings,
+    // which carries NavigationLinks to both.
+    TabView(
+      selection: Binding(
+        get: { [.tools, .interfaces].contains(selection) ? .settings : selection },
+        set: { selection = $0 })
+    ) {
       ConversationsView()
         .tag(AppTab.messages)
         .tabItem { Label("Messages", systemImage: "message.fill") }
@@ -94,11 +110,7 @@ private struct TabRootView: View {
         .tag(AppTab.nomadNet)
         .tabItem { Label("NomadNet", systemImage: "globe.americas.fill") }
 
-      MapView()
-        .tag(AppTab.map)
-        .tabItem { Label("Map", systemImage: "map.fill") }
-
-      // NOTE: deliberately only 5 tabs here (not 6).
+      // NOTE: deliberately no more than 5 tabs here.
       //
       // `UITabBarController`—which backs SwiftUI's `TabView` on
       // iPhone / compact width—only displays 5 tabs directly; a sixth
@@ -128,18 +140,6 @@ private struct TabRootView: View {
         .tabItem { Label("Settings", systemImage: "gear") }
     }
     .suppressTabBarMinimize()
-    .onChange(of: notifs.navigateTo) { _, tab in
-      guard let tab else { return }
-      // `.tools` and `.interfaces` have no phone tabs—route both to
-      // Settings, which carries NavigationLinks to both.
-      let phoneTab: AppTab
-      switch tab {
-      case .tools, .interfaces: phoneTab = .settings
-      default: phoneTab = tab
-      }
-      selectedTab = phoneTab
-      notifs.navigateTo = nil
-    }
   }
 }
 
@@ -164,9 +164,9 @@ extension View {
 
 private struct SidebarRootView: View {
   @Environment(StackController.self) private var stack
-  @Environment(NotificationManager.self) private var notifs
   @Environment(CallsController.self) private var calls
-  @State private var selection: AppTab? = AppTab.launchSelection
+  @Binding var selection: AppTab
+  @State private var columns: NavigationSplitViewVisibility = .all
   @State private var sidebarHeight: CGFloat = 0
 
   // On macOS, Settings lives in its own ⌘, Preferences window (see RetiOSApp),
@@ -180,8 +180,11 @@ private struct SidebarRootView: View {
   }
 
   var body: some View {
-    NavigationSplitView(columnVisibility: .constant(.all)) {
-      List(sidebarTabs, id: \.self, selection: $selection) { tab in
+    NavigationSplitView(columnVisibility: $columns) {
+      List(
+        sidebarTabs, id: \.self,
+        selection: Binding(get: { selection }, set: { if let tab = $0 { selection = tab } })
+      ) { tab in
         Label(tab.displayName, systemImage: tab.icon)
           .tag(tab)
       }
@@ -200,12 +203,7 @@ private struct SidebarRootView: View {
       #endif
       .overlay(alignment: .bottom) { stackStatusBar }
     } detail: {
-      detailView(for: selection ?? .messages)
-    }
-    .onChange(of: notifs.navigateTo) { _, tab in
-      guard let tab else { return }
-      selection = tab
-      notifs.navigateTo = nil
+      detailView(for: selection)
     }
   }
 
@@ -346,7 +344,6 @@ private struct SidebarRootView: View {
     case .messages: ConversationsView()
     case .calls: CallsView()
     case .nomadNet: NomadNetContainerView()
-    case .map: MapView()
     case .interfaces: NavigationStack { InterfacesView() }
     case .tools: NavigationStack { ToolsView() }
     case .settings: SettingsView()
@@ -362,7 +359,6 @@ extension AppTab {
     case .messages: return "Messages"
     case .calls: return "Calls"
     case .nomadNet: return "NomadNet"
-    case .map: return "Map"
     case .interfaces: return "Interfaces"
     case .tools: return "Tools"
     case .settings: return "Settings"
@@ -374,7 +370,6 @@ extension AppTab {
     case .messages: return "message.fill"
     case .calls: return "phone.fill"
     case .nomadNet: return "globe.americas.fill"
-    case .map: return "map.fill"
     case .interfaces: return "antenna.radiowaves.left.and.right"
     case .tools: return "wrench.and.screwdriver.fill"
     case .settings: return "gear"
@@ -559,6 +554,7 @@ private struct OnboardingConnectStep: View {
   @State private var entries: [InterfaceDirectory.Entry] = []
   @State private var loadFailed = false
   @State private var added: Set<String> = []
+  @State private var addError: String?
 
   private var quickAddable: [InterfaceDirectory.Entry] {
     Array(entries.filter(\.isQuickAddable).prefix(8))
@@ -600,6 +596,17 @@ private struct OnboardingConnectStep: View {
       guard entries.isEmpty else { return }
       do { entries = try await InterfaceDirectory.fetchOnline() } catch { loadFailed = true }
     }
+    .alert(
+      "Couldn't Add Gateway",
+      isPresented: Binding(
+        get: { addError != nil },
+        set: { if !$0 { addError = nil } }
+      )
+    ) {
+      Button("OK", role: .cancel) { addError = nil }
+    } message: {
+      Text(addError ?? "")
+    }
   }
 
   @ViewBuilder
@@ -626,6 +633,7 @@ private struct OnboardingConnectStep: View {
         Button("Add") { add(entry) }
           .buttonStyle(.bordered)
           .controlSize(.small)
+          .disabled(!stack.isRunning)
           .accessibilityLabel("Add \(entry.name)")
       }
     }
@@ -637,7 +645,11 @@ private struct OnboardingConnectStep: View {
       let port = entry.port,
       let portNum = UInt16(exactly: port)
     else { return }
-    try? stack.addAndSaveInterface(name: entry.name, host: entry.host, port: portNum, kind: kind)
-    added.insert(entry.name)
+    do {
+      try stack.addAndSaveInterface(name: entry.name, host: entry.host, port: portNum, kind: kind)
+      added.insert(entry.name)
+    } catch {
+      addError = error.localizedDescription
+    }
   }
 }

@@ -70,7 +70,15 @@ struct MessageThreadView: View {
     // the end of it.
     .scrollDismissesKeyboard(.interactively)
     .onChange(of: messages.count) { _, _ in markRead() }
-    .onAppear { markRead() }
+    .onAppear {
+      markRead()
+      NotificationManager.shared.visibleConversationHash = peerHash
+    }
+    .onDisappear {
+      if NotificationManager.shared.visibleConversationHash == peerHash {
+        NotificationManager.shared.visibleConversationHash = nil
+      }
+    }
     // `rnsBottomBar` (safeAreaBar on 26) rather than safeAreaInset: it also
     // extends the scroll view's bottom edge effect into the inset, which is
     // the fade that was missing under the bar—bubbles used to scroll
@@ -390,12 +398,26 @@ private struct MessageBubble: View {
             .background(message.isOutbound ? Color.rnsAccentFill : Color.rnsSurface)
             .foregroundStyle(message.isOutbound ? .white : .primary)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contextMenu {
+              if hasText {
+                Button {
+                  rnsCopyToPasteboard(message.content)
+                } label: {
+                  Label("Copy", systemImage: "doc.on.doc")
+                }
+              }
+            }
         }
 
         HStack(spacing: 4) {
-          Text(message.timestamp, style: .time)
-            .font(.caption2)
-            .foregroundStyle(.secondary)
+          // The date too once the message isn't from today.
+          Text(
+            message.timestamp.formatted(
+              date: Calendar.current.isDateInToday(message.timestamp) ? .omitted : .abbreviated,
+              time: .shortened)
+          )
+          .font(.caption2)
+          .foregroundStyle(.secondary)
           if message.isOutbound {
             deliveryIcon(state: message.deliveryState)
           }

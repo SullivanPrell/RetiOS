@@ -11,6 +11,10 @@
 import ReticulumSwift
 import SwiftUI
 
+#if os(iOS)
+import UIKit
+#endif
+
 // MARK: - BLEMeshView
 
 /// Status & control screen for the BLE mesh radio—the BLE-mesh counterpart
@@ -68,7 +72,7 @@ struct BLEMeshView: View {
         Spacer()
         Toggle("", isOn: meshEnabledBinding)
           .labelsHidden()
-          .disabled(toggleDisabled)
+          .disabled(controller.state == .starting)
           .accessibilityLabel("BLE Mesh")
       }
       .padding(.vertical, 2)
@@ -83,10 +87,15 @@ struct BLEMeshView: View {
       Text("Status")
     } footer: {
       if controller.state == .bluetoothUnavailable {
-        Text(
-          "Bluetooth is unavailable or not authorized. Enable it in Settings to mesh with nearby devices."
-        )
-        .foregroundStyle(Color.rnsError)
+        VStack(alignment: .leading, spacing: 4) {
+          Text(
+            "Bluetooth is unavailable or not authorized. Allow it in Settings to mesh with nearby devices."
+          )
+          .foregroundStyle(Color.rnsError)
+          if let settingsURL = Self.bluetoothSettingsURL {
+            Link("Open Settings", destination: settingsURL)
+          }
+        }
       }
     }
   }
@@ -99,16 +108,16 @@ struct BLEMeshView: View {
     }
   }
 
-  private var toggleDisabled: Bool {
-    switch controller.state {
-    case .bluetoothUnavailable, .starting: return true
-    default: return false
-    }
-  }
+  #if os(iOS)
+  private static let bluetoothSettingsURL = URL(string: UIApplication.openSettingsURLString)
+  #else
+  private static let bluetoothSettingsURL = URL(
+    string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth")
+  #endif
 
   private var meshEnabledBinding: Binding<Bool> {
     Binding(
-      get: { controller.state.isOnline || controller.state == .starting },
+      get: { [.online, .starting, .waitingForBluetooth].contains(controller.state) },
       set: { isOn in
         if isOn {
           let name = stack.nodeDisplayName.isEmpty ? "RetiOS" : stack.nodeDisplayName
@@ -145,6 +154,10 @@ struct BLEMeshView: View {
     case .bluetoothUnavailable:
       Image(systemName: "personalhotspot.slash")
         .foregroundStyle(Color.rnsError)
+        .font(.title2)
+    case .waitingForBluetooth:
+      Image(systemName: "personalhotspot.slash")
+        .foregroundStyle(Color.rnsWarning)
         .font(.title2)
     case .starting:
       ProgressView()
