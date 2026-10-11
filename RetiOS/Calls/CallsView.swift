@@ -35,15 +35,15 @@ struct CallsView: View {
         }
       }
       .rnsCanvasBackground()
-      .navigationTitle("Calls")
-      .toolbar {
-        ToolbarItem(placement: .primaryAction) {
-          Button(action: { showNewCall = true }) {
-            Image(systemName: "phone.badge.plus")
-          }
-          .accessibilityLabel("New Call")
-          .disabled(calls.callState != .idle)
+      // Flush pinned title (no large-title dead space)—matches the
+      // Messages tab. The New Call action moves from the nav-bar toolbar
+      // into the pinned header's trailing slot.
+      .rnsPinnedTitle("Calls") {
+        Button(action: { showNewCall = true }) {
+          Image(systemName: "phone.badge.plus")
         }
+        .accessibilityLabel("New Call")
+        .disabled(calls.callState != .idle)
       }
       .sheet(isPresented: $showNewCall) {
         NewCallSheet()

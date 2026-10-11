@@ -60,7 +60,9 @@ struct SettingsView: View {
   var body: some View {
     rnsSettingsContainer { sections }
       .rnsScreenBackground()
-      .navigationTitle("Settings")
+      // Flush pinned title (no large-title dead space)—matches the other
+      // tabs. Replaces `.navigationTitle`.
+      .rnsPinnedTitle("Settings")
       .task {
         // Initial load + periodic refresh every 5 s.
         while !Task.isCancelled {

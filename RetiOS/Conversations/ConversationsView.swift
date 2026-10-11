@@ -27,7 +27,8 @@ struct ConversationsView: View {
 
   var body: some View {
     NavigationStack(path: $navPath) {
-      // The section picker sits inline on iOS and in the window toolbar on Mac—see
+      // Only the section picker + list scroll below the pinned title.
+      // The picker sits inline on iOS and in the window toolbar on Mac—see
       // `rnsSectionPicker`.
       Group {
         switch section {
@@ -46,9 +47,12 @@ struct ConversationsView: View {
           ("Peers", MessagesSection.peers),
         ], selection: $section
       )
-      .navigationTitle("Messages")
-      .toolbar {
-        ToolbarItem(placement: .primaryAction) { headerActionButton }
+      // Flush pinned title with the compose / add-contact action in the
+      // header's trailing slot beside the title—matching the Calls tab.
+      // (rnsPinnedTitle sizes/tints the action and hides the empty iOS
+      // nav bar; pushed thread views set their own nav bar / back button.)
+      .rnsPinnedTitle("Messages") {
+        headerActionButton
       }
       // ConversationListContent, ContactsContent and LXMFPeersContent all push
       // String (peerHash) values; this single destination handles navigation for all.
@@ -84,7 +88,9 @@ struct ConversationsView: View {
     }
   }
 
-  /// Compose action, or Add Contact in the Contacts section.
+  /// Compose (or add-contact, in the Contacts section) action, shown in the
+  /// pinned header's trailing slot beside the "Messages" title (the Calls-tab
+  /// layout). `rnsPinnedTitle` handles its sizing and accent tint.
   @ViewBuilder
   private var headerActionButton: some View {
     if section == .contacts {
@@ -106,6 +112,11 @@ struct ConversationsView: View {
 }
 
 private enum MessagesSection: Hashable { case conversations, contacts, peers }
+
+// Search on all three segments uses `rnsInlineSearch`, NOT `.searchable`—this
+// is a tab root under `rnsPinnedTitle`, which hides the navigation bar the iOS
+// search field would have to live in. See `rnsInlineSearch` for the full
+// diagnosis; it fails silently, so it is worth knowing before "fixing" it back.
 
 // MARK: - Conversation list
 
