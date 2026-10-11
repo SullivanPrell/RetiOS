@@ -542,7 +542,7 @@ private struct ResolvedCallPeer: Identifiable {
   let contact: PeerEntity?
 
   var id: String { peer.id }
-  var displayName: String? { contact?.displayName }
+  var displayName: String? { contact?.name }
   var isContact: Bool { contact?.isContact ?? false }
 }
 

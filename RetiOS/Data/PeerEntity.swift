@@ -15,7 +15,10 @@ import SwiftData
 final class PeerEntity {
   /// LXMF delivery destination hash (hex), unique per peer.
   @Attribute(.unique) var destinationHash: String
+  /// The name the peer announces for itself; overwritten by every announce.
   var displayName: String?
+  /// The name the user typed in Add Contact; announces never touch it.
+  var nickname: String?
   var firstSeen: Date
   var lastSeen: Date
   /// True once the user has explicitly saved this peer as a contact
@@ -34,7 +37,10 @@ final class PeerEntity {
     String(destinationHash.prefix(8))
   }
 
+  /// The name to show: the user's nickname, else the announced name.
+  var name: String? { nickname ?? displayName }
+
   var label: String {
-    displayName ?? "<\(shortHash)>"
+    name ?? "<\(shortHash)>"
   }
 }

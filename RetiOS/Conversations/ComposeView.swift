@@ -41,7 +41,7 @@ struct ComposeView: View {
   /// Display name for the currently entered hash, if it matches a known peer.
   private var selectedPeerName: String? {
     guard hashValid else { return nil }
-    return peers.first { $0.destinationHash == peerHashInput }?.displayName
+    return peers.first { $0.destinationHash == peerHashInput }?.name
   }
 
   var body: some View {

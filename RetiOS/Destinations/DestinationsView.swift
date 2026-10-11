@@ -24,7 +24,7 @@ struct DestinationsView: View {
     guard !searchText.isEmpty else { return peers }
     let q = searchText.lowercased()
     return peers.filter {
-      ($0.displayName?.lowercased().contains(q) ?? false) || $0.destinationHash.contains(q)
+      ($0.name?.lowercased().contains(q) ?? false) || $0.destinationHash.contains(q)
     }
   }
 
@@ -134,7 +134,7 @@ private struct PeerRow: View {
     // Shared identity block: name (or "Unknown Peer") + truncated hash +
     // relative last-seen—same as the Messages ▸ Peers and call-peer rows.
     PeerIdentityView(
-      name: peer.displayName ?? "Unknown Peer",
+      name: peer.name ?? "Unknown Peer",
       hash: peer.destinationHash,
       lastSeen: peer.lastSeen
     )

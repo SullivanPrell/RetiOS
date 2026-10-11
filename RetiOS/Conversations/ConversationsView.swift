@@ -256,7 +256,7 @@ private struct ConversationList: View {
     let wanted = Set(summaries.map(\.peerHash))
     var out: [String: String] = [:]
     for p in peers where wanted.contains(p.destinationHash) {
-      if let name = p.displayName { out[p.destinationHash] = name }
+      if let name = p.name { out[p.destinationHash] = name }
     }
     return out
   }
@@ -337,7 +337,7 @@ private struct LXMFPeersContent: View {
   /// Destinations ▸ Peers.
   private var filtered: [PeerEntity] {
     guard let q = RNSSearch.query(searchText) else { return peers }
-    return peers.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }
+    return peers.filter { RNSSearch.matches(q, name: $0.name, hash: $0.destinationHash) }
   }
 
   var body: some View {
@@ -395,7 +395,7 @@ private struct LXMFPeerRow: View {
   var body: some View {
     HStack(spacing: 10) {
       PeerIdentityView(
-        name: peer.displayName ?? "Unknown Peer",
+        name: peer.name ?? "Unknown Peer",
         hash: peer.destinationHash,
         lastSeen: peer.lastSeen)
       Spacer()
@@ -431,7 +431,7 @@ private struct ContactsContent: View {
   /// Same match rule as the sibling lists.
   private var filtered: [PeerEntity] {
     guard let q = RNSSearch.query(searchText) else { return contacts }
-    return contacts.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }
+    return contacts.filter { RNSSearch.matches(q, name: $0.name, hash: $0.destinationHash) }
   }
 
   var body: some View {
@@ -568,16 +568,15 @@ struct AddContactSheet: View {
     let trimmedName = nameInput.trimmingCharacters(in: .whitespaces)
     let descriptor = FetchDescriptor<PeerEntity>(
       predicate: #Predicate { $0.destinationHash == hash })
+    let peer: PeerEntity
     if let existing = try? context.fetch(descriptor).first {
-      existing.isContact = true
-      if !trimmedName.isEmpty { existing.displayName = trimmedName }
+      peer = existing
     } else {
-      let peer = PeerEntity(
-        destinationHash: hash,
-        displayName: trimmedName.isEmpty ? nil : trimmedName,
-        isContact: true)
+      peer = PeerEntity(destinationHash: hash)
       context.insert(peer)
     }
+    peer.isContact = true
+    if !trimmedName.isEmpty { peer.nickname = trimmedName }
     try? context.save()
     dismiss()
   }

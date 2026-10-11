@@ -208,7 +208,7 @@ final class LXMFMessageIngest {
     )
     var names: [String: String] = [:]
     for peer in (try? context.fetch(peerDescriptor)) ?? [] {
-      if let name = peer.displayName, !name.isEmpty { names[peer.destinationHash] = name }
+      if let name = peer.name, !name.isEmpty { names[peer.destinationHash] = name }
     }
 
     // A replayed backlog can be large; posting one banner per message would
