@@ -100,7 +100,14 @@ struct InterfaceDirectorySheet: View {
       .rnsScreenBackground()
       .navigationTitle("Public Directory")
       .rnsInlineNavigationTitle()
+      #if os(iOS)
+      // iOS 26 floats a sheet's search field at the bottom, over the rows.
+      .searchable(
+        text: $search, placement: .navigationBarDrawer(displayMode: .always),
+        prompt: "Search by name or host")
+      #else
       .searchable(text: $search, prompt: "Search by name or host")
+      #endif
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button("Done") { dismiss() }

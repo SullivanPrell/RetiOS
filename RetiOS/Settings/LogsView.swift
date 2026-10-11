@@ -49,7 +49,14 @@ struct LogsView: View {
         proxy.scrollTo(last.id, anchor: .bottom)
       }
     }
+    #if os(iOS)
+    // iOS 26 puts a pushed screen's search field at the bottom, over the newest lines.
+    .searchable(
+      text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
+      prompt: "Search logs")
+    #else
     .searchable(text: $searchText, prompt: "Search logs")
+    #endif
     .navigationTitle("RNS Logs")
     .rnsInlineNavigationTitle()
     .toolbar {
