@@ -72,7 +72,7 @@ struct CallsView: View {
       case .recents:
         CallsRecentsContent()
       case .peers:
-        CallsPeersContent { hash in
+        CallsPeersContent(lxstPeers: calls.lxstPeers) { hash in
           if let data = Data(hexString: hash) {
             calls.startCall(to: data)
           }
@@ -413,7 +413,7 @@ private struct CallRecordRow: View {
 /// Writing a call hash straight into a `PeerEntity` would mint a contact whose
 /// address routes nowhere and whose messages could never be delivered, so every
 /// contact action here resolves first and is simply unavailable when it cannot.
-private enum CallPeerResolver {
+enum CallPeerResolver {
   /// The remote party's `lxmf.delivery` destination hash (hex), or nil when the
   /// link to a real Identity cannot be proven.
   ///
@@ -457,6 +457,28 @@ private enum CallPeerResolver {
     // other way round.
     guard let identity = Identity.recall(destinationHash: hash) else { return nil }
     return announcedDeliveryHash(for: identity)?.hexString
+  }
+
+  /// The `lxmf.delivery` hash (hex) of each call hash's identity, whether or not that
+  /// destination has announced.
+  ///
+  /// Calls ▸ Peers fetches rows by these hashes, so a delivery announce that lands after the
+  /// list appears still matches the query. `lxmfDeliveryHex(forCallHash:liveIdentity:)` still
+  /// decides whether a peer can become a contact.
+  ///
+  /// - Parameters:
+  ///   - hashes: `lxst.telephony` destination hashes, in hex.
+  ///   - recall: the identity lookup for a destination hash.
+  /// - Returns: One hash for each call hash whose identity `recall` finds.
+  static func deliveryHexes(
+    forCallHashes hashes: [String],
+    recall: (Data) -> Identity? = Identity.recall(destinationHash:)
+  ) -> [String] {
+    hashes.compactMap { hex in
+      Data(hexString: hex).flatMap(recall).map {
+        Destination.hash(identity: $0, appName: "lxmf", aspects: ["delivery"]).hexString
+      }
+    }
   }
 
   /// The identity's `lxmf.delivery` hash, but only if that destination has
@@ -573,17 +595,26 @@ private struct ResolvedCallPeer: Identifiable {
 }
 
 private struct CallsPeersContent: View {
-  @Environment(CallsController.self) private var calls
   @Environment(\.modelContext) private var context
-  @Query(sort: \PeerEntity.lastSeen, order: .reverse) private var knownPeers: [PeerEntity]
+  @Query private var knownPeers: [PeerEntity]
   @State private var searchText = ""
+  let lxstPeers: [LXSTPeer]
   let onCall: (String) -> Void
+
+  /// Fetches only the LXST peers' delivery rows, so a peer save doesn't re-read every stored
+  /// peer.
+  init(lxstPeers: [LXSTPeer], onCall: @escaping (String) -> Void) {
+    self.lxstPeers = lxstPeers
+    self.onCall = onCall
+    let wanted = CallPeerResolver.deliveryHexes(forCallHashes: lxstPeers.map(\.destinationHash))
+    _knownPeers = Query(filter: #Predicate<PeerEntity> { wanted.contains($0.destinationHash) })
+  }
 
   private var resolvedPeers: [ResolvedCallPeer] {
     let byHash = Dictionary(
       knownPeers.map { ($0.destinationHash, $0) },
       uniquingKeysWith: { first, _ in first })
-    return calls.lxstPeers.map { peer in
+    return lxstPeers.map { peer in
       let lxmfHex = Data(hexString: peer.destinationHash)
         .flatMap { CallPeerResolver.lxmfDeliveryHex(forCallHash: $0) }
       return ResolvedCallPeer(
@@ -606,7 +637,7 @@ private struct CallsPeersContent: View {
   }
 
   var body: some View {
-    if calls.lxstPeers.isEmpty {
+    if lxstPeers.isEmpty {
       RNSEmptyState(
         title: "No LXST Peers",
         systemImage: "phone.badge.waveform",

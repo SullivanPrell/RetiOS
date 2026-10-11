@@ -60,4 +60,19 @@ final class CallsControllerTests: XCTestCase {
     XCTAssertEqual(CallsController.peerName(for: caller, in: container.mainContext), "Mom")
     XCTAssertNil(CallsController.peerName(for: Identity(), in: container.mainContext))
   }
+
+  /// Calls ▸ Peers fetches a call peer's delivery row before that destination announces, so
+  /// the peer's name lands when the announce does.
+  func testCallPeersFetchTheDeliveryHashBeforeItAnnounces() {
+    let peer = Identity()
+    let callHash = CallsController.callHash(for: peer)
+    let delivery = Destination.hash(identity: peer, appName: "lxmf", aspects: ["delivery"])
+    let onlyTheCallAnnounced: (Data) -> Identity? = { $0 == callHash ? peer : nil }
+
+    XCTAssertEqual(
+      CallPeerResolver.deliveryHexes(
+        forCallHashes: [callHash.hexString, Identity().hash.hexString],
+        recall: onlyTheCallAnnounced),
+      [delivery.hexString])
+  }
 }

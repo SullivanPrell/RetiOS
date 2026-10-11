@@ -3,6 +3,15 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [Unreleased]
+
+### Fixed
+
+- **Calls ▸ Peers stops re-reading every stored peer on each peer save.** It fetches only
+  its call peers' rows. With 5,033 stored peers and about one save a second, typing in its
+  search field cost 445 ms of main-thread time per 10 s, and 7 ms after. A peer whose LXMF
+  announce arrives after the list shows still gets its name and contact action.
+
 ## [0.7.0]—HIG audit fixes, and calls that keep their sound
 
 ### Changed—behaviour you notice
