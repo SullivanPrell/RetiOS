@@ -243,6 +243,26 @@ final class StackController {
     #endif
   }
 
+  /// Moves the stack directory from `old` to `new` once, returning whichever
+  /// holds it afterwards.
+  ///
+  /// The directory carries the private key, so a failed move keeps using `old`:
+  /// starting fresh in `new` would silently give the user a new address.
+  nonisolated static func migrateStorage(from old: URL, to new: URL) -> URL {
+    let fm = FileManager.default
+    guard fm.fileExists(atPath: old.path), !fm.fileExists(atPath: new.path) else { return new }
+    do {
+      try fm.createDirectory(at: new.deletingLastPathComponent(), withIntermediateDirectories: true)
+      try fm.moveItem(at: old, to: new)
+      return new
+    } catch {
+      Reticulum.log(
+        "StackController: could not move \(old.path) to \(new.path), staying put: \(error)",
+        level: .error)
+      return old
+    }
+  }
+
   func bringUp(modelContext: ModelContext, notificationManager: NotificationManager? = nil) async {
     // Idempotent: never start a second stack over a running (or still
     // starting) one. @MainActor makes this check-and-set race-free.
@@ -251,7 +271,20 @@ final class StackController {
     defer { isBringingUp = false }
 
     self.notificationManager = notificationManager
-    let storage = URL.documentsDirectory.appending(path: "reticulum", directoryHint: .isDirectory)
+    let documentsStorage = URL.documentsDirectory.appending(
+      path: "reticulum", directoryHint: .isDirectory)
+    #if os(macOS)
+    // Unsandboxed, Documents is the user's real (often iCloud-synced) folder.
+    let storage = Self.migrateStorage(
+      from: documentsStorage,
+      to: URL.applicationSupportDirectory
+        .appending(
+          path: Bundle.main.bundleIdentifier ?? "dev.sprell.retios", directoryHint: .isDirectory
+        )
+        .appending(path: "reticulum", directoryHint: .isDirectory))
+    #else
+    let storage = documentsStorage
+    #endif
     try? FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
 
     // Enable wire-compatible bz2 compression for Resource transfers. Without
