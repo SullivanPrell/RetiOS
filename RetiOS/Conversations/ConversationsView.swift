@@ -73,7 +73,8 @@ struct ConversationsView: View {
       .onChange(of: notifs.openConversationHash) { _, hash in
         guard let hash else { return }
         section = .conversations
-        navPath.append(hash)
+        // Replace, not append: the thread may already be open.
+        navPath = NavigationPath([hash])
         notifs.openConversationHash = nil
       }
       // Menu-bar "File ▸ New Message" (⌘N).
@@ -196,6 +197,7 @@ private struct ConversationList: View {
   @Environment(\.modelContext) private var context
   @Query private var peers: [PeerEntity]
   @State private var searchText = ""
+  @State private var pendingDeletion: String?
 
   var body: some View {
     if summaries.isEmpty {
@@ -209,7 +211,7 @@ private struct ConversationList: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
           Button(role: .destructive) {
-            deleteConversation(peerHash: item.peerHash)
+            pendingDeletion = item.peerHash
           } label: {
             Label("Delete", systemImage: "trash")
           }
@@ -218,7 +220,7 @@ private struct ConversationList: View {
         // discoverable path on macOS, where swiping is hidden.
         .contextMenu {
           Button(role: .destructive) {
-            deleteConversation(peerHash: item.peerHash)
+            pendingDeletion = item.peerHash
           } label: {
             Label("Delete Conversation", systemImage: "trash")
           }
@@ -233,6 +235,25 @@ private struct ConversationList: View {
         }
       }
       .rnsInlineSearch(text: $searchText)
+      .confirmationDialog(
+        "Delete Conversation",
+        isPresented: Binding(
+          get: { pendingDeletion != nil },
+          set: { if !$0 { pendingDeletion = nil } }
+        ),
+        titleVisibility: .visible,
+        presenting: pendingDeletion
+      ) { peerHash in
+        Button("Delete Conversation", role: .destructive) {
+          deleteConversation(peerHash: peerHash)
+          pendingDeletion = nil
+        }
+        Button("Cancel", role: .cancel) { pendingDeletion = nil }
+      } message: { peerHash in
+        Text(
+          "Every message with “\(nameByHash[peerHash] ?? String(peerHash.prefix(8)))” will be deleted from this device. The mesh can't send them again."
+        )
+      }
     }
   }
 

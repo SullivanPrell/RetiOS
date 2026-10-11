@@ -56,7 +56,7 @@ enum AppTab: String, Hashable, CaseIterable {
 /// Owns UNUserNotificationCenter interaction for the whole app.
 ///
 /// Responsibilities:
-///   • Request permission once at launch.
+///   • Request permission once onboarding finishes.
 ///   • Register notification categories (MESSAGE, CALL with Accept/Decline actions).
 ///   • Schedule / cancel local notifications for inbound messages and calls.
 ///   • Act as UNUserNotificationCenterDelegate and translate taps into
@@ -79,6 +79,8 @@ final class NotificationManager: NSObject {
   /// Set by the notification delegate; consumed by ConversationsView to push
   /// directly to the relevant conversation thread.
   var openConversationHash: String? = nil
+  /// The conversation on screen, whose messages arrive without a banner.
+  @ObservationIgnored var visibleConversationHash: String?
 
   // MARK: - Menu-command intents (macOS / hardware keyboard)
   //
@@ -163,6 +165,7 @@ final class NotificationManager: NSObject {
     content.body = preview.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "New message"
     content.sound = .default
     content.categoryIdentifier = NotifCategory.message
+    content.threadIdentifier = peerHash
     content.userInfo = [UserInfoKey.peerHash: peerHash]
 
     let request = UNNotificationRequest(
@@ -228,6 +231,15 @@ final class NotificationManager: NSObject {
   }
 }
 
+// MARK: - Foreground presentation
+
+extension NotificationManager {
+  /// No banner for a message to the open thread, which already shows it.
+  func presentationOptions(peerHash: String?) -> UNNotificationPresentationOptions {
+    peerHash != nil && peerHash == visibleConversationHash ? [] : [.banner, .sound]
+  }
+}
+
 // MARK: - UNUserNotificationCenterDelegate
 
 extension NotificationManager: UNUserNotificationCenterDelegate {
@@ -241,7 +253,9 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    completionHandler([.banner, .sound])
+    let peerHash =
+      notification.request.content.userInfo[NotificationManager.UserInfoKey.peerHash] as? String
+    Task { @MainActor in completionHandler(self.presentationOptions(peerHash: peerHash)) }
   }
 
   /// Called when the user taps a notification or an action button.
