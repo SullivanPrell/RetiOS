@@ -66,6 +66,7 @@ struct NetworkVisualizerView: View {
   @State private var panOffset: CGSize = .zero
   @State private var steadyPanOffset: CGSize = .zero
   @State private var pulse = false
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   private let refreshInterval: TimeInterval = 4
   private let zoomRange: ClosedRange<CGFloat> = 0.55...4.5
 
@@ -80,6 +81,8 @@ struct NetworkVisualizerView: View {
     .rnsScreenBackground()
     .onAppear {
       refresh()
+      // Reduce Motion keeps the active-link ring, still.
+      guard !reduceMotion else { return }
       withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
         pulse = true
       }

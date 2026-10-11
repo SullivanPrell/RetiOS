@@ -24,6 +24,8 @@ struct RootView: View {
   @Environment(\.horizontalSizeClass) private var sizeClass
   @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
   @State private var showOnboarding = false
+  // One selection for both layouts, so a size-class change keeps the section.
+  @State private var selectedTab: AppTab = AppTab.launchSelection
 
   var body: some View {
     layout
@@ -31,6 +33,11 @@ struct RootView: View {
       // because RootView is always present and carries the stack.
       .onChange(of: notifs.requestAnnounce) { _, _ in stack.announceLXMFNow() }
       .onChange(of: notifs.requestSync) { _, _ in stack.syncFromPropagationNode() }
+      .onChange(of: notifs.navigateTo) { _, tab in
+        guard let tab else { return }
+        selectedTab = tab
+        notifs.navigateTo = nil
+      }
       #if os(macOS)
     .frame(minWidth: 820, minHeight: 520)
       #endif
@@ -67,12 +74,12 @@ struct RootView: View {
     // macOS windows are always effectively "regular" width—there's no
     // compact/phone-sized macOS window—so route unconditionally there.
     #if os(macOS)
-    SidebarRootView()
+    SidebarRootView(selection: $selectedTab)
     #else
     if sizeClass == .regular {
-      SidebarRootView()
+      SidebarRootView(selection: $selectedTab)
     } else {
-      TabRootView()
+      TabRootView(selection: $selectedTab)
     }
     #endif
   }
@@ -81,11 +88,16 @@ struct RootView: View {
 // MARK: - Phone / compact tab bar
 
 private struct TabRootView: View {
-  @Environment(NotificationManager.self) private var notifs
-  @State private var selectedTab: AppTab = .messages
+  @Binding var selection: AppTab
 
   var body: some View {
-    TabView(selection: $selectedTab) {
+    // `.tools` and `.interfaces` have no phone tabs. Show them as Settings,
+    // which carries NavigationLinks to both.
+    TabView(
+      selection: Binding(
+        get: { [.tools, .interfaces].contains(selection) ? .settings : selection },
+        set: { selection = $0 })
+    ) {
       ConversationsView()
         .tag(AppTab.messages)
         .tabItem { Label("Messages", systemImage: "message.fill") }
@@ -132,18 +144,6 @@ private struct TabRootView: View {
         .tabItem { Label("Settings", systemImage: "gear") }
     }
     .suppressTabBarMinimize()
-    .onChange(of: notifs.navigateTo) { _, tab in
-      guard let tab else { return }
-      // `.tools` and `.interfaces` have no phone tabs—route both to
-      // Settings, which carries NavigationLinks to both.
-      let phoneTab: AppTab
-      switch tab {
-      case .tools, .interfaces: phoneTab = .settings
-      default: phoneTab = tab
-      }
-      selectedTab = phoneTab
-      notifs.navigateTo = nil
-    }
   }
 }
 
@@ -168,9 +168,9 @@ extension View {
 
 private struct SidebarRootView: View {
   @Environment(StackController.self) private var stack
-  @Environment(NotificationManager.self) private var notifs
   @Environment(CallsController.self) private var calls
-  @State private var selection: AppTab? = AppTab.launchSelection
+  @Binding var selection: AppTab
+  @State private var columns: NavigationSplitViewVisibility = .all
   @State private var sidebarHeight: CGFloat = 0
 
   // On macOS, Settings lives in its own ⌘, Preferences window (see RetiOSApp),
@@ -184,8 +184,11 @@ private struct SidebarRootView: View {
   }
 
   var body: some View {
-    NavigationSplitView(columnVisibility: .constant(.all)) {
-      List(sidebarTabs, id: \.self, selection: $selection) { tab in
+    NavigationSplitView(columnVisibility: $columns) {
+      List(
+        sidebarTabs, id: \.self,
+        selection: Binding(get: { selection }, set: { if let tab = $0 { selection = tab } })
+      ) { tab in
         Label(tab.displayName, systemImage: tab.icon)
           .tag(tab)
       }
@@ -204,12 +207,7 @@ private struct SidebarRootView: View {
       #endif
       .overlay(alignment: .bottom) { stackStatusBar }
     } detail: {
-      detailView(for: selection ?? .messages)
-    }
-    .onChange(of: notifs.navigateTo) { _, tab in
-      guard let tab else { return }
-      selection = tab
-      notifs.navigateTo = nil
+      detailView(for: selection)
     }
   }
 
