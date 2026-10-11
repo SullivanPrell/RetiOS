@@ -93,7 +93,7 @@ struct PagesContent: View {
       Button("Cancel", role: .cancel) {}
     } message: {
       Text(
-        "Micron pages use the .mu extension. \"index.mu\" is the page a peer gets when they browse your node without naming one."
+        "Micron pages use the .mu extension. On a NomadNet node, \"index.mu\" is the page a visitor gets without naming one. RetiOS doesn't host pages: export them to a node."
       )
     }
     .alert(
@@ -210,7 +210,7 @@ struct PagesContent: View {
       title: "No Pages",
       systemImage: "doc.richtext",
       description:
-        "Micron pages are the documents a NomadNet node serves. Create one to start writing, or import a .mu file from another node.",
+        "Micron pages are the documents a NomadNet node serves. Write or import them here, then export them to a node. RetiOS doesn't host pages itself.",
       actionTitle: "New Page"
     ) {
       newPageName = "index.mu"

@@ -19,7 +19,7 @@ import ReticulumSwift
 ///
 /// State machine:
 ///   idle → scanning → connecting → discoveringServices
-///       → discoveringCharacteristics → detecting → online → idle (on disconnect)
+///       → detecting → online; any error or dropped link → failed
 @MainActor
 @Observable
 final class RNodeScannerController: NSObject {
@@ -53,6 +53,14 @@ final class RNodeScannerController: NSObject {
       if case .online = self { return true }
       return false
     }
+
+    /// A peripheral is connected or being connected, so Disconnect applies.
+    var hasLink: Bool {
+      switch self {
+      case .connecting, .discoveringServices, .detecting, .online: return true
+      default: return false
+      }
+    }
   }
 
   private(set) var state: ConnectionState = .idle
@@ -80,6 +88,7 @@ final class RNodeScannerController: NSObject {
   @ObservationIgnored private var connectingPeripheral: CBPeripheral?
   @ObservationIgnored private var bleTransport: BLERNodeTransport?
   @ObservationIgnored private var reticulumTransport: Transport?
+  @ObservationIgnored private var radio: RNodeRadioSettings?
 
   @ObservationIgnored private let bleQueue = DispatchQueue(label: "RNodeScanner.ble")
 
@@ -111,9 +120,10 @@ final class RNodeScannerController: NSObject {
     if case .scanning = state { state = .idle }
   }
 
-  func connect(to device: DiscoveredDevice) {
+  func connect(to device: DiscoveredDevice, radio: RNodeRadioSettings) {
     guard let central, central.state == .poweredOn else { return }
     central.stopScan()
+    self.radio = radio
     connectingPeripheral = device.peripheral
     state = .connecting(device.name)
     central.connect(device.peripheral, options: nil)
@@ -122,6 +132,14 @@ final class RNodeScannerController: NSObject {
   func disconnect() {
     if let p = connectingPeripheral { central?.cancelPeripheralConnection(p) }
     teardown()
+  }
+
+  /// Ends a failed attempt.
+  ///
+  /// Drops the link first, so the RNode isn't left connected and unusable.
+  private func fail(_ reason: String) {
+    disconnect()
+    state = .failed(reason)
   }
 
   // MARK: - Private helpers
@@ -146,51 +164,47 @@ final class RNodeScannerController: NSObject {
     state = .idle
   }
 
-  /// Called on the BLE queue; hops to main before mutating state.
+  /// Brings the RNode up once its UART characteristics are found.
+  ///
+  /// `RNodeInterface.start()` detects the device, sends the radio settings and
+  /// checks that the device echoes them back, then reports the outcome.
   private func onGATTReady(peripheral: CBPeripheral, tx: CBCharacteristic, rx: CBCharacteristic) {
+    guard let radio else { return fail("No radio settings") }
     let transport = BLERNodeTransport(peripheral: peripheral, txChar: tx, rxChar: rx)
     bleTransport = transport
 
     let ifaceName = peripheral.name ?? "RNode"
     let iface = RNodeInterface(name: ifaceName, transport: transport)
+    iface.frequency = radio.frequency
+    iface.bandwidth = radio.bandwidth
+    iface.sf = radio.spreadingFactor
+    iface.cr = radio.codingRate
+    iface.txPower = radio.txPower
+    rNodeInterface = iface
+    state = .detecting(ifaceName)
 
     do {
-      try iface.start()  // enables TX notifications
+      try iface.start()
     } catch {
-      DispatchQueue.main.async { [weak self] in
-        self?.state = .failed(error.localizedDescription)
-      }
-      return
+      return fail(error.localizedDescription)
     }
 
-    DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      self.rNodeInterface = iface
-      self.state = .detecting(ifaceName)
-    }
-
-    // Detect: send probe, poll up to 5 s for response.
-    Task { [weak self, weak iface] in
-      guard let self, let iface else { return }
-      do {
-        try iface.detect()
-        var attempts = 0
-        while !iface.detected && attempts < 50 {
-          try await Task.sleep(for: .milliseconds(100))
-          attempts += 1
+    // The wait blocks, so it runs off the main thread.
+    let timeout = iface.detectTimeout + iface.validateTimeout + 1
+    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+      let online = iface.waitUntilOnline(timeout: timeout)
+      DispatchQueue.main.async {
+        guard let self, self.rNodeInterface === iface else { return }
+        guard online else {
+          return self.fail(
+            iface.detected
+              ? "The RNode did not accept these radio settings. Check that its band covers "
+                + "the frequency and that it supports the TX power."
+              : "RNode did not respond")
         }
-        guard iface.detected else {
-          await MainActor.run { self.state = .failed("RNode did not respond to detect") }
-          return
-        }
-        try iface.initRadio()
-        if let rns = self.reticulumTransport {
-          rns.register(interface: iface)
-          await MainActor.run { self.onInterfacesChanged?() }
-        }
-        await MainActor.run { self.state = .online(ifaceName) }
-      } catch {
-        await MainActor.run { self.state = .failed(error.localizedDescription) }
+        self.reticulumTransport?.register(interface: iface)
+        self.onInterfacesChanged?()
+        self.state = .online(ifaceName)
       }
     }
   }
@@ -256,7 +270,7 @@ extension RNodeScannerController: CBCentralManagerDelegate {
     error: Error?
   ) {
     let msg = error?.localizedDescription ?? "Connection failed"
-    DispatchQueue.main.async { [weak self] in self?.state = .failed(msg) }
+    DispatchQueue.main.async { [weak self] in self?.fail(msg) }
   }
 
   nonisolated func centralManager(
@@ -265,11 +279,10 @@ extension RNodeScannerController: CBCentralManagerDelegate {
     error: Error?
   ) {
     DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      if self.rNodeInterface != nil {
-        Reticulum.log("[BLE] RNode disconnected", level: .notice)
-      }
-      self.teardown()
+      // A disconnect this controller asked for has already torn down.
+      guard let self, self.connectingPeripheral?.identifier == peripheral.identifier else { return }
+      Reticulum.log("[BLE] RNode disconnected", level: .notice)
+      self.fail("RNode disconnected")
     }
   }
 }
@@ -284,14 +297,12 @@ extension RNodeScannerController: CBPeripheralDelegate {
   ) {
     if let error {
       let msg = error.localizedDescription
-      DispatchQueue.main.async { [weak self] in self?.state = .failed(msg) }
+      DispatchQueue.main.async { [weak self] in self?.fail(msg) }
       return
     }
     guard let svc = peripheral.services?.first(where: { $0.uuid == BLERNodeTransport.nusSvcUUID })
     else {
-      DispatchQueue.main.async { [weak self] in
-        self?.state = .failed("Nordic UART service not found")
-      }
+      DispatchQueue.main.async { [weak self] in self?.fail("Nordic UART service not found") }
       return
     }
     peripheral.discoverCharacteristics(
@@ -305,20 +316,52 @@ extension RNodeScannerController: CBPeripheralDelegate {
   ) {
     if let error {
       let msg = error.localizedDescription
-      DispatchQueue.main.async { [weak self] in self?.state = .failed(msg) }
+      DispatchQueue.main.async { [weak self] in self?.fail(msg) }
       return
     }
     let chars = service.characteristics ?? []
     guard let tx = chars.first(where: { $0.uuid == BLERNodeTransport.nusTxUUID }),
       let rx = chars.first(where: { $0.uuid == BLERNodeTransport.nusRxUUID })
     else {
-      DispatchQueue.main.async { [weak self] in
-        self?.state = .failed("UART characteristics not found")
-      }
+      DispatchQueue.main.async { [weak self] in self?.fail("UART characteristics not found") }
       return
     }
     Task { @MainActor [weak self] in
       self?.onGATTReady(peripheral: peripheral, tx: tx, rx: rx)
     }
+  }
+}
+
+// MARK: - RNodeRadioSettings
+
+/// LoRa parameters applied to the RNode before bring-up.
+///
+/// There is no default frequency. The legal band depends on the user's region,
+/// so the radio stays down until one is entered.
+struct RNodeRadioSettings {
+  var frequency: UInt32
+  var bandwidth: UInt32
+  var spreadingFactor: Int
+  var codingRate: Int
+  var txPower: Int
+
+  /// Bandwidths the RNode firmware accepts, in Hz. 203.125 kHz and the steps
+  /// above 500 kHz are SX128x (2.4 GHz) only.
+  static let bandwidths: [UInt32] = [
+    7_800, 10_400, 15_600, 20_800, 31_250, 41_700, 62_500, 125_000, 203_125, 250_000,
+    406_250, 500_000, 812_500, 1_625_000,
+  ]
+
+  /// Parses a frequency typed in MHz, with either decimal separator.
+  ///
+  /// Nil when empty, malformed, or outside the range the firmware tunes.
+  static func frequency(megahertz text: String) -> UInt32? {
+    let cleaned = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+    guard let mhz = Double(cleaned) else { return nil }
+    let hz = (mhz * 1_000_000).rounded()
+    guard hz >= Double(RNodeInterface.freqMin), hz <= Double(RNodeInterface.freqMax) else {
+      return nil
+    }
+    return UInt32(hz)
   }
 }

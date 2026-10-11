@@ -17,12 +17,29 @@ struct RNodeView: View {
   // Transport forever once the user navigated away.
   @Environment(RNodeScannerController.self) private var scanner
 
+  // No default frequency: the legal band depends on where the user is.
+  @AppStorage("rnodeFrequencyMHz") private var frequencyMHz = ""
+  @AppStorage("rnodeBandwidth") private var bandwidth = 125_000
+  @AppStorage("rnodeSpreadingFactor") private var spreadingFactor = 8
+  @AppStorage("rnodeCodingRate") private var codingRate = 5
+  @AppStorage("rnodeTxPower") private var txPower = 7
+
+  /// Nil until the frequency field holds a valid frequency.
+  private var radioSettings: RNodeRadioSettings? {
+    RNodeRadioSettings.frequency(megahertz: frequencyMHz).map {
+      RNodeRadioSettings(
+        frequency: $0, bandwidth: UInt32(bandwidth), spreadingFactor: spreadingFactor,
+        codingRate: codingRate, txPower: txPower)
+    }
+  }
+
   var body: some View {
     List {
       connectionSection
       if scanner.state.isOnline {
         radioSection
       } else {
+        radioSettingsSection
         scanSection
       }
     }
@@ -61,8 +78,8 @@ struct RNodeView: View {
           }
         }
         Spacer()
-        if scanner.state.isOnline {
-          Button("Disconnect", role: .destructive) {
+        if scanner.state.hasLink {
+          Button(scanner.state.isOnline ? "Disconnect" : "Cancel", role: .destructive) {
             scanner.disconnect()
           }
           .buttonStyle(.bordered)
@@ -118,14 +135,54 @@ struct RNodeView: View {
       } else {
         ForEach(scanner.discovered) { device in
           DeviceRow(device: device) {
-            scanner.connect(to: device)
+            if let radioSettings { scanner.connect(to: device, radio: radioSettings) }
           }
+          .disabled(radioSettings == nil || scanner.state.hasLink)
         }
       }
     } header: {
       Text("Nearby Devices")
     } footer: {
       Text("Only devices advertising the Nordic UART Service (NUS) appear here.")
+    }
+  }
+
+  // MARK: - Radio settings (applied on connect)
+
+  private var radioSettingsSection: some View {
+    Section {
+      LabeledContent("Frequency") {
+        HStack(spacing: 4) {
+          TextField("Required", text: $frequencyMHz)
+            .multilineTextAlignment(.trailing)
+            #if os(iOS)
+          .keyboardType(.decimalPad)
+            #endif
+          Text("MHz").foregroundStyle(.secondary)
+        }
+      }
+      Picker("Bandwidth", selection: $bandwidth) {
+        ForEach(RNodeRadioSettings.bandwidths, id: \.self) { hz in
+          Text(formatBandwidth(hz)).tag(Int(hz))
+        }
+      }
+      Stepper(value: $spreadingFactor, in: 5...12) {
+        LabeledContent("Spreading factor", value: "SF\(spreadingFactor)")
+      }
+      Stepper(value: $codingRate, in: 5...8) {
+        LabeledContent("Coding rate", value: "4/\(codingRate)")
+      }
+      Stepper(value: $txPower, in: 0...37) {
+        LabeledContent("TX power", value: "\(txPower) dBm")
+      }
+    } header: {
+      Text("Radio Settings")
+    } footer: {
+      if radioSettings == nil {
+        Text("Enter a frequency from 137 to 3000 MHz that is legal where you are.")
+      } else {
+        Text("Every node you want to reach must use the same settings.")
+      }
     }
   }
 
@@ -206,7 +263,7 @@ struct RNodeView: View {
     ToolbarItem(placement: .rnsTrailing) {
       if case .scanning = scanner.state {
         Button("Stop") { scanner.stopScanning() }
-      } else if !scanner.state.isOnline {
+      } else if !scanner.state.hasLink {
         Button("Scan") { scanner.startScanning() }
           .disabled(scanner.state == .bluetoothUnavailable)
       }
@@ -221,8 +278,7 @@ struct RNodeView: View {
   }
 
   private func formatBandwidth(_ hz: UInt32) -> String {
-    if hz >= 1000 { return "\(hz / 1000) kHz" }
-    return "\(hz) Hz"
+    "\((Double(hz) / 1000).formatted()) kHz"
   }
 }
 

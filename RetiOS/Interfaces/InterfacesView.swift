@@ -237,9 +237,6 @@ struct InterfacesView: View {
         .contentShape(Rectangle())
       }
 
-      NavigationLink(destination: InterfaceReferenceView()) {
-        Label("Interface types reference", systemImage: "book.pages")
-      }
     } header: {
       Text("Add Interface")
     } footer: {
@@ -298,35 +295,35 @@ private struct InterfaceRow: View {
   }
 
   private var interfaceTypeName: String {
-    String(describing: type(of: interface))
+    switch interface {
+    case is TCPClientInterface: return "TCP gateway"
+    case is BackboneInterface: return "Backbone gateway"
+    case is AutoInterface: return "Local network"
+    case is LocalInterface: return "Shared instance"
+    case is I2PInterface: return "I2P"
+    case is RNodeInterface: return "LoRa radio"
+    case is BLEMeshInterface: return "Bluetooth mesh"
+    default: return "Interface"
+    }
   }
 }
 
-// MARK: - Add interface sheet (TCP / Backbone / Yggdrasil)
+// MARK: - Add interface sheet (TCP / Yggdrasil)
 
 struct AddInterfaceSheet: View {
   enum Mode {
-    case tcp, backbone, yggdrasil
+    case tcp, yggdrasil
 
     var defaultName: String {
       switch self {
       case .tcp: return "TCP Gateway"
-      case .backbone: return "Backbone Gateway"
       case .yggdrasil: return "Yggdrasil Peer"
-      }
-    }
-
-    var defaultPort: String {
-      switch self {
-      case .tcp, .yggdrasil: return "4242"
-      case .backbone: return "4242"
       }
     }
 
     var hostPlaceholder: String {
       switch self {
       case .tcp: return "hostname or IP (IPv4 or IPv6)"
-      case .backbone: return "hostname or IP (IPv4 or IPv6)"
       case .yggdrasil: return "200:xxxx:xxxx:xxxx::1"
       }
     }
@@ -334,7 +331,6 @@ struct AddInterfaceSheet: View {
     var title: String {
       switch self {
       case .tcp: return "Add TCP Gateway"
-      case .backbone: return "Add Backbone Gateway"
       case .yggdrasil: return "Add Yggdrasil Peer"
       }
     }
@@ -342,7 +338,6 @@ struct AddInterfaceSheet: View {
     var sectionHeader: String {
       switch self {
       case .tcp: return "TCP Gateway"
-      case .backbone: return "Backbone Gateway"
       case .yggdrasil: return "Yggdrasil Peer"
       }
     }
@@ -352,8 +347,6 @@ struct AddInterfaceSheet: View {
       case .tcp:
         return
           "Connects RetiOS to a remote Reticulum node over TCP. Both IPv4 addresses and IPv6 addresses (with or without brackets) are accepted."
-      case .backbone:
-        return "BackboneInterface is optimised for high-bandwidth links (1 MB MTU)."
       case .yggdrasil:
         return
           "Enter the Yggdrasil IPv6 address of a peer node (starts with 200:). Reticulum routes normally over the Yggdrasil IPv6 mesh."
@@ -363,16 +356,7 @@ struct AddInterfaceSheet: View {
     var savedKind: StackController.SavedInterfaceKind {
       switch self {
       case .tcp: return .tcp
-      case .backbone: return .backbone
       case .yggdrasil: return .yggdrasil
-      }
-    }
-
-    var interfaceTypeLabel: String {
-      switch self {
-      case .tcp: return "TCPClientInterface"
-      case .backbone: return "BackboneInterface"
-      case .yggdrasil: return "TCPClientInterface (Yggdrasil)"
       }
     }
   }
@@ -393,7 +377,7 @@ struct AddInterfaceSheet: View {
   init(mode: Mode) {
     self.mode = mode
     _name = State(initialValue: mode.defaultName)
-    _port = State(initialValue: mode.defaultPort)
+    _port = State(initialValue: "4242")
   }
 
   private var canAdd: Bool {
@@ -404,7 +388,6 @@ struct AddInterfaceSheet: View {
     NavigationStack {
       Form {
         Section {
-          LabeledContent("Type") { Text(mode.interfaceTypeLabel) }
           TextField("Name", text: $name)
           TextField("Host", text: $host, prompt: Text(mode.hostPlaceholder))
             .autocorrectionDisabled()
@@ -480,9 +463,6 @@ struct AddInterfaceSheet: View {
   }
 
   private func addInterface() {
-    // Strip square brackets from IPv6 literals and trim whitespace.
-    let rawHost = host.trimmingCharacters(in: .whitespaces)
-    let trimHost = StackController.normalizeHost(rawHost)
     let trimName =
       name.trimmingCharacters(in: .whitespaces).isEmpty
       ? mode.defaultName
@@ -491,41 +471,15 @@ struct AddInterfaceSheet: View {
       errorMessage = "Port must be a number between 1 and 65535."
       return
     }
-    guard let transport = stack.transport else {
-      errorMessage = "Stack is not running yet."
-      return
-    }
-
-    let iface: any Interface
-    switch mode {
-    case .backbone:
-      iface = BackboneInterface(name: trimName, host: trimHost, port: portNum)
-    case .tcp, .yggdrasil:
-      iface = TCPClientInterface(name: trimName, host: trimHost, port: portNum)
-    }
-
     let trimNetwork = networkName.trimmingCharacters(in: .whitespaces)
     let trimPassphrase = passphrase.trimmingCharacters(in: .whitespaces)
-    // Before register/start, so the key is installed before the interface's opening announce
-    //—see `bugs/015` and `Reticulum.py:975`.
-    let saved = StackController.SavedInterface(
-      name: trimName, host: trimHost, port: portNum, kind: mode.savedKind,
-      networkName: trimNetwork.isEmpty ? nil : trimNetwork,
-      passphrase: trimPassphrase.isEmpty ? nil : trimPassphrase)
-    Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
-
-    // Via the controller (not `transport` directly) so the Interfaces list,
-    // which has no way to observe `Transport`, is invalidated. See
-    // `StackController.interfacesRevision`.
-    stack.registerLiveInterface(iface)
     do {
-      try iface.start()
-      stack.saveInterface(
-        name: trimName, host: trimHost, port: portNum, kind: mode.savedKind,
-        networkName: saved.networkName, passphrase: saved.passphrase)
+      try stack.addAndSaveInterface(
+        name: trimName, host: host, port: portNum, kind: mode.savedKind,
+        networkName: trimNetwork.isEmpty ? nil : trimNetwork,
+        passphrase: trimPassphrase.isEmpty ? nil : trimPassphrase)
       dismiss()
     } catch {
-      transport.halt(interfaceName: trimName)
       errorMessage = error.localizedDescription
     }
   }
@@ -703,14 +657,17 @@ struct YggdrasilNodeSheet: View {
       .rnsInlineNavigationTitle()
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Done") { dismiss() }
+          Button("Cancel") { dismiss() }
         }
         ToolbarItem(placement: .confirmationAction) {
-          Button("Apply") { save() }.disabled(isBusy)
+          Button("Save") { save() }.disabled(isBusy)
         }
       }
       .onAppear { load() }
-      .task { await vpn.refreshManager() }
+      .task {
+        await vpn.refreshManager()
+        await vpn.pollWhileVisible()
+      }
     }
   }
 
@@ -757,7 +714,7 @@ struct YggdrasilNodeSheet: View {
       Text("Node")
     } footer: {
       Text(
-        "Runs the Yggdrasil engine in a network extension and adds a system VPN carrying only the Yggdrasil range (0200::/7) — your normal traffic is untouched. Requires a Network Extension + App Group enabled Apple Developer team (see YGGDRASIL.md)."
+        "Runs the Yggdrasil engine in a network extension and adds a system VPN carrying only the Yggdrasil range (0200::/7) — your normal traffic is untouched."
       )
     }
   }
@@ -792,7 +749,7 @@ struct YggdrasilNodeSheet: View {
       Text("Advanced")
     } footer: {
       Text(
-        "Multicast discovers other Yggdrasil nodes on the local network. It needs the Multicast Networking entitlement (a separate Apple approval) — leave off unless you have it. See YGGDRASIL.md."
+        "Multicast discovers other Yggdrasil nodes on the local network."
       )
     }
   }
@@ -850,6 +807,7 @@ struct YggdrasilNodeSheet: View {
     Task {
       await stack.saveYggdrasilConfig(config)
       isBusy = false
+      if vpn.lastError == nil { dismiss() }
     }
   }
 
@@ -862,90 +820,6 @@ struct YggdrasilNodeSheet: View {
       peersText = ""
       nodeName = ""
       multicastEnabled = false
-    }
-  }
-}
-
-// MARK: - Interface reference
-
-private struct InterfaceReferenceView: View {
-  struct InterfaceType: Identifiable {
-    let id = UUID()
-    let name: String
-    let icon: String
-    let description: String
-    let swiftStatus: String
-  }
-
-  private let types: [InterfaceType] = [
-    .init(
-      name: "AutoInterface", icon: "wifi",
-      description:
-        "UDP multicast on the local LAN. Automatically discovers nearby Reticulum nodes. Works on the same subnet without any configuration.",
-      swiftStatus: "Complete"),
-    .init(
-      name: "TCPClientInterface", icon: "network",
-      description:
-        "Connects to a remote Reticulum node or gateway over TCP. Accepts IPv4 and IPv6 addresses. Use this to bridge to the internet mesh.",
-      swiftStatus: "Complete"),
-    .init(
-      name: "TCPServerInterface", icon: "server.rack",
-      description: "Listens for inbound TCP connections. Lets other nodes connect to this device.",
-      swiftStatus: "Complete"),
-    .init(
-      name: "UDPInterface", icon: "bolt.horizontal",
-      description:
-        "Point-to-point or broadcast UDP over IPv4 or IPv6. Useful for custom radio links and tunnels.",
-      swiftStatus: "Complete"),
-    .init(
-      name: "Yggdrasil (TCP/IPv6)", icon: "globe.europe.africa",
-      description:
-        "Reticulum over Yggdrasil — a cryptographic mesh IPv6 network. Run an embedded Yggdrasil Node (Overlay Networks) to give this device its own Yggdrasil IPv6 via a system VPN, then reach peers with ordinary TCP/Backbone over their 0200::/7 addresses. Wire-compatible with Python RNS-over-Yggdrasil.",
-      swiftStatus: "Complete"),
-    .init(
-      name: "RNodeInterface", icon: "antenna.radiowaves.left.and.right",
-      description: "RNode LoRa hardware over BLE or USB serial. Physical radio mesh.",
-      swiftStatus: "In progress"),
-    .init(
-      name: "I2PInterface", icon: "lock.shield",
-      description:
-        "Routes traffic through the I2P anonymity network using an embedded i2pd daemon. Works on iOS and macOS — run build_ci2pd_ios.sh once to add the iOS xcframework slice.",
-      swiftStatus: "Complete"),
-    .init(
-      name: "LocalInterface", icon: "bolt.ring.closed",
-      description:
-        "Connects to an existing rnsd daemon running on the same machine (macOS / Linux).",
-      swiftStatus: "Complete"),
-  ]
-
-  var body: some View {
-    List(types) { t in
-      VStack(alignment: .leading, spacing: 6) {
-        HStack {
-          Image(systemName: t.icon)
-            .foregroundStyle(Color.rnsAccent)
-            .frame(width: 24)
-          Text(t.name)
-            .font(.headline)
-          Spacer()
-          RNSBadge(text: t.swiftStatus, color: statusColor(t.swiftStatus))
-        }
-        Text(t.description)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-      }
-      .padding(.vertical, 4)
-    }
-    .rnsScreenBackground()
-    .navigationTitle("Interface Types")
-    .rnsInlineNavigationTitle()
-  }
-
-  private func statusColor(_ s: String) -> Color {
-    switch s {
-    case "Complete": return .rnsSuccess
-    case "In progress": return .rnsWarning
-    default: return .rnsTextMuted
     }
   }
 }

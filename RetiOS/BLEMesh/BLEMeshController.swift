@@ -45,6 +45,7 @@ final class BLEMeshController: NSObject {
     case bluetoothUnavailable
     case starting
     case online
+    case waitingForBluetooth
     case failed(String)
 
     var label: String {
@@ -53,6 +54,7 @@ final class BLEMeshController: NSObject {
       case .bluetoothUnavailable: return "Bluetooth unavailable"
       case .starting: return "Starting…"
       case .online: return "Meshing"
+      case .waitingForBluetooth: return "Waiting for Bluetooth"
       case .failed(let reason): return "Failed: \(reason)"
       }
     }
@@ -173,17 +175,23 @@ final class BLEMeshController: NSObject {
 
     switch cbState {
     case .poweredOn:
-      if state == .starting { state = .online }
+      // The transport republishes its service and rescans by itself.
+      if state == .waitingForBluetooth {
+        state = .online
+        startPeerPolling()
+      }
     case .unauthorized, .unsupported:
+      // Nothing can run, so don't leave a dead interface listed as up.
+      disable()
       state = .bluetoothUnavailable
     case .poweredOff, .resetting:
-      // Mirrors RNodeScannerController's `case .poweredOff, .resetting:
-      // self.state = .idle`—the radio is gone, so the link is too;
-      // tear everything down rather than limping along with a half-dead
-      // interface. The user can switch meshing back on once Bluetooth
-      // returns (CoreBluetooth doesn't reliably resurrect existing
-      // managers across a full power cycle).
-      disable()
+      // Keep the transport: the same managers report .poweredOn when
+      // Bluetooth returns, so a moment in Control Center doesn't switch
+      // meshing off for good.
+      if state.isOnline {
+        state = .waitingForBluetooth
+        peerCount = 0
+      }
     case .unknown:
       break
     @unknown default:

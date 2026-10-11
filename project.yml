@@ -111,13 +111,10 @@ targets:
         NSBluetoothAlwaysUsageDescription: "RetiOS uses Bluetooth to communicate with RNode LoRa hardware and to mesh directly with nearby devices over BLE."
         NSMicrophoneUsageDescription: "RetiOS uses the microphone for voice calls over the mesh."
         NSLocalNetworkUsageDescription: "RetiOS uses the local network — including IPv6 multicast — to discover and communicate with nearby Reticulum and Yggdrasil mesh nodes."
-        NSLocationWhenInUseUsageDescription: "RetiOS shows your position on the map and can include it when sharing location with the mesh."
         NSBonjourServices:
           - "_rnsd._tcp"
           - "_rnsd._udp"
         UIBackgroundModes:
-          - fetch
-          - network-authentication
           - bluetooth-central
           - bluetooth-peripheral
         UILaunchScreen: {}

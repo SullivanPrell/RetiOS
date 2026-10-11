@@ -136,11 +136,6 @@ struct RetiOSApp: App {
           // bringing up the stack so no incoming calls are missed.
           notifs.callsController = calls
 
-          // Request notification permission early—before the first
-          // message or call could arrive—so the system dialog appears
-          // at a natural moment rather than mid-call.
-          await notifs.requestPermission()
-
           // DEBUG-only fixture rows for screenshot review; no-op
           // unless `-seedDemoData YES` and the store is empty.
           DemoData.seedIfNeeded(container.mainContext)
@@ -153,7 +148,8 @@ struct RetiOSApp: App {
             let rns = stack.reticulum,
             let identity = stack.identity
           {
-            calls.setup(transport: transport, identity: identity)
+            calls.setup(
+              transport: transport, identity: identity, modelContext: container.mainContext)
             nomadNet.setup(
               transport: transport,
               reticulum: rns,
@@ -258,9 +254,8 @@ struct RetiOSApp: App {
       goButton("Messages", .messages, "1")
       goButton("Calls", .calls, "2")
       goButton("NomadNet", .nomadNet, "3")
-      goButton("Map", .map, "4")
-      goButton("Interfaces", .interfaces, "5")
-      goButton("Tools", .tools, "6")
+      goButton("Interfaces", .interfaces, "4")
+      goButton("Tools", .tools, "5")
     }
   }
 
