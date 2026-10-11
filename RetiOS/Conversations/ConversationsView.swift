@@ -419,19 +419,23 @@ private struct LXMFPeerRow: View {
 /// Peers list—contacts are a deliberate, user-curated address book.
 private struct ContactsContent: View {
   @Environment(\.modelContext) private var context
-  @Query(
-    filter: #Predicate<PeerEntity> { $0.isContact == true },
-    sort: \PeerEntity.displayName) private var contacts: [PeerEntity]
+  @Query(filter: #Predicate<PeerEntity> { $0.isContact == true })
+  private var contacts: [PeerEntity]
   @State private var searchText = ""
 
   /// The user asked for search on the *peers* lists, but a contact list is the
   /// same shape and sits one segment away; omitting it here would be the more
   /// surprising inconsistency.
   ///
-  /// Same match rule as the sibling lists.
+  /// Same match rule as the sibling lists. Sorted here rather than in the query:
+  /// SwiftData can't sort by the computed `label`, and sorting by the announced
+  /// name files a contact saved as "Mom" under whatever name she announces.
   private var filtered: [PeerEntity] {
-    guard let q = RNSSearch.query(searchText) else { return contacts }
-    return contacts.filter { RNSSearch.matches(q, name: $0.name, hash: $0.destinationHash) }
+    let sorted = contacts.sorted {
+      $0.label.localizedStandardCompare($1.label) == .orderedAscending
+    }
+    guard let q = RNSSearch.query(searchText) else { return sorted }
+    return sorted.filter { RNSSearch.matches(q, name: $0.name, hash: $0.destinationHash) }
   }
 
   var body: some View {

@@ -464,6 +464,7 @@ private struct OnboardingView: View {
           if step == lastStep { finish() } else { withAnimation { step += 1 } }
         }
         .buttonStyle(.borderedProminent)
+        .tint(.rnsAccentFill)
         .keyboardShortcut(.defaultAction)
       }
       .padding()

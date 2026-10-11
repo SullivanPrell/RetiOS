@@ -420,6 +420,7 @@ private struct NetworkToolsView: View {
       // content-sized capsule—hence the frame on the label above, which
       // keeps the ≥44 pt target the full-width row had.
       .buttonStyle(.borderedProminent)
+      .tint(.rnsAccentFill)
       .keyboardShortcut(.defaultAction)
       .disabled(!canPing)
 
