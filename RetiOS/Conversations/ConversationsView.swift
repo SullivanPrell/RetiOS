@@ -225,7 +225,6 @@ private struct ConversationList: View {
             Label("Delete Conversation", systemImage: "trash")
           }
         }
-        .rnsRow()
       }
       .rnsContentListStyle()
       .rnsScreenBackground()
@@ -396,7 +395,6 @@ private struct LXMFPeersContent: View {
                 ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
           }
         }
-        .rnsRow()
       }
       .rnsContentListStyle()
       .rnsScreenBackground()
@@ -490,7 +488,6 @@ private struct ContactsContent: View {
             Label("Remove Contact", systemImage: "person.crop.circle.badge.minus")
           }
         }
-        .rnsRow()
       }
       .rnsContentListStyle()
       .rnsScreenBackground()
@@ -565,12 +562,10 @@ struct AddContactSheet: View {
           }
 
         }
-        .rnsRow()
 
         Section("Name") {
           TextField("Nickname (optional)", text: $nameInput)
         }
-        .rnsRow()
       }
       .rnsScreenBackground()
       .navigationTitle("Add Contact")

@@ -87,7 +87,6 @@ private struct PathTableView: View {
       } else {
         List(paths, id: \.hash) { path in
           PathRow(hash: path.hash, hops: path.hops, interfaceName: path.interface)
-            .rnsRow()
         }
         .rnsContentListStyle()
         .rnsScreenBackground()
@@ -204,7 +203,6 @@ private struct AnnouncesView: View {
                 Label("Copy Hash", systemImage: "doc.on.doc")
               }
             }
-            .rnsRow()
           }
         }
         .rnsContentListStyle()
@@ -449,7 +447,6 @@ private struct NetworkToolsView: View {
     } footer: {
       Text("Sends an RNS path request and reports whether a route exists.")
     }
-    .rnsRow()
   }
 
   private var infoSection: some View {
@@ -474,7 +471,6 @@ private struct NetworkToolsView: View {
     // environment font trait, so it flows to the rows without needing three
     // call sites.
     .monospacedDigit()
-    .rnsRow()
   }
 
   @MainActor
@@ -504,23 +500,5 @@ private struct NetworkToolsView: View {
         pingResult = .unreachable("No path found (destination may be offline)")
       }
     }
-  }
-}
-
-// MARK: - Hex string helper
-
-extension Data {
-  fileprivate init?<S: StringProtocol>(hexString: S) {
-    let hex = String(hexString.filter { $0.isHexDigit })
-    guard hex.count.isMultiple(of: 2) else { return nil }
-    var data = Data()
-    var idx = hex.startIndex
-    while idx < hex.endIndex {
-      let nextIdx = hex.index(idx, offsetBy: 2)
-      guard let byte = UInt8(hex[idx..<nextIdx], radix: 16) else { return nil }
-      data.append(byte)
-      idx = nextIdx
-    }
-    self = data
   }
 }

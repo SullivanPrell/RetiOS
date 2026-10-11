@@ -36,7 +36,6 @@ struct LogsView: View {
       List(filtered) { entry in
         LogEntryRow(entry: entry)
           .id(entry.id)
-          .rnsRow()
           .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
       }
       .rnsContentListStyle()
@@ -53,7 +52,6 @@ struct LogsView: View {
     .searchable(text: $searchText, prompt: "Search logs")
     .navigationTitle("RNS Logs")
     .rnsInlineNavigationTitle()
-    .rnsNavigationBar()
     .toolbar {
       ToolbarItemGroup(placement: .rnsTrailing) {
         Button {

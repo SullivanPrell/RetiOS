@@ -106,7 +106,6 @@ struct MessageThreadView: View {
     }
     .navigationTitle(peerDisplayName)
     .rnsInlineNavigationTitle()
-    .rnsNavigationBar()
     .toolbar {
       // Present only while the peer is *not* a contact. `peers` is a live
       // @Query on this hash, so flipping isContact (or inserting the row in
@@ -519,21 +518,3 @@ private func platformImage(_ data: Data) -> Image? {
 #else
 private func platformImage(_ data: Data) -> Image? { nil }
 #endif
-
-// MARK: - Hex convenience
-
-extension Data {
-  fileprivate init?(hexString: String) {
-    let hex = hexString.filter { $0.isHexDigit }
-    guard hex.count % 2 == 0 else { return nil }
-    var data = Data(capacity: hex.count / 2)
-    var idx = hex.startIndex
-    while idx < hex.endIndex {
-      let next = hex.index(idx, offsetBy: 2)
-      guard let byte = UInt8(hex[idx..<next], radix: 16) else { return nil }
-      data.append(byte)
-      idx = next
-    }
-    self = data
-  }
-}
