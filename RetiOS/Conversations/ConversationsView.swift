@@ -27,7 +27,8 @@ struct ConversationsView: View {
 
   var body: some View {
     NavigationStack(path: $navPath) {
-      // The section picker sits inline on iOS and in the window toolbar on Mac—see
+      // Only the section picker + list scroll below the pinned title.
+      // The picker sits inline on iOS and in the window toolbar on Mac—see
       // `rnsSectionPicker`.
       Group {
         switch section {
@@ -46,9 +47,12 @@ struct ConversationsView: View {
           ("Peers", MessagesSection.peers),
         ], selection: $section
       )
-      .navigationTitle("Messages")
-      .toolbar {
-        ToolbarItem(placement: .primaryAction) { headerActionButton }
+      // Flush pinned title with the compose / add-contact action in the
+      // header's trailing slot beside the title—matching the Calls tab.
+      // (rnsPinnedTitle sizes/tints the action and hides the empty iOS
+      // nav bar; pushed thread views set their own nav bar / back button.)
+      .rnsPinnedTitle("Messages") {
+        headerActionButton
       }
       // ConversationListContent, ContactsContent and LXMFPeersContent all push
       // String (peerHash) values; this single destination handles navigation for all.
@@ -84,7 +88,9 @@ struct ConversationsView: View {
     }
   }
 
-  /// Compose action, or Add Contact in the Contacts section.
+  /// Compose (or add-contact, in the Contacts section) action, shown in the
+  /// pinned header's trailing slot beside the "Messages" title (the Calls-tab
+  /// layout). `rnsPinnedTitle` handles its sizing and accent tint.
   @ViewBuilder
   private var headerActionButton: some View {
     if section == .contacts {
@@ -106,6 +112,11 @@ struct ConversationsView: View {
 }
 
 private enum MessagesSection: Hashable { case conversations, contacts, peers }
+
+// Search on all three segments uses `rnsInlineSearch`, NOT `.searchable`—this
+// is a tab root under `rnsPinnedTitle`, which hides the navigation bar the iOS
+// search field would have to live in. See `rnsInlineSearch` for the full
+// diagnosis; it fails silently, so it is worth knowing before "fixing" it back.
 
 // MARK: - Conversation list
 
@@ -179,7 +190,7 @@ private struct ConversationListContent: View {
 /// Renders the resolved conversation summaries, attaching display names.
 ///
 /// Owns the `PeerEntity` query so that an announce invalidates *only* this view—rebuilding
-/// an O(peers) name map and diffing `Equatable` rows—instead of
+/// a name map for the peers with conversations and diffing `Equatable` rows—instead of
 /// re-scanning every message.
 private struct ConversationList: View {
   let summaries: [ConversationSummary]
@@ -187,6 +198,16 @@ private struct ConversationList: View {
   @Query private var peers: [PeerEntity]
   @State private var searchText = ""
   @State private var pendingDeletion: String?
+
+  /// Fetches only the peers with conversations.
+  ///
+  /// An unfiltered query re-read every stored peer on each announce save, while this tab sat
+  /// behind whatever screen was open.
+  init(summaries: [ConversationSummary]) {
+    self.summaries = summaries
+    let wanted = summaries.map(\.peerHash)
+    _peers = Query(filter: #Predicate<PeerEntity> { wanted.contains($0.destinationHash) })
+  }
 
   var body: some View {
     if summaries.isEmpty {
@@ -256,15 +277,10 @@ private struct ConversationList: View {
     return summaries.filter { RNSSearch.matches(q, name: names[$0.peerHash], hash: $0.peerHash) }
   }
 
-  /// Names for the peers that actually have conversations.
-  ///
-  /// Restricting to
-  /// those hashes keeps the map small on a node that has heard thousands of
-  /// announces but only ever messaged a handful of them.
+  /// Names for the peers that actually have conversations; `peers` holds only those.
   private func nameLookup() -> [String: String] {
-    let wanted = Set(summaries.map(\.peerHash))
     var out: [String: String] = [:]
-    for p in peers where wanted.contains(p.destinationHash) {
+    for p in peers {
       if let name = p.name { out[p.destinationHash] = name }
     }
     return out

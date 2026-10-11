@@ -362,6 +362,88 @@ extension View {
     #endif
   }
 
+  /// Pins a large, left-aligned screen title flush to the top of the content,
+  /// with an optional trailing action button.
+  ///
+  /// This replaces the system
+  /// collapsing large-title nav bar—which reserves an empty ~44 pt inline
+  /// bar *above* the big title (the "huge dead space" between the status bar
+  /// and the title)—with an in-content title that sits right under the safe
+  /// area. Only the content below scrolls; the title stays put.
+  ///
+  /// iOS: draws the title (and trailing action) in-content and hides the now
+  /// empty navigation bar. Pushed destinations still get their own nav bar /
+  /// back button, since bar-hiding applies only to this level of the stack.
+  ///
+  /// macOS: there is no navigation bar to reclaim and a custom in-content
+  /// title would duplicate the window-chrome title, so fall back to the
+  /// native `navigationTitle` + a trailing window-toolbar item.
+  /// Titles a screen that has no trailing action.
+  ///
+  /// This is a *separate overload* rather than a defaulted `trailing:`
+  /// parameter, and that distinction is load-bearing on macOS: a
+  /// `ToolbarItem` wrapping an `EmptyView` still claims a toolbar slot, and a
+  /// slot the user cannot see is still a slot the system can decide to
+  /// collapse. Every Mac screen was rendering a "»" overflow chevron—hiding
+  /// real actions behind it—because each one contributed a phantom
+  /// primary-action item here. With the default argument gone, screens
+  /// without an action contribute nothing at all.
+  @ViewBuilder
+  func rnsPinnedTitle(_ title: String) -> some View {
+    #if os(iOS)
+    VStack(spacing: 0) {
+      HStack(alignment: .firstTextBaseline) {
+        Text(title)
+          .font(.largeTitle.bold())
+        Spacer(minLength: 8)
+      }
+      .padding(.horizontal)
+      .padding(.top, 8)
+      .padding(.bottom, 6)
+
+      self
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    .navigationTitle(title)
+    .toolbar(.hidden, for: .navigationBar)
+    #else
+    self.navigationTitle(title)
+    #endif
+  }
+
+  @ViewBuilder
+  func rnsPinnedTitle<Trailing: View>(
+    _ title: String,
+    @ViewBuilder trailing: () -> Trailing
+  ) -> some View {
+    #if os(iOS)
+    VStack(spacing: 0) {
+      HStack(alignment: .firstTextBaseline) {
+        Text(title)
+          .font(.largeTitle.bold())
+        Spacer(minLength: 8)
+        // Size the action like a prominent nav action (≈22 pt) rather
+        // than default body text, and tint it with the brand accent.
+        trailing()
+          .font(.title2)
+          .tint(Color.rnsAccent)
+      }
+      .padding(.horizontal)
+      .padding(.top, 8)
+      .padding(.bottom, 6)
+
+      self
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    .navigationTitle(title)
+    .toolbar(.hidden, for: .navigationBar)
+    #else
+    self
+      .navigationTitle(title)
+      .toolbar { ToolbarItem(placement: .primaryAction) { trailing() } }
+    #endif
+  }
+
   /// No-op on macOS—`textInputAutocapitalization` is iOS/iPadOS/tvOS/
   /// watchOS only (it configures the on-screen keyboard's shift-key
   /// behavior). macOS text fields have no software keyboard / auto-cap
@@ -693,9 +775,10 @@ enum RNSSearch {
   }
 }
 
-/// The field `rnsInlineSearch` stacks above a list on macOS.
+/// The field `rnsInlineSearch` stacks above a list.
 ///
-/// See that modifier for why the Mac doesn't use `.searchable` there.
+/// See that modifier for why
+/// these screens cannot use `.searchable`.
 ///
 /// `prompt` is a `LocalizedStringKey`, not a `String`, for the same reason
 /// `RNSHashField` documents: a `String` parameter binds `TextField` to its
@@ -838,30 +921,49 @@ extension View {
     #endif
   }
 
-  /// Search for a tab-root list.
+  /// Stacks a search field above a list, for screens where `.searchable`
+  /// cannot work.
   ///
-  /// **iOS** uses the system `.searchable`, which lives in the navigation bar.
+  /// **Use `.searchable` when the screen has a navigation bar**—that is the
+  /// system control and it is what `DestinationsView`, `InterfaceDirectoryView`
+  /// and `LogsView` correctly use.
   ///
-  /// **macOS** stacks `RNSInlineSearchField` above the list instead. In the
-  /// window toolbar the field would be a third item beside
-  /// `rnsSectionPicker`'s segmented control and the primary action, and three
-  /// collapse a Mac toolbar into the "»" overflow chevron.
+  /// This exists for the **tab roots**, which do not have one—and where
+  /// `.searchable` fails *silently*:
   ///
-  /// Apply a `ContentUnavailableView.search` overlay to the list **before**
-  /// this modifier, so on macOS the no-results state cannot cover the field.
-  @ViewBuilder
+  /// - **iOS**—`rnsPinnedTitle` draws the tab's large title itself and calls
+  ///   `.toolbar(.hidden, for: .navigationBar)`. Every iOS
+  ///   `SearchFieldPlacement` resolves into the navigation bar (`.automatic`
+  ///   and `.toolbar` both land in `.navigationBarDrawer`), so with the bar
+  ///   hidden there is nowhere for the field to go and nothing renders.
+  ///   Apple's own note on `SearchFieldPlacement`—"Depending on the
+  ///   containing view hierarchy, SwiftUI might not be able to fulfill your
+  ///   request"—is the entire diagnostic: no warning, no field.
+  /// - **macOS**—the field *would* render, in the window toolbar, which on
+  ///   these screens already carries `rnsSectionPicker`'s principal segmented
+  ///   control plus a primary action. A third item is exactly what collapses a
+  ///   Mac toolbar into the "»" overflow chevron that `rnsPinnedTitle`'s own
+  ///   comment documents fighting.
+  ///
+  /// So the field is drawn in-content on both platforms—the same
+  /// app-drawn-bar idiom as the NomadNet URL bar—which also keeps the three
+  /// peer lists looking identical. The *matching semantics* at each call site
+  /// should still follow the house pattern: a `filtered` array matching name
+  /// or hash case-insensitively, plus a `ContentUnavailableView.search`
+  /// overlay applied to the list **before** this modifier, so the no-results
+  /// state cannot cover the field and strand the user.
+  ///
+  /// The `maxWidth/maxHeight: .infinity` on `self` mirrors `rnsSectionPicker`:
+  /// without it the list shrinks to its intrinsic height inside the `VStack`
+  /// and floats vertically centerd.
   func rnsInlineSearch(
     text: Binding<String>,
     prompt: LocalizedStringKey = "Name or hash"
   ) -> some View {
-    #if os(macOS)
     VStack(spacing: 0) {
       RNSInlineSearchField(prompt: prompt, text: text)
       self.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    #else
-    self.searchable(text: text, prompt: Text(prompt))
-    #endif
   }
 
   /// Attaches a section switcher to a screen, placed the way each platform
@@ -887,15 +989,12 @@ extension View {
       }
     }
     #else
-    // A top bar, not a VStack above the list: the list must stay the screen's
-    // scroll view for the navigation bar's large title to collapse on scroll.
-    let picker = RNSSectionPicker(tabs, selection: selection)
-      .padding(.horizontal)
-      .padding(.vertical, 8)
-    if #available(iOS 26, *) {
-      self.safeAreaBar(edge: .top) { picker }
-    } else {
-      self.safeAreaInset(edge: .top) { picker.background(.bar) }
+    VStack(spacing: 0) {
+      RNSSectionPicker(tabs, selection: selection)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+      self
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     #endif
   }

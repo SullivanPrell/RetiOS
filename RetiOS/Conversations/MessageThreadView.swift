@@ -230,15 +230,18 @@ struct MessageThreadView: View {
   }
 
   // `text` is trimmed and non-empty—ComposeBar guarantees this before calling.
-  private func sendMessage(_ text: String) {
-    guard let peerData = Data(hexString: peerHash) else { return }
+  /// Returns whether the message was queued, so the bar keeps the draft when it wasn't.
+  private func sendMessage(_ text: String) -> Bool {
+    guard let peerData = Data(hexString: peerHash) else { return false }
     do {
       try stack.send(content: text, to: peerData, context: context)
       errorMessage = nil
       sentTick += 1
+      return true
     } catch {
       errorMessage = error.localizedDescription
       failTick += 1
+      return false
     }
   }
 }
@@ -250,8 +253,8 @@ struct MessageThreadView: View {
 // when the user actually taps Send (or submits via keyboard).
 
 private struct ComposeBar: View {
-  /// Called with trimmed, non-empty text when the user sends.
-  let onSend: (String) -> Void
+  /// Called with trimmed, non-empty text when the user sends; false keeps the draft.
+  let onSend: (String) -> Bool
   /// Called when the user edits the draft.
   ///
   /// The parent uses it to clear a stale
@@ -309,8 +312,7 @@ private struct ComposeBar: View {
 
   private func submit() {
     let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !text.isEmpty else { return }
-    onSend(text)
+    guard !text.isEmpty, onSend(text) else { return }
     isResettingDraft = true
     draft = ""
   }
