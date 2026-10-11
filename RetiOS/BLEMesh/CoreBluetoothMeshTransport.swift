@@ -566,7 +566,10 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
     Reticulum.log("[BLEMesh] central radio: \(Self.describe(central.state))", level: .info)
     radioStateHandler?(central.state)
-    guard central.state == .poweredOn else { return }
+    guard central.state == .poweredOn else {
+      dropCentralLinks()
+      return
+    }
     Reticulum.log(
       "[BLEMesh] scanning for nearby mesh peers (service \(Self.meshSvcUUID.uuidString.prefix(8))…)",
       level: .info)
@@ -754,6 +757,22 @@ extension CoreBluetoothMeshTransport: CBCentralManagerDelegate {
     // `connectionDecision` re-runs the election from scratch.
   }
 
+  /// Forgets every central-role link.
+  ///
+  /// Below .poweredOn every `CBPeripheral` becomes invalid without a disconnect
+  /// callback. A link left in the table would make a returning peer look
+  /// already linked, so it would never reconnect.
+  private func dropCentralLinks() {
+    lock.lock()
+    let dropped = Array(centralLinks.keys)
+    centralLinks.removeAll()
+    pendingCentralWrites.removeAll()
+    connectingPeripheralIDs.removeAll()
+    deferredPeripherals.removeAll()
+    lock.unlock()
+    for peerID in dropped { peerDisconnected?(peerID) }
+  }
+
   func centralManager(
     _ central: CBCentralManager,
     didDisconnectPeripheral peripheral: CBPeripheral,
@@ -890,10 +909,20 @@ extension CoreBluetoothMeshTransport: CBPeripheralManagerDelegate {
   func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
     Reticulum.log("[BLEMesh] peripheral radio: \(Self.describe(peripheral.state))", level: .info)
 
+    // Below .poweredOn CoreBluetooth clears the published service and its
+    // subscribers without an unsubscribe callback, so both are rebuilt here.
     lock.lock()
     let alreadyAdded = serviceAdded
-    if peripheral.state == .poweredOn { serviceAdded = true }
+    serviceAdded = peripheral.state == .poweredOn
+    var dropped: [BLEMeshPeerID] = []
+    if peripheral.state != .poweredOn {
+      dropped = Array(subscriptions.keys)
+      subscriptions.removeAll()
+      pendingNotifications.removeAll()
+      txCharacteristic = nil
+    }
     lock.unlock()
+    for peerID in dropped { peerDisconnected?(peerID) }
 
     radioStateHandler?(peripheral.state)
     guard peripheral.state == .poweredOn, !alreadyAdded else { return }
