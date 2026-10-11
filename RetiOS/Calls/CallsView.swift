@@ -103,10 +103,7 @@ struct CallsView: View {
           .font(.callout)
           .foregroundStyle(.secondary)
       } else {
-        Text(callerHash.hexString.truncatedHash)
-          .font(.caption.monospaced())
-          .foregroundStyle(.secondary)
-          .lineLimit(1)
+        partyLabel(callerHash)
         // Same affordance a message thread gets: save the other party
         // as a contact without leaving the call screen.
         CallContactAction(
@@ -153,10 +150,7 @@ struct CallsView: View {
         .scaleEffect(1.5)
       Text("Calling…")
         .font(.title2)
-      Text(hash.hexString.truncatedHash)
-        .font(.caption.monospaced())
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
+      partyLabel(hash)
       CallContactAction(
         callHash: hash, liveIdentity: calls.activeCallRemoteIdentity)
       Button(role: .destructive, action: { calls.endCall() }) {
@@ -182,10 +176,7 @@ struct CallsView: View {
       VStack(spacing: 4) {
         Text("Connected")
           .font(.title2.bold())
-        Text(hash.hexString.truncatedHash)
-          .font(.caption.monospaced())
-          .foregroundStyle(.secondary)
-          .lineLimit(1)
+        partyLabel(hash)
         Text(since, style: .timer)
           .foregroundStyle(.secondary)
         CallContactAction(
@@ -219,6 +210,27 @@ struct CallsView: View {
             .accessibilityHidden(true)
         }
 
+        #if os(iOS)
+        VStack(spacing: 8) {
+          Button(action: { calls.toggleSpeaker() }) {
+            Image(systemName: calls.isSpeakerOn ? "speaker.wave.3.fill" : "speaker.fill")
+              .font(.title)
+              .frame(width: 64, height: 64)
+              .background(
+                calls.isSpeakerOn
+                  ? AnyShapeStyle(Color.rnsAccentFill)
+                  : AnyShapeStyle(.quaternary),
+                in: Circle()
+              )
+              .foregroundStyle(calls.isSpeakerOn ? .white : .primary)
+          }
+          .accessibilityLabel(calls.isSpeakerOn ? "Turn speaker off" : "Turn speaker on")
+          Text("Speaker")
+            .font(.caption)
+            .accessibilityHidden(true)
+        }
+        #endif
+
         VStack(spacing: 8) {
           Button(action: { calls.endCall() }) {
             Image(systemName: "phone.down.fill")
@@ -237,6 +249,21 @@ struct CallsView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .padding(.horizontal)
+  }
+
+  /// The other party's saved name, else the start of their hash.
+  @ViewBuilder
+  private func partyLabel(_ hash: Data) -> some View {
+    if let name = calls.activePeerName {
+      Text(name)
+        .font(.headline)
+        .lineLimit(1)
+    } else {
+      Text(hash.hexString.truncatedHash)
+        .font(.caption.monospaced())
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+    }
   }
 
   private func failedView(reason: String) -> some View {
@@ -307,7 +334,7 @@ private struct CallRecordRow: View {
         .frame(width: 28)
 
       VStack(alignment: .leading, spacing: 3) {
-        Text(record.peerHash.isEmpty ? "Unknown" : record.peerHash)
+        Text(record.peerName ?? (record.peerHash.isEmpty ? "Unknown" : record.peerHash))
           .font(.body.weight(.medium))
           .lineLimit(1)
           .truncationMode(.middle)

@@ -153,7 +153,8 @@ struct RetiOSApp: App {
             let rns = stack.reticulum,
             let identity = stack.identity
           {
-            calls.setup(transport: transport, identity: identity)
+            calls.setup(
+              transport: transport, identity: identity, modelContext: container.mainContext)
             nomadNet.setup(
               transport: transport,
               reticulum: rns,
