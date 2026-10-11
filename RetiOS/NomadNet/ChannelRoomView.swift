@@ -217,6 +217,10 @@ struct ChannelRoomView: View {
           Button("#\(r)") { activeRoom = r }
         }
       }
+      Button("Join Another Room…") {
+        activeRoom = nil
+        roomInput = ""
+      }
       Button("Cancel", role: .cancel) {}
     }
   }
