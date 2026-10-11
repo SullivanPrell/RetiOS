@@ -33,8 +33,6 @@
 	<string>RetiOS uses the microphone for voice calls over the mesh.</string>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>fetch</string>
-		<string>network-authentication</string>
 		<string>bluetooth-central</string>
 		<string>bluetooth-peripheral</string>
 	</array>

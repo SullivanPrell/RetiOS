@@ -13,6 +13,7 @@ import LXMF
 import Network
 import Observation
 import ReticulumSwift
+import Security
 import SwiftData
 
 /// Owns the Reticulum stack, LXMF router, and lifecycle for the app.
@@ -530,6 +531,13 @@ final class StackController {
     guard let transport else {
       throw StackError.notRunning
     }
+    // Saving replaces by name, and removal finds the first live match, so a
+    // second "TCP Gateway" would replace the first one's saved entry.
+    guard !transport.interfaces.contains(where: { $0.name == name }),
+      !savedInterfaces.contains(where: { $0.name == name })
+    else {
+      throw StackError.duplicateName(name)
+    }
     // Strip square brackets from IPv6 literals (for example, "[2001:db8::1]" → "2001:db8::1").
     let normalizedHost = Self.normalizeHost(host)
     let iface: any Interface
@@ -700,9 +708,12 @@ final class StackController {
 
   enum StackError: LocalizedError {
     case notRunning
+    case duplicateName(String)
     var errorDescription: String? {
       switch self {
       case .notRunning: return "Stack is not running yet."
+      case .duplicateName(let name):
+        return "An interface named “\(name)” already exists. Choose another name."
       }
     }
   }
@@ -712,6 +723,7 @@ final class StackController {
   func removeInterface(named name: String) {
     savedInterfaces.removeAll { $0.name == name }
     persistSavedInterfaces()
+    IfacPassphraseStore.write(nil, for: name)
     deregisterLiveInterface(named: name)
   }
 
@@ -759,10 +771,22 @@ final class StackController {
   }
 
   private func loadSavedInterfaces() {
-    guard let data = UserDefaults.standard.data(forKey: Self.savedInterfacesKey),
-      let saved = try? JSONDecoder().decode([SavedInterface].self, from: data)
-    else { return }
-    savedInterfaces = saved
+    if let saved = Self.loadSavedInterfaces(from: .standard) { savedInterfaces = saved }
+  }
+
+  /// Decodes the saved list and fills each passphrase from the Keychain.
+  ///
+  /// A passphrase still in the JSON, from an earlier version, is moved there.
+  nonisolated static func loadSavedInterfaces(from defaults: UserDefaults) -> [SavedInterface]? {
+    guard let data = defaults.data(forKey: savedInterfacesKey),
+      var saved = try? JSONDecoder().decode([SavedInterface].self, from: data)
+    else { return nil }
+    let hadPlaintext = saved.contains { $0.passphrase != nil }
+    for i in saved.indices where saved[i].passphrase == nil {
+      saved[i].passphrase = IfacPassphraseStore.read(saved[i].name)
+    }
+    if hadPlaintext { persist(saved, to: defaults) }
+    return saved
   }
 
   #if DEBUG
@@ -789,8 +813,21 @@ final class StackController {
   #endif
 
   private func persistSavedInterfaces() {
-    if let data = try? JSONEncoder().encode(savedInterfaces) {
-      UserDefaults.standard.set(data, forKey: Self.savedInterfacesKey)
+    Self.persist(savedInterfaces, to: .standard)
+  }
+
+  /// Writes the list with each passphrase in the Keychain.
+  ///
+  /// A passphrase the Keychain refuses stays in the JSON, so a failed write
+  /// can't lose it.
+  nonisolated static func persist(_ interfaces: [SavedInterface], to defaults: UserDefaults) {
+    let forDisk = interfaces.map { saved -> SavedInterface in
+      var saved = saved
+      if IfacPassphraseStore.write(saved.passphrase, for: saved.name) { saved.passphrase = nil }
+      return saved
+    }
+    if let data = try? JSONEncoder().encode(forDisk) {
+      defaults.set(data, forKey: savedInterfacesKey)
     }
   }
 
@@ -1133,5 +1170,45 @@ extension Data {
       idx = next
     }
     self = data
+  }
+}
+
+// MARK: - IfacPassphraseStore
+
+/// IFAC passphrases in the Keychain, keyed by interface name.
+///
+/// UserDefaults is in unencrypted backups, and on a Mac any process running as
+/// the user can read it. `ThisDeviceOnly` keeps the secret out of backups too.
+enum IfacPassphraseStore {
+  private static func query(_ name: String) -> [String: Any] {
+    [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: "dev.sprell.retios.ifac",
+      kSecAttrAccount as String: name,
+      kSecUseDataProtectionKeychain as String: true,
+    ]
+  }
+
+  static func read(_ name: String) -> String? {
+    var query = query(name)
+    query[kSecReturnData as String] = true
+    var result: CFTypeRef?
+    guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+      let data = result as? Data
+    else { return nil }
+    return String(data: data, encoding: .utf8)
+  }
+
+  /// Stores `passphrase` for `name`, or deletes it when nil.
+  ///
+  /// Returns whether the Keychain now holds exactly that value.
+  @discardableResult
+  static func write(_ passphrase: String?, for name: String) -> Bool {
+    SecItemDelete(query(name) as CFDictionary)
+    guard let passphrase else { return true }
+    var query = query(name)
+    query[kSecValueData as String] = Data(passphrase.utf8)
+    query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
   }
 }

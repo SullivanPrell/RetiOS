@@ -82,7 +82,6 @@ final class YggdrasilVPNManager {
 
   @ObservationIgnored private var manager: NETunnelProviderManager?
   @ObservationIgnored private var statusObserver: NSObjectProtocol?
-  @ObservationIgnored private var pollTask: Task<Void, Never>?
 
   init() {
     statusObserver = NotificationCenter.default.addObserver(
@@ -192,32 +191,23 @@ final class YggdrasilVPNManager {
   private func handleStatusChange(_ vpn: NEVPNStatus) {
     status = Status(vpn)
     switch status {
-    case .connected:
-      startPolling()
     case .disconnected, .disconnecting, .invalid:
-      stopPolling()
       clearStatus()
     default:
       break
     }
   }
 
-  private func startPolling() {
-    // Cancel any prior loop first rather than returning early on a non-nil
-    // task: a previously stuck/finishing loop must not leave two loops
-    // running (or block a restart) after a tunnel flap.
-    pollTask?.cancel()
-    pollTask = Task { @MainActor [weak self] in
-      while !Task.isCancelled {
-        await self?.pollOnce()
-        try? await Task.sleep(nanoseconds: 2_000_000_000)
-      }
+  /// Polls the tunnel's address, subnet, key and peers until the calling task
+  /// is cancelled.
+  ///
+  /// Only the Yggdrasil sheet shows these, so it runs this from `.task`
+  /// instead of the app polling every 2 s on every screen.
+  func pollWhileVisible() async {
+    while !Task.isCancelled {
+      await pollOnce()
+      try? await Task.sleep(nanoseconds: 2_000_000_000)
     }
-  }
-
-  private func stopPolling() {
-    pollTask?.cancel()
-    pollTask = nil
   }
 
   private func pollOnce() async {

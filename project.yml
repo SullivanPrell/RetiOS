@@ -116,8 +116,6 @@ targets:
           - "_rnsd._tcp"
           - "_rnsd._udp"
         UIBackgroundModes:
-          - fetch
-          - network-authentication
           - bluetooth-central
           - bluetooth-peripheral
         UILaunchScreen: {}
