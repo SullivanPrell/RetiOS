@@ -3,6 +3,66 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [0.7.0]—HIG audit fixes, and calls that keep their sound
+
+### Changed—behaviour you notice
+
+- **Calls start on the earpiece.** A Speaker button switches to the loudspeaker, and the
+  screen turns off while the phone is at your ear. Recents survive a relaunch and show the
+  caller's contact name.
+- **A call keeps its sound after an interruption.** A phone call, Siri, or connecting AirPods
+  stopped the audio engine, and the call stayed connected with no sound. LXSTSwift 1.5.1
+  restarts it.
+- **RNode radios need settings you enter.** The RNode screen has Radio Settings: frequency,
+  bandwidth, spreading factor, coding rate, and transmit power. There is no default frequency,
+  because the legal one depends on where you are. Connect stays off until you enter one.
+  Before this the app sent an all-zero configuration and showed Connected anyway.
+- **Deleting a conversation asks first.**
+- **Notifications.** The app asks for permission when onboarding finishes, not at first
+  launch. A message for the conversation you have open shows no banner. Notifications group
+  by conversation.
+- **Message bubbles** show the date as well as the time. Touch & hold a bubble to copy it.
+- **iPhone tabs use the system title and search field.** Large titles collapse as you scroll.
+  The Mac keeps its search field in the page.
+- **iPad.** Rotating or resizing keeps the section you were in, and the sidebar can be
+  hidden. The network graph stops pulsing when Reduce Motion is on.
+- **Interfaces.** Two interfaces can no longer share a name, which made Remove stop the wrong
+  one. The Yggdrasil sheet has Cancel and Save. Rows name the kind of connection, such as TCP
+  gateway or LoRa radio, not the class.
+- **BLE mesh waits for Bluetooth** to come back instead of switching itself off. With
+  Bluetooth permission denied, it no longer claims to be meshing, and links to Settings.
+- **Channels can join more than one room** on a hub, from Join Another Room.
+- **Pages** no longer says that peers can browse pages on this device. The app doesn't host
+  pages yet; you write them here and export them to a node.
+
+### Removed
+
+- **The Map tab and the location permission.** The tab showed only your own position, and
+  the permission text promised location sharing the mesh doesn't have. Interfaces is now ⌘4
+  and Tools ⌘5.
+
+### Fixed
+
+- An incoming call on any tab but Calls produced no banner and no sound.
+- Calling back an inbound Recents entry failed, saying their announce had not been received.
+- The next announce from a contact overwrote the nickname you gave them.
+- A message that failed to save was lost. The network doesn't resend a delivered message, so
+  the app now keeps it and saves it again.
+- White text on the accent color measured under the 4.5:1 contrast minimum. Sent bubbles and
+  unread badges use a darker accent.
+
+### Changed—under the hood
+
+- **Interface passphrases move into the Keychain**, once, on first launch. They stay out of
+  backups, so after restoring to a new device you enter them again.
+- **On macOS the Reticulum directory moves** from `~/Documents` to
+  `~/Library/Application Support/dev.sprell.retios/reticulum`, once. It holds the identity
+  key, and Documents is often synced to iCloud. If the move fails the old directory stays, so
+  your address doesn't change.
+- The unused `fetch` and `network-authentication` background modes are gone.
+- **Packages:** ReticulumSwift 1.24.0, LXMFSwift 1.10.0, LXSTSwift 1.5.1 and NomadNetSwift
+  1.5.0. Building needs read access to the private LXSTSwift repository.
+
 ## [0.5.0]—proof-gated delivery, and the packages that make it true
 
 ### Changed—under the hood
