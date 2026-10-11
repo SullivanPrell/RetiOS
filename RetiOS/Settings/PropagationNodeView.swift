@@ -111,7 +111,6 @@ struct PropagationNodeView: View {
         "An LXMF propagation node stores and forwards messages on behalf of offline recipients. Enter the 32-character destination hash of any publicly reachable propagation server to enable store-and-forward delivery."
       )
     }
-    .rnsRow()
   }
 
   // MARK: - Sync
@@ -171,7 +170,6 @@ struct PropagationNodeView: View {
     } footer: {
       Text("Retrieves messages other nodes left for you while you were offline.")
     }
-    .rnsRow()
   }
 
   private func currentSection(hash: String) -> some View {
@@ -183,7 +181,6 @@ struct PropagationNodeView: View {
           .textSelection(.enabled)
       }
     }
-    .rnsRow()
   }
 
   // MARK: - Actions

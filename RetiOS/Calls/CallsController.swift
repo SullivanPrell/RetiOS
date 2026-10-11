@@ -554,9 +554,3 @@ private final class LXSTCallAnnounceHandler: AnnounceHandler {
     onAnnounce(hex)
   }
 }
-
-// MARK: - Data helpers
-
-extension Data {
-  fileprivate var hexString: String { map { String(format: "%02x", $0) }.joined() }
-}

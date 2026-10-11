@@ -345,13 +345,6 @@ struct NomadNetBrowserView: View {
       NomadNetBrowserContent()
         .navigationTitle("NomadNet")
         .rnsInlineNavigationTitle()
-        .rnsNavigationBar()
     }
-  }
-}
-
-extension Data {
-  fileprivate var hexString: String {
-    map { String(format: "%02x", $0) }.joined()
   }
 }

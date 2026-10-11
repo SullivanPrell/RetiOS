@@ -48,9 +48,7 @@ struct NomadNetContainerView: View {
         }
       }
       .rnsSectionPicker(Self.sections, selection: $section)
-      // Flush pinned title (no large-title dead space)—matches the
-      // Messages tab. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
-      .rnsPinnedTitle("NomadNet")
+      .navigationTitle("NomadNet")
     }
   }
 
@@ -150,7 +148,6 @@ struct NomadNetPeersContent: View {
         node.isFavorite.toggle()
         try? context.save()
       }
-      .rnsRow()
     }
     .rnsContentListStyle()
     .rnsScreenBackground()
@@ -163,10 +160,6 @@ struct NomadNetPeersContent: View {
         ContentUnavailableView.search(text: searchText)
       }
     }
-    // NOT `.searchable`: this is a tab root under `rnsPinnedTitle`, which
-    // hides the navigation bar that every iOS SearchFieldPlacement resolves
-    // into—the field renders nothing at all, silently. See
-    // `rnsInlineSearch`.
     .rnsInlineSearch(text: $searchText)
   }
 
@@ -244,7 +237,6 @@ struct NomadNetFavoritesContent: View {
             node.isFavorite.toggle()
             try? context.save()
           }
-          .rnsRow()
         }
         .rnsContentListStyle()
         .rnsScreenBackground()

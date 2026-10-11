@@ -1194,7 +1194,6 @@ private struct ClusterDetailSheet: View {
         .onTapGesture { rnsCopyToPasteboard(member.hashHex) }
         .accessibilityElement(children: .combine)
         .accessibilityHint("Double-tap to copy the full hash")
-        .rnsRow()
       }
       .rnsContentListStyle()
       .navigationTitle(node.fullID)

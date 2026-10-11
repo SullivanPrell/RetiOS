@@ -163,7 +163,6 @@ struct PagesContent: View {
         } label: {
           PageRow(page: page)
         }
-        .rnsRow()
         .contextMenu {
           Button {
             renameTarget = page

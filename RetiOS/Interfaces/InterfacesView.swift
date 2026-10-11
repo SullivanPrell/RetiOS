@@ -122,7 +122,6 @@ struct InterfacesView: View {
         "AutoInterface is always active. Added interfaces are restored automatically on next launch."
       )
     }
-    .rnsRow()
   }
 
   // MARK: Radio hardware
@@ -136,7 +135,6 @@ struct InterfacesView: View {
         Label("BLE Mesh", systemImage: "personalhotspot")
       }
     }
-    .rnsRow()
   }
 
   // MARK: Overlay networks (I2P, Yggdrasil)
@@ -210,7 +208,6 @@ struct InterfacesView: View {
         "I2P routes Reticulum over the anonymous I2P network. Run a Yggdrasil Node to give this device its own Yggdrasil IPv6 (a cryptographic mesh overlay); Reticulum then rides over it, interoperable with Python RNS-over-Yggdrasil. Or add a single Yggdrasil peer by its IPv6 address."
       )
     }
-    .rnsRow()
     // These rows present sheets; render them like the adjacent navigation
     // rows (primary text) rather than full-blue Button labels.
     .buttonStyle(.plain)
@@ -247,7 +244,6 @@ struct InterfacesView: View {
         "The public directory lists community-run gateways at directory.rns.recipes — pick one to connect with one tap. IPv4 and IPv6 addresses are both supported."
       )
     }
-    .rnsRow()
     .buttonStyle(.plain)
   }
 }
@@ -414,7 +410,6 @@ struct AddInterfaceSheet: View {
             Text(mode.footerText)
           }
         }
-        .rnsRow()
 
         // IFAC—the segment credentials. Optional, and left blank for the public
         // network. An interface on an IFAC-protected segment *without* them comes up,
@@ -436,14 +431,12 @@ struct AddInterfaceSheet: View {
               + "`network_name` and `passphrase` on the peer exactly. Leave blank for "
               + "the public network.")
         }
-        .rnsRow()
 
         if let err = errorMessage {
           Section {
             Label(err, systemImage: "exclamationmark.triangle")
               .foregroundStyle(Color.rnsError)
           }
-          .rnsRow()
         }
       }
       .rnsScreenBackground()
@@ -514,7 +507,6 @@ struct I2PConfigSheet: View {
             )
             .foregroundStyle(Color.rnsWarning)
           }
-          .rnsRow()
         }
 
         configSection
@@ -525,7 +517,6 @@ struct I2PConfigSheet: View {
             Label(err, systemImage: "exclamationmark.triangle")
               .foregroundStyle(Color.rnsError)
           }
-          .rnsRow()
         }
       }
       .rnsScreenBackground()
@@ -556,7 +547,6 @@ struct I2PConfigSheet: View {
         "The embedded i2pd daemon starts automatically with Reticulum and provides an anonymous I2P tunnel. Add peer b32 addresses below to dial out — outbound connections are fully supported. Inbound accept is not yet implemented.\n\nChanges take effect the next time RetiOS starts: i2pd's router is set up once per launch and cannot be reconfigured while it runs."
       )
     }
-    .rnsRow()
   }
 
   private var peersSection: some View {
@@ -571,7 +561,6 @@ struct I2PConfigSheet: View {
     } footer: {
       Text("One b32 address per line, e.g. abc123xyz…qrs.b32.i2p")
     }
-    .rnsRow()
   }
 
   // MARK: Actions
@@ -653,7 +642,6 @@ struct YggdrasilNodeSheet: View {
             .font(.caption)
             .foregroundStyle(Color.rnsWarning)
           }
-          .rnsRow()
         }
 
         if let err = errorMessage ?? vpn.lastError {
@@ -661,7 +649,6 @@ struct YggdrasilNodeSheet: View {
             Label(err, systemImage: "exclamationmark.triangle")
               .foregroundStyle(Color.rnsError)
           }
-          .rnsRow()
         }
       }
       .rnsScreenBackground()
@@ -716,7 +703,6 @@ struct YggdrasilNodeSheet: View {
     } header: {
       Text("Status")
     }
-    .rnsRow()
   }
 
   private var enableSection: some View {
@@ -731,7 +717,6 @@ struct YggdrasilNodeSheet: View {
         "Runs the Yggdrasil engine in a network extension and adds a system VPN carrying only the Yggdrasil range (0200::/7) — your normal traffic is untouched."
       )
     }
-    .rnsRow()
   }
 
   private var peersSection: some View {
@@ -748,7 +733,6 @@ struct YggdrasilNodeSheet: View {
         "One peer URI per line, e.g. tls://host:port or quic://host:port. Find public peers at publicpeers.neilalexander.dev."
       )
     }
-    .rnsRow()
   }
 
   private var advancedSection: some View {
@@ -768,7 +752,6 @@ struct YggdrasilNodeSheet: View {
         "Multicast discovers other Yggdrasil nodes on the local network."
       )
     }
-    .rnsRow()
   }
 
   // MARK: Derived

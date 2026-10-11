@@ -60,9 +60,7 @@ struct SettingsView: View {
   var body: some View {
     rnsSettingsContainer { sections }
       .rnsScreenBackground()
-      // Flush pinned title (no large-title dead space)—matches the other
-      // tabs. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
-      .rnsPinnedTitle("Settings")
+      .navigationTitle("Settings")
       .task {
         // Initial load + periodic refresh every 5 s.
         while !Task.isCancelled {
@@ -119,7 +117,6 @@ struct SettingsView: View {
         Label("Identity & Name", systemImage: "key")
       }
     }
-    .rnsRow()
   }
 
   // Shown on iPhone only—iPad and macOS reach Interfaces via the sidebar.
@@ -129,7 +126,6 @@ struct SettingsView: View {
         Label("Interfaces", systemImage: "antenna.radiowaves.left.and.right")
       }
     }
-    .rnsRow()
   }
 
   private var networkSection: some View {
@@ -160,7 +156,6 @@ struct SettingsView: View {
           .foregroundStyle(.secondary)
       }
     }
-    .rnsRow()
   }
 
   private var announceSection: some View {
@@ -205,7 +200,6 @@ struct SettingsView: View {
         )
       }
     }
-    .rnsRow()
   }
 
   private var debugSection: some View {
@@ -226,7 +220,6 @@ struct SettingsView: View {
         Label("RNS Logs", systemImage: "terminal")
       }
     }
-    .rnsRow()
   }
 
   private var aboutSection: some View {
@@ -244,7 +237,6 @@ struct SettingsView: View {
           .foregroundStyle(.secondary)
       }
     }
-    .rnsRow()
   }
 
   /// "0.3.0 (6)"—from the bundle's short version + build number.

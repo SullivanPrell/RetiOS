@@ -35,15 +35,15 @@ struct CallsView: View {
         }
       }
       .rnsCanvasBackground()
-      // Flush pinned title (no large-title dead space)—matches the
-      // Messages tab. The New Call action moves from the nav-bar toolbar
-      // into the pinned header's trailing slot.
-      .rnsPinnedTitle("Calls") {
-        Button(action: { showNewCall = true }) {
-          Image(systemName: "phone.badge.plus")
+      .navigationTitle("Calls")
+      .toolbar {
+        ToolbarItem(placement: .primaryAction) {
+          Button(action: { showNewCall = true }) {
+            Image(systemName: "phone.badge.plus")
+          }
+          .accessibilityLabel("New Call")
+          .disabled(calls.callState != .idle)
         }
-        .accessibilityLabel("New Call")
-        .disabled(calls.callState != .idle)
       }
       .sheet(isPresented: $showNewCall) {
         NewCallSheet()
@@ -316,7 +316,6 @@ private struct CallsRecentsContent: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("Call back")
-        .rnsRow()
       }
       .rnsContentListStyle()
       .rnsScreenBackground()
@@ -623,7 +622,6 @@ private struct CallsPeersContent: View {
           .contextMenu {
             contactButton(for: entry)
           }
-          .rnsRow()
       }
       .rnsContentListStyle()
       .rnsScreenBackground()
@@ -717,13 +715,11 @@ struct NewCallSheet: View {
               .foregroundStyle(Color.rnsError)
           }
         }
-        .rnsRow()
         Section {
           Text("Enter the 32-hex-character destination hash (16 bytes) of the remote LXST node.")
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        .rnsRow()
       }
       .rnsScreenBackground()
       .navigationTitle("New Call")
@@ -748,27 +744,5 @@ struct NewCallSheet: View {
     }
     calls.startCall(to: hash)
     dismiss()
-  }
-}
-
-// MARK: - Helpers
-
-extension Data {
-  fileprivate init?(hexString: String) {
-    let hex = hexString.filter { $0.isHexDigit }
-    guard hex.count % 2 == 0 else { return nil }
-    var data = Data(capacity: hex.count / 2)
-    var index = hex.startIndex
-    while index < hex.endIndex {
-      let next = hex.index(index, offsetBy: 2)
-      guard let byte = UInt8(hex[index..<next], radix: 16) else { return nil }
-      data.append(byte)
-      index = next
-    }
-    self = data
-  }
-
-  fileprivate var hexString: String {
-    map { String(format: "%02x", $0) }.joined()
   }
 }
