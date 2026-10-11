@@ -178,7 +178,21 @@ final class LXMFMessageIngest {
 
     // ONE save for the batch—this is the invalidation that re-runs the
     // on-screen @Query views, so it must happen once, not N times.
-    try? context.save()
+    do {
+      try context.save()
+    } catch {
+      // The network doesn't resend these, so keep them and stay silent
+      // rather than announce messages that no store holds.
+      // shortcut: the next enqueue is the only retry; add a backoff timer if saves fail transiently.
+      Reticulum.log(
+        "LXMFMessageIngest: save failed, keeping \(inserted.count) message(s) for retry: \(error)",
+        level: .error)
+      context.rollback()
+      lock.lock()
+      pending.insert(contentsOf: inserted, at: 0)
+      lock.unlock()
+      return
+    }
 
     notify(inserted, context: context)
   }
@@ -208,7 +222,7 @@ final class LXMFMessageIngest {
     )
     var names: [String: String] = [:]
     for peer in (try? context.fetch(peerDescriptor)) ?? [] {
-      if let name = peer.displayName, !name.isEmpty { names[peer.destinationHash] = name }
+      if let name = peer.name, !name.isEmpty { names[peer.destinationHash] = name }
     }
 
     // A replayed backlog can be large; posting one banner per message would

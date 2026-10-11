@@ -125,7 +125,7 @@ struct PagesContent: View {
     }
     // Scoped importers rather than UIFileSharingEnabled: exposing the whole
     // Documents container to Files.app would also expose the Reticulum
-    // identity private key, which lives at Documents/reticulum/.
+    // identity private key, which lives at Documents/reticulum/ on iOS.
     .fileImporter(
       isPresented: $showImporter,
       allowedContentTypes: [.plainText, .text, .data],

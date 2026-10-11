@@ -78,7 +78,7 @@ struct IdentityView: View {
           Label("Save Name", systemImage: "checkmark.circle.fill")
         }
         .buttonStyle(.borderedProminent)
-        .tint(Color.rnsAccent)
+        .tint(Color.rnsAccentFill)
         .controlSize(.regular)
       }
     } header: {

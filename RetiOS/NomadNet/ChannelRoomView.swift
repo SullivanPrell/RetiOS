@@ -165,7 +165,7 @@ struct ChannelRoomView: View {
         #endif
       Button("Join") { joinRoom() }
         .buttonStyle(.borderedProminent)
-        .tint(.rnsAccent)
+        .tint(.rnsAccentFill)
         .disabled(roomInput.trimmingCharacters(in: .whitespaces).isEmpty)
     }
     .padding(.horizontal, 12)

@@ -115,6 +115,9 @@ extension Color {
 
   static var rnsAccent: Color { .accentColor }
   static var rnsAccentBright: Color { .accentColor }
+  /// Accent for surfaces carrying white text (4.8:1); the asset's accent is only
+  /// 3.5:1 Light and 2.6:1 Dark under white, below the 4.5:1 minimum.
+  static var rnsAccentFill: Color { Color(r: 0x1A, g: 0x73, b: 0xD0) }
 
   // MARK: Semantic state (system colors—adapt to appearance & vibrancy)
 
@@ -123,7 +126,7 @@ extension Color {
   static var rnsError: Color { .red }
   static var rnsInfo: Color { .blue }
 
-  // MARK: Private hex initialiser (still used by RNSLogoView's fallback gradient)
+  // MARK: Private hex initialiser (used by rnsAccentFill and RNSLogoView's fallback gradient)
 
   fileprivate init(r: UInt8, g: UInt8, b: UInt8, a: Double = 1) {
     self.init(

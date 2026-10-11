@@ -21,7 +21,7 @@ import AVFAudio
 
 struct CallRecord: Identifiable {
   let id = UUID()
-  /// lxst.telephony destination/identity hash hex of the remote party.
+  /// Destination hash hex of the remote party, as `startCall(to:)` accepts it.
   let peerHash: String
   let direction: Direction
   /// When the call attempt started (link establishment began).
@@ -75,7 +75,7 @@ final class CallsController {
 
   enum CallState: Equatable {
     case idle
-    case incoming(Data)  // inbound call ringing; caller's identity hash
+    case incoming(Data)  // inbound call ringing; caller's lxst.telephony hash
     case calling(Data)  // outbound call in progress to this destination hash
     case active(Data, Date)  // connected; peer hash + start time
     case failed(String)
@@ -100,7 +100,7 @@ final class CallsController {
   @ObservationIgnored private var telephone: Telephone?
 
   /// Display hash for the active/ringing call (dialled hash for outbound,
-  /// caller identity hash for inbound).
+  /// caller's lxst.telephony hash for inbound).
   ///
   /// Used to label the call UI.
   @ObservationIgnored private var activePeerHash: Data?
@@ -124,7 +124,7 @@ final class CallsController {
     phone.makeAudioBackend = { AVAudioEngineBackend() }
 
     phone.setRingingCallback { [weak self] callerIdentity in
-      let hash = callerIdentity?.hash ?? Data()
+      let hash = callerIdentity.map(Self.callHash(for:)) ?? Data()
       Task { @MainActor [weak self] in self?.handleRinging(callerHash: hash) }
     }
     phone.setEstablishedCallback { [weak self] remote in
@@ -188,6 +188,15 @@ final class CallsController {
   func announceLXSTNow() {
     telephone?.announce()
     Reticulum.log("CallsController: ad-hoc LXST announce sent", level: .notice)
+  }
+
+  /// The `lxst.telephony` destination hash that `identity` announces and answers on.
+  ///
+  /// Inbound call records hold this rather than `Identity.hash`, because
+  /// `Identity.recall` looks up only destination hashes: `startCall(to:)` can't
+  /// redial a Recents row that holds an identity hash.
+  nonisolated static func callHash(for identity: Identity) -> Data {
+    Destination.hash(identity: identity, appName: appName, aspects: [lxstTelephonyPrimitive])
   }
 
   // MARK: - Path query
@@ -272,11 +281,10 @@ final class CallsController {
   ///
   /// This is the *verified* public key from the link handshake, not something
   /// reconstructed from a hash—so it is the only reliable way to address the
-  /// other party while a call is up. It matters because `callState.incoming`
-  /// carries an **identity** hash, which nothing in Reticulum is keyed by:
-  /// `Identity.recall` cannot look it up, and a peer who has not announced this
-  /// session cannot be resolved any other way. Exposed so the in-call
-  /// add-to-contacts action can derive their `lxmf.delivery` address exactly.
+  /// other party while a call is up. It matters because the hash in
+  /// `callState.incoming` recalls only if the caller has announced LXST this
+  /// session, and nothing else resolves a peer who hasn't. Exposed so the
+  /// in-call add-to-contacts action can derive their `lxmf.delivery` address exactly.
   var activeCallRemoteIdentity: Identity? {
     telephone?.activeCall?.remoteIdentity
   }

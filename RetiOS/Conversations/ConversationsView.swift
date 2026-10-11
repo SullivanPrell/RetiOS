@@ -256,7 +256,7 @@ private struct ConversationList: View {
     let wanted = Set(summaries.map(\.peerHash))
     var out: [String: String] = [:]
     for p in peers where wanted.contains(p.destinationHash) {
-      if let name = p.displayName { out[p.destinationHash] = name }
+      if let name = p.name { out[p.destinationHash] = name }
     }
     return out
   }
@@ -316,7 +316,7 @@ private struct ConversationRow: View, Equatable {
           .foregroundStyle(.white)
           .padding(.horizontal, 6)
           .padding(.vertical, 2)
-          .background(Color.rnsAccent, in: Capsule())
+          .background(Color.rnsAccentFill, in: Capsule())
           .accessibilityLabel("\(summary.unread) unread")
       }
     }
@@ -337,7 +337,7 @@ private struct LXMFPeersContent: View {
   /// Destinations ▸ Peers.
   private var filtered: [PeerEntity] {
     guard let q = RNSSearch.query(searchText) else { return peers }
-    return peers.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }
+    return peers.filter { RNSSearch.matches(q, name: $0.name, hash: $0.destinationHash) }
   }
 
   var body: some View {
@@ -395,7 +395,7 @@ private struct LXMFPeerRow: View {
   var body: some View {
     HStack(spacing: 10) {
       PeerIdentityView(
-        name: peer.displayName ?? "Unknown Peer",
+        name: peer.name ?? "Unknown Peer",
         hash: peer.destinationHash,
         lastSeen: peer.lastSeen)
       Spacer()
@@ -419,19 +419,23 @@ private struct LXMFPeerRow: View {
 /// Peers list—contacts are a deliberate, user-curated address book.
 private struct ContactsContent: View {
   @Environment(\.modelContext) private var context
-  @Query(
-    filter: #Predicate<PeerEntity> { $0.isContact == true },
-    sort: \PeerEntity.displayName) private var contacts: [PeerEntity]
+  @Query(filter: #Predicate<PeerEntity> { $0.isContact == true })
+  private var contacts: [PeerEntity]
   @State private var searchText = ""
 
   /// The user asked for search on the *peers* lists, but a contact list is the
   /// same shape and sits one segment away; omitting it here would be the more
   /// surprising inconsistency.
   ///
-  /// Same match rule as the sibling lists.
+  /// Same match rule as the sibling lists. Sorted here rather than in the query:
+  /// SwiftData can't sort by the computed `label`, and sorting by the announced
+  /// name files a contact saved as "Mom" under whatever name she announces.
   private var filtered: [PeerEntity] {
-    guard let q = RNSSearch.query(searchText) else { return contacts }
-    return contacts.filter { RNSSearch.matches(q, name: $0.displayName, hash: $0.destinationHash) }
+    let sorted = contacts.sorted {
+      $0.label.localizedStandardCompare($1.label) == .orderedAscending
+    }
+    guard let q = RNSSearch.query(searchText) else { return sorted }
+    return sorted.filter { RNSSearch.matches(q, name: $0.name, hash: $0.destinationHash) }
   }
 
   var body: some View {
@@ -568,16 +572,15 @@ struct AddContactSheet: View {
     let trimmedName = nameInput.trimmingCharacters(in: .whitespaces)
     let descriptor = FetchDescriptor<PeerEntity>(
       predicate: #Predicate { $0.destinationHash == hash })
+    let peer: PeerEntity
     if let existing = try? context.fetch(descriptor).first {
-      existing.isContact = true
-      if !trimmedName.isEmpty { existing.displayName = trimmedName }
+      peer = existing
     } else {
-      let peer = PeerEntity(
-        destinationHash: hash,
-        displayName: trimmedName.isEmpty ? nil : trimmedName,
-        isContact: true)
+      peer = PeerEntity(destinationHash: hash)
       context.insert(peer)
     }
+    peer.isContact = true
+    if !trimmedName.isEmpty { peer.nickname = trimmedName }
     try? context.save()
     dismiss()
   }

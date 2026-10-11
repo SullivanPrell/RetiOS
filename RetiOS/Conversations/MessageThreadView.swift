@@ -388,7 +388,7 @@ private struct MessageBubble: View {
             // Received bubble uses the secondary grouped surface (white in
             // Light, dark-gray in Dark) so it always contrasts with the
             // grouped page—tertiary would match the page exactly in Light.
-            .background(message.isOutbound ? Color.rnsAccent : Color.rnsSurface)
+            .background(message.isOutbound ? Color.rnsAccentFill : Color.rnsSurface)
             .foregroundStyle(message.isOutbound ? .white : .primary)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
