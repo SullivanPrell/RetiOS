@@ -190,7 +190,7 @@ private struct ConversationListContent: View {
 /// Renders the resolved conversation summaries, attaching display names.
 ///
 /// Owns the `PeerEntity` query so that an announce invalidates *only* this view—rebuilding
-/// an O(peers) name map and diffing `Equatable` rows—instead of
+/// a name map for the peers with conversations and diffing `Equatable` rows—instead of
 /// re-scanning every message.
 private struct ConversationList: View {
   let summaries: [ConversationSummary]
@@ -198,6 +198,14 @@ private struct ConversationList: View {
   @Query private var peers: [PeerEntity]
   @State private var searchText = ""
   @State private var pendingDeletion: String?
+
+  /// Fetches only the peers with conversations. An unfiltered query re-read every
+  /// stored peer on each announce save, while this tab sat behind whatever screen was open.
+  init(summaries: [ConversationSummary]) {
+    self.summaries = summaries
+    let wanted = summaries.map(\.peerHash)
+    _peers = Query(filter: #Predicate<PeerEntity> { wanted.contains($0.destinationHash) })
+  }
 
   var body: some View {
     if summaries.isEmpty {
@@ -267,15 +275,10 @@ private struct ConversationList: View {
     return summaries.filter { RNSSearch.matches(q, name: names[$0.peerHash], hash: $0.peerHash) }
   }
 
-  /// Names for the peers that actually have conversations.
-  ///
-  /// Restricting to
-  /// those hashes keeps the map small on a node that has heard thousands of
-  /// announces but only ever messaged a handful of them.
+  /// Names for the peers that actually have conversations; `peers` holds only those.
   private func nameLookup() -> [String: String] {
-    let wanted = Set(summaries.map(\.peerHash))
     var out: [String: String] = [:]
-    for p in peers where wanted.contains(p.destinationHash) {
+    for p in peers {
       if let name = p.name { out[p.destinationHash] = name }
     }
     return out
