@@ -27,8 +27,6 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>RetiOS uses the local network — including IPv6 multicast — to discover and communicate with nearby Reticulum and Yggdrasil mesh nodes.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>RetiOS shows your position on the map and can include it when sharing location with the mesh.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>RetiOS uses the microphone for voice calls over the mesh.</string>
 	<key>UIBackgroundModes</key>

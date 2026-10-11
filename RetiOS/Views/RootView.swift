@@ -110,11 +110,7 @@ private struct TabRootView: View {
         .tag(AppTab.nomadNet)
         .tabItem { Label("NomadNet", systemImage: "globe.americas.fill") }
 
-      MapView()
-        .tag(AppTab.map)
-        .tabItem { Label("Map", systemImage: "map.fill") }
-
-      // NOTE: deliberately only 5 tabs here (not 6).
+      // NOTE: deliberately no more than 5 tabs here.
       //
       // `UITabBarController`—which backs SwiftUI's `TabView` on
       // iPhone / compact width—only displays 5 tabs directly; a sixth
@@ -349,7 +345,6 @@ private struct SidebarRootView: View {
     case .messages: ConversationsView()
     case .calls: CallsView()
     case .nomadNet: NomadNetContainerView()
-    case .map: MapView()
     case .interfaces: NavigationStack { InterfacesView() }
     case .tools: NavigationStack { ToolsView() }
     case .settings: SettingsView()
@@ -365,7 +360,6 @@ extension AppTab {
     case .messages: return "Messages"
     case .calls: return "Calls"
     case .nomadNet: return "NomadNet"
-    case .map: return "Map"
     case .interfaces: return "Interfaces"
     case .tools: return "Tools"
     case .settings: return "Settings"
@@ -377,7 +371,6 @@ extension AppTab {
     case .messages: return "message.fill"
     case .calls: return "phone.fill"
     case .nomadNet: return "globe.americas.fill"
-    case .map: return "map.fill"
     case .interfaces: return "antenna.radiowaves.left.and.right"
     case .tools: return "wrench.and.screwdriver.fill"
     case .settings: return "gear"

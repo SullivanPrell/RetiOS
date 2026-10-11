@@ -51,13 +51,12 @@ RetiOS is organized into these sections:
 | **Messages** | LXMF conversations—opportunistic, direct, and propagated delivery; searchable peer list, contacts, and add-to-contacts from inside a thread. |
 | **Calls** | LXST encrypted voice calls over Reticulum links, with a searchable peer list. |
 | **NomadNet** | Browse Micron pages, star nodes as favorites, join RRC chat rooms / channels, use the node directory, and (iPhone/iPad) author the Micron pages your own node serves. |
-| **Map** | Early map view (offline regions and mesh position sharing are in progress). |
 | **Interfaces** | Add, configure, and monitor interfaces—TCP, I2P, RNode, Yggdrasil, BLE mesh. |
 | **Tools** | Path table, announces, path ping, and a network visualizer. |
 | **Settings** | Identity, propagation-node sync, and live logs. |
 
-The layout adapts to the device: iPhone shows five tabs (Messages, Calls,
-NomadNet, Map, Settings) with Interfaces and Tools reached from Settings, while
+The layout adapts to the device: iPhone shows four tabs (Messages, Calls,
+NomadNet, Settings) with Interfaces and Tools reached from Settings, while
 iPad and Mac put every section in a sidebar. On the Mac, Settings lives in the
 standard **⌘,** window rather than the sidebar.
 

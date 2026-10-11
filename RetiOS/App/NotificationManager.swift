@@ -20,7 +20,6 @@ enum AppTab: String, Hashable, CaseIterable {
   case messages = "messages"
   case calls = "calls"
   case nomadNet = "nomadNet"
-  case map = "map"
   case interfaces = "interfaces"
   case tools = "tools"
   case settings = "settings"

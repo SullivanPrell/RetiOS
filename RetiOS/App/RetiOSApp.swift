@@ -254,9 +254,8 @@ struct RetiOSApp: App {
       goButton("Messages", .messages, "1")
       goButton("Calls", .calls, "2")
       goButton("NomadNet", .nomadNet, "3")
-      goButton("Map", .map, "4")
-      goButton("Interfaces", .interfaces, "5")
-      goButton("Tools", .tools, "6")
+      goButton("Interfaces", .interfaces, "4")
+      goButton("Tools", .tools, "5")
     }
   }
 
