@@ -171,7 +171,7 @@ private struct ChannelRowView: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Color.rnsAccent, in: Capsule())
+            .background(Color.rnsAccentFill, in: Capsule())
         }
       }
     }
