@@ -35,6 +35,10 @@ struct RootView: View {
     .frame(minWidth: 820, minHeight: 520)
       #endif
       .onAppear { showOnboarding = !hasCompletedOnboarding }
+      // Asked once the user knows the app, not over the welcome screen.
+      .task(id: hasCompletedOnboarding) {
+        if hasCompletedOnboarding { await notifs.requestPermission() }
+      }
       .modifier(
         OnboardingPresenter(isPresented: $showOnboarding) {
           hasCompletedOnboarding = true
@@ -560,6 +564,7 @@ private struct OnboardingConnectStep: View {
   @State private var entries: [InterfaceDirectory.Entry] = []
   @State private var loadFailed = false
   @State private var added: Set<String> = []
+  @State private var addError: String?
 
   private var quickAddable: [InterfaceDirectory.Entry] {
     Array(entries.filter(\.isQuickAddable).prefix(8))
@@ -601,6 +606,17 @@ private struct OnboardingConnectStep: View {
       guard entries.isEmpty else { return }
       do { entries = try await InterfaceDirectory.fetchOnline() } catch { loadFailed = true }
     }
+    .alert(
+      "Couldn't Add Gateway",
+      isPresented: Binding(
+        get: { addError != nil },
+        set: { if !$0 { addError = nil } }
+      )
+    ) {
+      Button("OK", role: .cancel) { addError = nil }
+    } message: {
+      Text(addError ?? "")
+    }
   }
 
   @ViewBuilder
@@ -627,6 +643,7 @@ private struct OnboardingConnectStep: View {
         Button("Add") { add(entry) }
           .buttonStyle(.bordered)
           .controlSize(.small)
+          .disabled(!stack.isRunning)
           .accessibilityLabel("Add \(entry.name)")
       }
     }
@@ -638,7 +655,11 @@ private struct OnboardingConnectStep: View {
       let port = entry.port,
       let portNum = UInt16(exactly: port)
     else { return }
-    try? stack.addAndSaveInterface(name: entry.name, host: entry.host, port: portNum, kind: kind)
-    added.insert(entry.name)
+    do {
+      try stack.addAndSaveInterface(name: entry.name, host: entry.host, port: portNum, kind: kind)
+      added.insert(entry.name)
+    } catch {
+      addError = error.localizedDescription
+    }
   }
 }

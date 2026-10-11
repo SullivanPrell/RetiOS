@@ -136,11 +136,6 @@ struct RetiOSApp: App {
           // bringing up the stack so no incoming calls are missed.
           notifs.callsController = calls
 
-          // Request notification permission early—before the first
-          // message or call could arrive—so the system dialog appears
-          // at a natural moment rather than mid-call.
-          await notifs.requestPermission()
-
           // DEBUG-only fixture rows for screenshot review; no-op
           // unless `-seedDemoData YES` and the store is empty.
           DemoData.seedIfNeeded(container.mainContext)
