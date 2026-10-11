@@ -331,21 +331,3 @@ private struct ChannelMessageBubble: View {
     .padding(.vertical, 4)
   }
 }
-
-// MARK: - Hex helper
-
-extension Data {
-  fileprivate init?(hexString: String) {
-    let hex = hexString.filter { $0.isHexDigit }
-    guard hex.count % 2 == 0 else { return nil }
-    var data = Data(capacity: hex.count / 2)
-    var idx = hex.startIndex
-    while idx < hex.endIndex {
-      let next = hex.index(idx, offsetBy: 2)
-      guard let byte = UInt8(hex[idx..<next], radix: 16) else { return nil }
-      data.append(byte)
-      idx = next
-    }
-    self = data
-  }
-}

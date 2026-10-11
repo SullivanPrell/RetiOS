@@ -89,7 +89,6 @@ struct BLEMeshView: View {
         .foregroundStyle(Color.rnsError)
       }
     }
-    .rnsRow()
   }
 
   private var peerSummary: String {
@@ -182,7 +181,6 @@ struct BLEMeshView: View {
         }
       }
     }
-    .rnsRow()
   }
 
   private func prettyCount(_ packets: Int, bytes: Int) -> String {
@@ -212,6 +210,5 @@ struct BLEMeshView: View {
         "Uses Bluetooth Low Energy. Range is short — typically tens of meters indoors. Keeping the mesh on increases battery use."
       )
     }
-    .rnsRow()
   }
 }

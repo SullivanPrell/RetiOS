@@ -71,7 +71,6 @@ struct RNodeView: View {
       }
       .padding(.vertical, 2)
     }
-    .rnsRow()
   }
 
   @ViewBuilder
@@ -128,7 +127,6 @@ struct RNodeView: View {
     } footer: {
       Text("Only devices advertising the Nordic UART Service (NUS) appear here.")
     }
-    .rnsRow()
   }
 
   // MARK: - Radio config readout (shown when online)
@@ -162,7 +160,6 @@ struct RNodeView: View {
         batteryRow(iface.rBatteryState)
       }
     }
-    .rnsRow()
   }
 
   private func radioRow(_ label: String, value: String?) -> some View {

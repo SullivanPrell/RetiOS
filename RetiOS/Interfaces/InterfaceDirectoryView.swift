@@ -53,7 +53,6 @@ struct InterfaceDirectorySheet: View {
             Label(err, systemImage: "exclamationmark.triangle")
               .foregroundStyle(Color.rnsError)
           }
-          .rnsRow()
         }
         if !filtered.isEmpty {
           Section {
@@ -64,7 +63,6 @@ struct InterfaceDirectorySheet: View {
               ) {
                 add(entry)
               }
-              .rnsRow()
             }
           } footer: {
             Text(

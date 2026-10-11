@@ -203,15 +203,6 @@ extension View {
       .tint(Color.accentColor)
   }
 
-  /// No-op.
-  ///
-  /// The navigation bar now renders with its native system material
-  /// (iOS 26 Liquid Glass), which looks correct in both Light and Dark once
-  /// the rest of the UI uses adaptive system colors. Previously this forced a
-  /// solid surface fill to stop the bar disappearing against the dark theme—no
-  /// longer needed, and fighting the system material is the non-HIG path.
-  func rnsNavigationBar() -> some View { self }
-
   /// Lets `List` / `Form` use their native (grouped) system background instead
   /// of a custom fill—the HIG-native look.
   ///
@@ -352,14 +343,6 @@ extension View {
       }
     }
   }
-
-  /// No-op.
-  ///
-  /// Rows now use the system's native row background, which keeps
-  /// correct selection / highlight / swipe-action behavior. The system row
-  /// color already matches `rnsSurface` (secondary grouped background), so this
-  /// changes nothing visually—it just stops overriding system row chrome.
-  func rnsRow() -> some View { self }
 
   /// No-op on macOS—`navigationBarTitleDisplayMode` only exists on
   /// iOS/iPadOS/tvOS/watchOS (it configures the *navigation bar's* title
@@ -1192,6 +1175,28 @@ enum RNSDate {
     f.dateTimeStyle = .named  // "yesterday" rather than "1 day ago"
     return f
   }()
+}
+
+// MARK: - Hex
+
+extension Data {
+  /// Parses hex, skipping any character that isn't a hex digit.
+  ///
+  /// Returns `nil` for an odd number of digits. `Data.hexString`, the other
+  /// direction, comes from ReticulumSwift.
+  init?<S: StringProtocol>(hexString: S) {
+    let hex = String(hexString.filter { $0.isHexDigit })
+    guard hex.count.isMultiple(of: 2) else { return nil }
+    var data = Data(capacity: hex.count / 2)
+    var index = hex.startIndex
+    while index < hex.endIndex {
+      let next = hex.index(index, offsetBy: 2)
+      guard let byte = UInt8(hex[index..<next], radix: 16) else { return nil }
+      data.append(byte)
+      index = next
+    }
+    self = data
+  }
 }
 
 // MARK: - Clipboard

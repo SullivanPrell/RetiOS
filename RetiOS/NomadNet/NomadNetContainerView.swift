@@ -49,7 +49,7 @@ struct NomadNetContainerView: View {
       }
       .rnsSectionPicker(Self.sections, selection: $section)
       // Flush pinned title (no large-title dead space)—matches the
-      // Messages tab. Replaces `.navigationTitle` + `.rnsNavigationBar()`.
+      // Messages tab. Replaces `.navigationTitle`.
       .rnsPinnedTitle("NomadNet")
     }
   }
@@ -150,7 +150,6 @@ struct NomadNetPeersContent: View {
         node.isFavorite.toggle()
         try? context.save()
       }
-      .rnsRow()
     }
     .rnsContentListStyle()
     .rnsScreenBackground()
@@ -244,7 +243,6 @@ struct NomadNetFavoritesContent: View {
             node.isFavorite.toggle()
             try? context.save()
           }
-          .rnsRow()
         }
         .rnsContentListStyle()
         .rnsScreenBackground()

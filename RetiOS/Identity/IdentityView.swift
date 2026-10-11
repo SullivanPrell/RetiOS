@@ -88,7 +88,6 @@ struct IdentityView: View {
         "This name is included in your LXMF announces. Peers see it instead of your raw hash. Leave blank to announce anonymously."
       )
     }
-    .rnsRow()
   }
 
   private var chatNicknameSection: some View {
@@ -101,7 +100,6 @@ struct IdentityView: View {
     } footer: {
       Text("Shown next to your messages in NomadNet channels (RRC). Leave blank to appear by hash.")
     }
-    .rnsRow()
   }
 
   private var thisNodeSection: some View {
@@ -125,7 +123,6 @@ struct IdentityView: View {
         "Your identity hash is your network address. Share it with others so they can message you or establish a link."
       )
     }
-    .rnsRow()
   }
 
   private func hashRow(_ hexHash: String) -> some View {

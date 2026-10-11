@@ -50,15 +50,15 @@ struct RootView: View {
     // so without this branch every Mac window fell through to
     // `TabRootView`—the *phone* layout: a `TabView` with each tab
     // independently wrapping itself in `NavigationStack` and applying
-    // `.rnsNavigationBar()` / `.rnsInlineNavigationTitle()`, which are
-    // no-ops on macOS (there's no navigation bar or nav-bar title-display
+    // `.rnsInlineNavigationTitle()`, which is a
+    // no-op on macOS (there's no navigation bar or nav-bar title-display
     // mode in a window toolbar). That's what "Mac styles are wildly
     // inconsistent" was: a touch-first tab-bar UI rendered through
     // AppKit's window chrome, with none of the iOS-only styling that
     // made it cohere—instead of `SidebarRootView`, the
     // `NavigationSplitView` layout literally labelled "iPad / Mac
-    // sidebar" below, which both `rnsNavigationBar()`'s doc comment and
-    // that label make clear was always the intended Mac experience.
+    // sidebar" below, which that label makes clear was always the
+    // intended Mac experience.
     //
     // macOS windows are always effectively "regular" width—there's no
     // compact/phone-sized macOS window—so route unconditionally there.
@@ -319,7 +319,6 @@ private struct SidebarRootView: View {
         )
       }
     }
-    .rnsRow()
   }
 
   // MARK: Toolbar

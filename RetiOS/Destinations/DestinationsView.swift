@@ -65,7 +65,6 @@ struct DestinationsView: View {
                 Label("Remove", systemImage: "trash")
               }
             }
-            .rnsRow()
           }
           .rnsScreenBackground()
           .searchable(text: $searchText, prompt: "Name or hash")
@@ -80,7 +79,6 @@ struct DestinationsView: View {
       }
       .navigationTitle("Peers")
       .rnsInlineNavigationTitle()
-      .rnsNavigationBar()
       .alert(
         "Cannot Start Call",
         isPresented: Binding(
@@ -140,21 +138,5 @@ private struct PeerRow: View {
     )
     .padding(.vertical, 2)
     .accessibilityElement(children: .combine)
-  }
-}
-
-extension Data {
-  fileprivate init?(hexString: String) {
-    let hex = hexString.filter { $0.isHexDigit }
-    guard hex.count % 2 == 0 else { return nil }
-    var data = Data(capacity: hex.count / 2)
-    var idx = hex.startIndex
-    while idx < hex.endIndex {
-      let next = hex.index(idx, offsetBy: 2)
-      guard let byte = UInt8(hex[idx..<next], radix: 16) else { return nil }
-      data.append(byte)
-      idx = next
-    }
-    self = data
   }
 }
