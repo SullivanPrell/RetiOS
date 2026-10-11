@@ -199,8 +199,10 @@ private struct ConversationList: View {
   @State private var searchText = ""
   @State private var pendingDeletion: String?
 
-  /// Fetches only the peers with conversations. An unfiltered query re-read every
-  /// stored peer on each announce save, while this tab sat behind whatever screen was open.
+  /// Fetches only the peers with conversations.
+  ///
+  /// An unfiltered query re-read every stored peer on each announce save, while this tab sat
+  /// behind whatever screen was open.
   init(summaries: [ConversationSummary]) {
     self.summaries = summaries
     let wanted = summaries.map(\.peerHash)
