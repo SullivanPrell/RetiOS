@@ -88,13 +88,6 @@ struct CallsView: View {
 
   // MARK: - Call states
 
-  /// `lxst.telephony` hashes heard from announces, handed to the in-call
-  /// contact action so it can identify an inbound caller (see
-  /// `CallPeerResolver`).
-  private var lxstPeerHashes: [String] {
-    calls.lxstPeers.map(\.destinationHash)
-  }
-
   private func incomingCallView(callerHash: Data) -> some View {
     VStack(spacing: 24) {
       Spacer()
@@ -117,8 +110,7 @@ struct CallsView: View {
         // Same affordance a message thread gets: save the other party
         // as a contact without leaving the call screen.
         CallContactAction(
-          callHash: callerHash, lxstPeerHashes: lxstPeerHashes,
-          liveIdentity: calls.activeCallRemoteIdentity)
+          callHash: callerHash, liveIdentity: calls.activeCallRemoteIdentity)
       }
       HStack(spacing: 40) {
         VStack(spacing: 8) {
@@ -166,8 +158,7 @@ struct CallsView: View {
         .foregroundStyle(.secondary)
         .lineLimit(1)
       CallContactAction(
-        callHash: hash, lxstPeerHashes: lxstPeerHashes,
-        liveIdentity: calls.activeCallRemoteIdentity)
+        callHash: hash, liveIdentity: calls.activeCallRemoteIdentity)
       Button(role: .destructive, action: { calls.endCall() }) {
         Label("Cancel", systemImage: "phone.down.fill")
           .font(.title3)
@@ -198,8 +189,7 @@ struct CallsView: View {
         Text(since, style: .timer)
           .foregroundStyle(.secondary)
         CallContactAction(
-          callHash: hash, lxstPeerHashes: lxstPeerHashes,
-          liveIdentity: calls.activeCallRemoteIdentity
+          callHash: hash, liveIdentity: calls.activeCallRemoteIdentity
         )
         .padding(.top, 4)
       }
@@ -385,52 +375,40 @@ private struct CallRecordRow: View {
 /// `PeerEntity.destinationHash` stores, so the other party can be saved as a
 /// contact.
 ///
-/// **An LXST call hash is not a contact hash.** Three different 16-byte
-/// namespaces show up in this tab, all derived from the same remote Identity but
-/// none interchangeable with the others:
+/// **An LXST call hash isn't a contact hash.** Two different 16-byte
+/// namespaces show up in this tab, both derived from the same remote Identity but
+/// not interchangeable:
 ///
 ///   * `lxst.telephony` destination hashes—what LXST announces carry, and what
-///     `LXSTPeer.destinationHash` and an outbound dial from the peers list hold.
-///   * Identity hashes—`Telephone`'s ringing callback reports the caller as
-///     `Identity.hash`, which is not a destination hash at all.
+///     `LXSTPeer.destinationHash`, an inbound ring, and an outbound dial from
+///     the peers list hold.
 ///   * `lxmf.delivery` destination hashes—the only thing `PeerEntity` accepts.
 ///
 /// Writing a call hash straight into a `PeerEntity` would mint a contact whose
 /// address routes nowhere and whose messages could never be delivered, so every
 /// contact action here resolves first and is simply unavailable when it cannot.
 private enum CallPeerResolver {
-  /// Name hash of `lxmf.delivery`.
-  ///
-  /// Constant for the life of the process.
-  private static let lxmfDeliveryNameHash =
-    Destination.computeNameHash(appName: "lxmf", aspects: ["delivery"])
-
   /// The remote party's `lxmf.delivery` destination hash (hex), or nil when the
   /// link to a real Identity cannot be proven.
   ///
   /// - Parameters:
   ///   - hash: the call's own destination hash.
-  ///   - lxstPeerHashes: `lxst.telephony` hashes currently known from
-  ///     announces. Used to identify an inbound caller, who is reported by
-  ///     identity hash rather than by any destination hash.
   ///   - liveIdentity: the remote party's handshake-verified `Identity` when a
   ///     call is on the line.
   /// - Returns: The hash in hex, or `nil` when it cannot be resolved.
   static func lxmfDeliveryHex(
     forCallHash hash: Data,
-    lxstPeerHashes: [String] = [],
     liveIdentity: Identity? = nil
   ) -> String? {
     // Case 0—a call is on the line, so the link handshake has already
     // proven the remote public key. This is the ONLY branch that works for
-    // an inbound call from a peer that has not announced this session,
-    // which is precisely the caller a user most wants to save: `.incoming`
-    // carries an *identity* hash, and nothing in Reticulum is keyed by one.
-    // Every branch below reconstructs what this one is simply handed.
+    // an inbound call from a peer that hasn't announced LXST this session,
+    // which is precisely the caller a user most wants to save: their call
+    // hash doesn't recall.
     //
     // This branch alone falls back to the unproven derivation. The other
-    // cases require the delivery destination to have been announced (see
-    // `announcedDeliveryHash`), because they fire passively while a list is
+    // case requires an announce of the delivery destination (see
+    // `announcedDeliveryHash`), because it fires passively while a list is
     // on screen. Here the identity is cryptographically verified and the
     // user has explicitly asked to save this caller, so deriving their
     // address is warranted even though whether they run LXMF at all is not yet
@@ -447,43 +425,12 @@ private enum CallPeerResolver {
     guard !hash.isEmpty else { return nil }
 
     // Case A—`hash` is a destination hash heard in an announce (an LXST
-    // peer row, or a hash dialled from Peers / New Call, both of which only
-    // reach a call state after `startCall` recalled the identity). Recall
-    // hands back the remote Identity and the delivery address follows from
-    // it. This is the same derivation `hasLXSTCallPath` performs, run the
+    // peer row, an inbound ring, or a hash dialled from Peers / New Call).
+    // Recall hands back the remote Identity and the delivery address follows
+    // from it. This is the same derivation `hasLXSTCallPath` performs, run the
     // other way round.
-    if let identity = Identity.recall(destinationHash: hash) {
-      return announcedDeliveryHash(for: identity)?.hexString
-    }
-
-    // From here `hash` is an Identity hash (an inbound ring), which never
-    // recalls because nothing is keyed by identity hash. Two ways to get
-    // back to the Identity itself, both of which must *prove* the match
-    // rather than assume it—an unknown destination hash reinterpreted as
-    // an identity hash would silently produce a garbage contact.
-
-    // Case B—the caller is one of the LXST peers heard announcing.
-    // Recalling that announce yields the Identity object, and comparing its
-    // own hash to the caller hash is the proof.
-    for hex in lxstPeerHashes {
-      guard let destination = Data(hexString: hex),
-        let identity = Identity.recall(destinationHash: destination),
-        identity.hash == hash
-      else { continue }
-      return announcedDeliveryHash(for: identity)?.hexString
-    }
-
-    // Case C—the caller never announced LXST but did announce LXMF. A
-    // single-kind destination hash is truncatedHash(nameHash + identityHash),
-    // so the delivery address is computable from the identity hash alone—the
-    // same bytes the `Destination` initialiser would produce given
-    // the Identity object. Recalling the derived hash and checking that the
-    // identity behind it hashes back to the caller is the proof here.
-    let derived = Identity.truncatedHash(lxmfDeliveryNameHash + hash)
-    if let identity = Identity.recall(destinationHash: derived), identity.hash == hash {
-      return derived.hexString
-    }
-    return nil
+    guard let identity = Identity.recall(destinationHash: hash) else { return nil }
+    return announcedDeliveryHash(for: identity)?.hexString
   }
 
   /// The identity's `lxmf.delivery` hash, but only if that destination has
@@ -543,19 +490,13 @@ private struct CallContactAction: View {
   ///
   /// - Parameters:
   ///   - callHash: the call's own destination hash.
-  ///   - lxstPeerHashes: passed in rather than read from the
-  ///     environment because resolution has to happen *in the initialiser*—it
-  ///     supplies the `@Query` predicate, and environment values are not
-  ///     available until the view body runs.
   ///   - liveIdentity: the remote party's handshake-verified
   ///     `Identity` when a call is on the line. Without it an inbound call from
   ///     a peer that has not announced this session resolves to
   ///     nothing—and an unknown caller is exactly the one worth saving.
-  init(callHash: Data, lxstPeerHashes: [String], liveIdentity: Identity? = nil) {
+  init(callHash: Data, liveIdentity: Identity? = nil) {
     let hex = CallPeerResolver.lxmfDeliveryHex(
-      forCallHash: callHash,
-      lxstPeerHashes: lxstPeerHashes,
-      liveIdentity: liveIdentity)
+      forCallHash: callHash, liveIdentity: liveIdentity)
     lxmfHex = hex
     // An unresolved call hash queries for the empty string, which no real
     // 32-character hash can equal, so the query stays empty rather than
