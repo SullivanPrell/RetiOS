@@ -28,7 +28,7 @@ packages:
     from: 1.10.0
   LXSTSwift:
     url: https://github.com/SullivanPrell/LXSTSwift.git
-    from: 1.5.0
+    from: 1.5.1
   NomadNetSwift:
     url: https://github.com/SullivanPrell/NomadNetSwift.git
     from: 1.5.0
