@@ -12,17 +12,24 @@ import Foundation
 import LXST
 import Observation
 import ReticulumSwift
+import SwiftData
 
 #if canImport(AVFAudio)
 import AVFAudio
 #endif
 
+#if os(iOS)
+import UIKit
+#endif
+
 // MARK: - Call history model
 
-struct CallRecord: Identifiable {
-  let id = UUID()
+struct CallRecord: Identifiable, Codable {
+  var id = UUID()
   /// Destination hash hex of the remote party, as `startCall(to:)` accepts it.
   let peerHash: String
+  /// The remote party's saved name when the call started.
+  var peerName: String?
   let direction: Direction
   /// When the call attempt started (link establishment began).
   let startTime: Date
@@ -35,9 +42,9 @@ struct CallRecord: Identifiable {
     return max(0, end.timeIntervalSince(startTime))
   }
 
-  enum Direction { case outbound, inbound }
+  enum Direction: Codable { case outbound, inbound }
 
-  enum Outcome: Equatable {
+  enum Outcome: Equatable, Codable {
     case calling  // outbound: link not yet established
     case answered  // link established, audio running
     case missed  // inbound: link closed before user accepted
@@ -81,8 +88,11 @@ final class CallsController {
     case failed(String)
   }
 
-  private(set) var callState: CallState = .idle
+  private(set) var callState: CallState = .idle {
+    didSet { updateProximityMonitoring() }
+  }
   private(set) var isMuted = false
+  private(set) var isSpeakerOn = false
   /// 16-byte hash of the local lxst.telephony destination (available after setup).
   private(set) var lxstCallHash: Data?
   /// Whether the local LXST call address is actively announced to the mesh.
@@ -90,14 +100,19 @@ final class CallsController {
     UserDefaults.standard.object(forKey: "lxstAnnounceEnabled") as? Bool ?? false
   }()
 
-  /// Recent calls (most recent first, capped at 100).
-  private(set) var callHistory: [CallRecord] = []
+  /// Recent calls (most recent first, capped at 100), kept across launches.
+  private(set) var callHistory: [CallRecord] = CallsController.loadHistory() {
+    didSet { Self.saveHistory(callHistory) }
+  }
+  /// The saved name of the party on the current call, or nil for an unknown peer.
+  private(set) var activePeerName: String?
   /// LXST-capable peers seen via mesh announces (most recent first).
   private(set) var lxstPeers: [LXSTPeer] = []
 
   @ObservationIgnored private var transport: Transport?
   @ObservationIgnored private var identity: Identity?
   @ObservationIgnored private var telephone: Telephone?
+  @ObservationIgnored private var modelContext: ModelContext?
 
   /// Display hash for the active/ringing call (dialled hash for outbound,
   /// caller's lxst.telephony hash for inbound).
@@ -109,12 +124,14 @@ final class CallsController {
 
   @ObservationIgnored private var lxstAnnounceHandler: LXSTCallAnnounceHandler?
   private static let lxstAnnounceKey = "lxstAnnounceEnabled"
+  nonisolated private static let historyKey = "callHistory"
 
   // MARK: - Setup
 
-  func setup(transport: Transport, identity: Identity) {
+  func setup(transport: Transport, identity: Identity, modelContext: ModelContext) {
     self.transport = transport
     self.identity = identity
+    self.modelContext = modelContext
 
     // Telephone registers its own inbound `lxst.telephony` destination and
     // owns the full call/audio lifecycle. This controller injects the platform
@@ -124,8 +141,7 @@ final class CallsController {
     phone.makeAudioBackend = { AVAudioEngineBackend() }
 
     phone.setRingingCallback { [weak self] callerIdentity in
-      let hash = callerIdentity.map(Self.callHash(for:)) ?? Data()
-      Task { @MainActor [weak self] in self?.handleRinging(callerHash: hash) }
+      Task { @MainActor [weak self] in self?.handleRinging(caller: callerIdentity) }
     }
     phone.setEstablishedCallback { [weak self] remote in
       let hash = remote?.hash
@@ -199,6 +215,32 @@ final class CallsController {
     Destination.hash(identity: identity, appName: appName, aspects: [lxstTelephonyPrimitive])
   }
 
+  /// The saved name of the LXMF peer for `identity`, found by its `lxmf.delivery` hash.
+  static func peerName(for identity: Identity, in context: ModelContext) -> String? {
+    let hex = Destination.hash(identity: identity, appName: "lxmf", aspects: ["delivery"])
+      .hexString
+    let descriptor = FetchDescriptor<PeerEntity>(
+      predicate: #Predicate { $0.destinationHash == hex })
+    return (try? context.fetch(descriptor))?.first?.name
+  }
+
+  private func peerName(for identity: Identity) -> String? {
+    modelContext.flatMap { Self.peerName(for: identity, in: $0) }
+  }
+
+  // MARK: - Call history
+
+  nonisolated static func loadHistory(from defaults: UserDefaults = .standard) -> [CallRecord] {
+    guard let data = defaults.data(forKey: historyKey) else { return [] }
+    return (try? JSONDecoder().decode([CallRecord].self, from: data)) ?? []
+  }
+
+  nonisolated static func saveHistory(
+    _ history: [CallRecord], to defaults: UserDefaults = .standard
+  ) {
+    defaults.set(try? JSONEncoder().encode(history), forKey: historyKey)
+  }
+
   // MARK: - Path query
 
   /// Returns `true` if a path to the peer's `lxst.telephony` destination is
@@ -257,9 +299,10 @@ final class CallsController {
     }
 
     activePeerHash = destinationHash
+    activePeerName = peerName(for: remoteIdentity)
     callState = .calling(destinationHash)
     pendingRecord = CallRecord(
-      peerHash: hex, direction: .outbound,
+      peerHash: hex, peerName: activePeerName, direction: .outbound,
       startTime: Date(), outcome: .calling)
 
     // Audio capture needs mic permission before Telephone opens its pipeline
@@ -339,18 +382,39 @@ final class CallsController {
     if isMuted { telephone?.muteTransmit() } else { telephone?.unmuteTransmit() }
   }
 
+  /// Moves the call between the receiver and the loudspeaker.
+  func toggleSpeaker() {
+    isSpeakerOn.toggle()
+    #if os(iOS) && !targetEnvironment(simulator)
+    try? AVAudioSession.sharedInstance().overrideOutputAudioPort(isSpeakerOn ? .speaker : .none)
+    #endif
+  }
+
+  /// Blanks the screen at the ear, so a cheek can't tap Mute or End.
+  private func updateProximityMonitoring() {
+    #if os(iOS)
+    switch callState {
+    case .calling, .active: UIDevice.current.isProximityMonitoringEnabled = true
+    default: UIDevice.current.isProximityMonitoringEnabled = false
+    }
+    #endif
+  }
+
   // MARK: - Telephone callback handlers (main actor)
 
-  private func handleRinging(callerHash: Data) {
+  private func handleRinging(caller: Identity?) {
     guard case .idle = callState else { return }
+    let callerHash = caller.map(Self.callHash(for:)) ?? Data()
     activePeerHash = callerHash
+    activePeerName = caller.flatMap(peerName(for:))
     callState = .incoming(callerHash)
 
     let callerHex = callerHash.hexString
     pendingRecord = CallRecord(
-      peerHash: callerHex, direction: .inbound,
+      peerHash: callerHex, peerName: activePeerName, direction: .inbound,
       startTime: Date(), outcome: .missed)
-    NotificationManager.shared.scheduleCallNotification(callerHash: callerHex)
+    NotificationManager.shared.scheduleCallNotification(
+      callerHash: callerHex, callerName: activePeerName)
     Reticulum.log("CallsController: inbound call from \(callerHex)", level: .notice)
   }
 
@@ -383,6 +447,7 @@ final class CallsController {
     callState = .failed("Peer is busy")
     isMuted = false
     activePeerHash = nil
+    activePeerName = nil
   }
 
   private func handleRejected() {
@@ -395,6 +460,7 @@ final class CallsController {
     callState = .failed("Call was declined")
     isMuted = false
     activePeerHash = nil
+    activePeerName = nil
   }
 
   // MARK: - Record helpers
@@ -409,6 +475,7 @@ final class CallsController {
     callState = .failed(message)
     isMuted = false
     activePeerHash = nil
+    activePeerName = nil
   }
 
   private func finalizeAndReset(outcome: CallRecord.Outcome) {
@@ -419,6 +486,7 @@ final class CallsController {
     callState = .idle
     isMuted = false
     activePeerHash = nil
+    activePeerName = nil
   }
 
   private func finalizePendingRecord(outcome: CallRecord.Outcome) {
@@ -456,12 +524,12 @@ final class CallsController {
   private func configureAudioSession() {
     #if os(iOS) && !targetEnvironment(simulator)
     let session = AVAudioSession.sharedInstance()
-    try? session.setCategory(
-      .playAndRecord,
-      mode: .voiceChat,
-      options: [.allowBluetooth, .defaultToSpeaker])
+    try? session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth])
+    // A call starts on the receiver, like the Phone app; Speaker overrides it.
+    try? session.overrideOutputAudioPort(.none)
     try? session.setActive(true)
     #endif
+    isSpeakerOn = false
   }
 }
 
