@@ -11,6 +11,10 @@ and `MARKETING_VERSION` in `project.yml`.
   its call peers' rows. With 5,033 stored peers and about one save a second, typing in its
   search field cost 445 ms of main-thread time per 10 s, and 7 ms after. A peer whose LXMF
   announce arrives after the list shows still gets its name and contact action.
+- **Messages ▸ Peers stops re-reading every stored peer on each peer save.** It lists the
+  500 peers heard most recently, and its search finds any stored peer. With about 5,000
+  stored peers and one save a second, the open list cost 712 ms of main-thread time per
+  10 s, and 70 to 106 ms after.
 
 ## [0.7.1]—messages reach MeshChatX, and typing keeps up
 

@@ -352,28 +352,53 @@ private struct ConversationRow: View, Equatable {
 
 // MARK: - LXMF Peers list
 
-/// All known LXMF peers from announce history, sorted by last seen.
-private struct LXMFPeersContent: View {
-  @Environment(\.modelContext) private var context
-  @Query(sort: \PeerEntity.lastSeen, order: .reverse) private var peers: [PeerEntity]
+/// LXMF peers from announce history, newest first.
+struct LXMFPeersContent: View {
   @State private var searchText = ""
 
-  /// Match on display name or hash, case-insensitively—the house rule from
-  /// Destinations ▸ Peers.
-  private var filtered: [PeerEntity] {
-    guard let q = RNSSearch.query(searchText) else { return peers }
-    return peers.filter { RNSSearch.matches(q, name: $0.name, hash: $0.destinationHash) }
+  /// The most peers the list holds.
+  ///
+  /// Every peer save re-runs the list's query on the main thread. Search reaches the rest.
+  static let limit = 500
+
+  /// The newest `limit` peers matching `search` by name or by hash prefix, case-insensitively,
+  /// like the sibling lists.
+  static func descriptor(search: String) -> FetchDescriptor<PeerEntity> {
+    var descriptor = FetchDescriptor<PeerEntity>(
+      sortBy: [SortDescriptor(\.lastSeen, order: .reverse)])
+    if let q = RNSSearch.query(search) {
+      descriptor.predicate = #Predicate {
+        $0.destinationHash.starts(with: q)
+          || ($0.nickname?.localizedStandardContains(q)
+            ?? ($0.displayName?.localizedStandardContains(q) ?? false))
+      }
+    }
+    descriptor.fetchLimit = limit
+    return descriptor
+  }
+
+  var body: some View { LXMFPeersList(searchText: $searchText) }
+}
+
+private struct LXMFPeersList: View {
+  @Environment(\.modelContext) private var context
+  @Query private var peers: [PeerEntity]
+  @Binding var searchText: String
+
+  init(searchText: Binding<String>) {
+    _searchText = searchText
+    _peers = Query(LXMFPeersContent.descriptor(search: searchText.wrappedValue))
   }
 
   var body: some View {
-    if peers.isEmpty {
+    if peers.isEmpty && RNSSearch.query(searchText) == nil {
       RNSEmptyState(
         title: "No Peers Yet",
         systemImage: "person.2.fill",
         description: "Peers appear as their LXMF announces arrive across the mesh."
       )
     } else {
-      List(filtered) { peer in
+      List(peers) { peer in
         NavigationLink(value: peer.destinationHash) {
           LXMFPeerRow(peer: peer)
         }
@@ -404,7 +429,7 @@ private struct LXMFPeersContent: View {
       .rnsContentListStyle()
       .rnsScreenBackground()
       .overlay {
-        if filtered.isEmpty && !searchText.isEmpty {
+        if peers.isEmpty {
           ContentUnavailableView.search(text: searchText)
         }
       }
