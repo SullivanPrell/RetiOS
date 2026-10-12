@@ -12,6 +12,37 @@ and `MARKETING_VERSION` in `project.yml`.
   search field cost 445 ms of main-thread time per 10 s, and 7 ms after. A peer whose LXMF
   announce arrives after the list shows still gets its name and contact action.
 
+## [0.7.1]—messages reach MeshChatX, and typing keeps up
+
+### Fixed
+
+- **Messages reach MeshChatX.** The app never learned a peer's stamp cost, so every message
+  went out without a stamp. Peers that require one, MeshChatX by default, dropped it without
+  telling you. LXMFSwift 1.10.1 learns the cost from announces and path responses.
+- **Typing no longer lags.** Under announce traffic the Messages list re-read every stored
+  peer once a second on the main thread, even while you were on another tab. Typing anywhere
+  stalled, more so the more peers the app had heard. It now reads only the peers you have
+  conversations with.
+- **A failed send keeps your message.** Sending to a peer whose keys hadn't arrived asked the
+  network for them and cleared the text anyway. The text now stays until the message is
+  queued.
+- **Lists no longer jump while scrolling.** On iOS 26 the tab roots' large titles sat blurred
+  under the top bar, and the bar resized as you scrolled. The tab roots go back to the pinned
+  titles and in-page search of v0.6, which undoes the system titles and search from 0.7.0.
+- **Search fields sit at the top** in Public Directory and RNS Logs. iOS 26 put them at the
+  bottom, where the directory's field covered the rows and blocked pull to refresh, and the
+  log's covered the newest lines.
+
+### Changed—under the hood
+
+- **Packages:** LXMFSwift 1.10.1.
+
+### Known issues
+
+- Sending to a peer that requires stamps computes the stamp before the message goes out. The
+  app stops responding for about a tenth of a second on a Mac, longer on a phone. A later
+  LXMFSwift moves this work off the main thread.
+
 ## [0.7.0]—HIG audit fixes, and calls that keep their sound
 
 ### Changed—behaviour you notice
