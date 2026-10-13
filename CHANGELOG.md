@@ -3,10 +3,17 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
-## [Unreleased]
+## [0.7.2]—sending never waits for a stamp, and quiet links stay open
 
 ### Fixed
 
+- **Sending to a peer that requires stamps no longer stalls the app.** LXMFSwift 1.11.0
+  computes the stamp in the background, as Python LXMF does, and sends the message once the
+  stamp is ready. This was the known issue in 0.7.1.
+- **Quiet links to Python and Go nodes stay open.** The app encrypted its link keepalives,
+  which Python and Go nodes send and expect in the clear. They never answered, so a link with
+  nothing to send closed about 15 seconds after its last data. ReticulumSwift 1.25.0 sends
+  keepalives as Python does.
 - **Calls ▸ Peers stops re-reading every stored peer on each peer save.** It fetches only
   its call peers' rows. With 5,033 stored peers and about one save a second, typing in its
   search field cost 445 ms of main-thread time per 10 s, and 7 ms after. A peer whose LXMF
@@ -15,6 +22,10 @@ and `MARKETING_VERSION` in `project.yml`.
   500 peers heard most recently, and its search finds any stored peer. With about 5,000
   stored peers and one save a second, the open list cost 712 ms of main-thread time per
   10 s, and 70 to 106 ms after.
+
+### Changed—under the hood
+
+- **Packages:** ReticulumSwift 1.25.0, LXMFSwift 1.11.0.
 
 ## [0.7.1]—messages reach MeshChatX, and typing keeps up
 
