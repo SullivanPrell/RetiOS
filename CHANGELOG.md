@@ -3,6 +3,15 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [Unreleased]
+
+### Fixed
+
+- **A sent message is stored under its LXMF message ID.** The app read the ID before LXMFSwift
+  packed the message, so every sent message got a random ID instead. A note to yourself showed
+  twice, because the received copy didn't match the sent one. A send that throws no longer leaves
+  a message stuck as outbound.
+
 ## [0.7.2]—sending never waits for a stamp, and quiet links stay open
 
 ### Fixed

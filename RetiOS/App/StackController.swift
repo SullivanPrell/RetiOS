@@ -1058,6 +1058,32 @@ final class StackController {
       destination: dest, source: source,
       content: content, title: title)
 
+    // Every transition, not just the terminal one.
+    //
+    // Delivery is proof-gated as of ReticulumSwift 1.8.0 / `bugs/014`: a message dwells in
+    // `.sending` for as long as the network actually takes, and drops back to `.outbound`
+    // when a proof does not come back, to be retried. Wired only to `onDelivery`, the UI
+    // showed a clock that never changed and a retry that was invisible—the message simply
+    // stopped moving with no explanation.
+    //
+    // Previously `onDelivery` fired synchronously from `send()`, so the checkmark appeared
+    // instantly and always, whether or not anyone received the message. That is the
+    // behaviour change users notice, and it is the point (R3).
+    msg.onStateChange = { [weak self] message in
+      guard let hash = message.hash else { return }
+      let messageHash = hash.map { String(format: "%02x", $0) }.joined()
+      Task { @MainActor [weak self] in
+        self?.updateDeliveryState(
+          messageHash: messageHash,
+          state: message.state,
+          context: context)
+      }
+    }
+
+    // `send` adds any ticket field, then packs, which sets `hash` and `timestamp`. The entity is
+    // saved before an `onStateChange` task runs: both run on the main actor.
+    try router.send(msg)
+
     let myHex = identity.hash.map { String(format: "%02x", $0) }.joined()
     let peerHex = peerHash.map { String(format: "%02x", $0) }.joined()
     let msgHashStr = msg.hash?.map { String(format: "%02x", $0) }.joined() ?? UUID().uuidString
@@ -1074,28 +1100,6 @@ final class StackController {
     )
     context.insert(entity)
     try? context.save()
-
-    // Every transition, not just the terminal one.
-    //
-    // Delivery is proof-gated as of ReticulumSwift 1.8.0 / `bugs/014`: a message dwells in
-    // `.sending` for as long as the network actually takes, and drops back to `.outbound`
-    // when a proof does not come back, to be retried. Wired only to `onDelivery`, the UI
-    // showed a clock that never changed and a retry that was invisible—the message simply
-    // stopped moving with no explanation.
-    //
-    // Previously `onDelivery` fired synchronously from `send()`, so the checkmark appeared
-    // instantly and always, whether or not anyone received the message. That is the
-    // behaviour change users notice, and it is the point (R3).
-    msg.onStateChange = { [weak self] message in
-      Task { @MainActor [weak self] in
-        self?.updateDeliveryState(
-          messageHash: msgHashStr,
-          state: message.state,
-          context: context)
-      }
-    }
-
-    try router.send(msg)
   }
 
   // MARK: - Private helpers
