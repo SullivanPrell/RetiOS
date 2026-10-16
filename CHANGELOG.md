@@ -11,6 +11,11 @@ and `MARKETING_VERSION` in `project.yml`.
   packed the message, so every sent message got a random ID instead. A note to yourself showed
   twice, because the received copy didn't match the sent one. A send that throws no longer leaves
   a message stuck as outbound.
+- **Saved and added TCP and Backbone gateways start off the main thread.** With the
+  ReticulumSwift fix, `start()` waits for the initial dial, up to 5 s for a peer that never
+  answers. At launch the app starts the saved gateways together, and sends its delivery announce
+  once each has connected or failed. Before, that announce went out while the gateways were still
+  dialling, and they dropped it.
 
 ## [0.7.2]—sending never waits for a stamp, and quiet links stay open
 
