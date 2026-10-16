@@ -3,7 +3,7 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
-## [Unreleased]
+## [0.7.3]—sent messages keep their ID, and a hostile packet can't stop the app
 
 ### Fixed
 
@@ -11,6 +11,17 @@ and `MARKETING_VERSION` in `project.yml`.
   packed the message, so every sent message got a random ID instead. A note to yourself showed
   twice, because the received copy didn't match the sent one. A send that throws no longer leaves
   a message stuck as outbound.
+- **An integer past `Int.max` no longer stops the app.** An announce, an RRC packet, a call
+  signalling packet or a resource advertisement carrying one ended the app. Each package now skips
+  or refuses it.
+- **A received resource stops at 64 MiB decompressed.** A few kilobytes on the wire could hold
+  hundreds of megabytes of memory.
+- **A TCP connection recovers after a lost frame boundary.** It dropped every later packet until
+  it reconnected.
+
+### Changed—under the hood
+
+- **Packages:** ReticulumSwift 1.26.0, LXMFSwift 1.11.1, LXSTSwift 1.5.2, NomadNetSwift 1.5.1.
 
 ## [0.7.2]—sending never waits for a stamp, and quiet links stay open
 
