@@ -352,6 +352,7 @@ final class StackController {
         // TCPServer running on the host, proving Python↔mobile reachability.
         seedInteropInterfaceFromEnvironment()
         #endif
+        var restored: [any Interface] = []
         for saved in savedInterfaces {
           let iface: any Interface
           switch saved.kind {
@@ -365,8 +366,21 @@ final class StackController {
           // goes out unprotected and the peer drops it (`bugs/015`).
           Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
           stack.transport.register(interface: iface)
-          try? iface.start()
+          restored.append(iface)
           Reticulum.log("StackController: restored saved interface '\(saved.name)'", level: .notice)
+        }
+        // Each `start()` waits for its initial dial, up to five seconds for a peer that never
+        // answers, so run them together on GCD: blocking the concurrency pool's threads would
+        // stall every other task. Awaiting keeps the delivery announce below from going out
+        // before the gateways can carry it.
+        let gateways = restored
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+          DispatchQueue.global(qos: .userInitiated).async {
+            DispatchQueue.concurrentPerform(iterations: gateways.count) {
+              try? gateways[$0].start()
+            }
+            done.resume()
+          }
         }
 
         // Restore I2P configuration—requires CI2PD.xcframework.
@@ -554,15 +568,11 @@ final class StackController {
     Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
     transport.register(interface: iface)
     interfacesRevision &+= 1
-    do {
-      try iface.start()
-      saveInterface(
-        name: name, host: normalizedHost, port: port, kind: kind,
-        networkName: networkName, passphrase: passphrase)
-    } catch {
-      transport.halt(interfaceName: name)
-      throw error
-    }
+    saveInterface(
+      name: name, host: normalizedHost, port: port, kind: kind,
+      networkName: networkName, passphrase: passphrase)
+    // `start()` never throws for these kinds and waits for the initial dial.
+    DispatchQueue.global(qos: .userInitiated).async { try? iface.start() }
   }
 
   /// Strip RFC 2732 square brackets from IPv6 address literals.
