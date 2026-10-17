@@ -376,7 +376,9 @@ final class StackController {
         let gateways = restored
         await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
           DispatchQueue.global(qos: .userInitiated).async {
-            DispatchQueue.concurrentPerform(iterations: gateways.count) { try? gateways[$0].start() }
+            DispatchQueue.concurrentPerform(iterations: gateways.count) {
+              try? gateways[$0].start()
+            }
             done.resume()
           }
         }
