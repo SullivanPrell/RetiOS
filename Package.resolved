@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SullivanPrell/LXMFSwift.git",
       "state" : {
-        "revision" : "ac7ccfc6bc8af2c3fa7702179bbc627e8b69011a",
-        "version" : "1.11.1"
+        "revision" : "bf2f8ed2376f92e63351e41233617715eeeab84e",
+        "version" : "1.12.0"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SullivanPrell/ReticulumSwift.git",
       "state" : {
-        "revision" : "b19d5a0a50a7e2f37c970b30fa7efd79dc81dd80",
-        "version" : "1.26.0"
+        "revision" : "c2b5f9c75ebbbb4b9849ce7572c2cdafbf141b3f",
+        "version" : "1.27.0"
       }
     },
     {
