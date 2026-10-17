@@ -3,7 +3,7 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
-## [Unreleased]
+## [0.7.3]—sent messages keep their ID, and a hostile packet can't stop the app
 
 ### Fixed
 
@@ -16,6 +16,25 @@ and `MARKETING_VERSION` in `project.yml`.
   answers. At launch the app starts the saved gateways together, and sends its delivery announce
   once each has connected or failed. Before, that announce went out while the gateways were still
   dialling, and they dropped it.
+- **A Backbone gateway that was down when the app started connects once it's back.**
+  ReticulumSwift 1.27.0 redials a refused Backbone peer every 5 s, as Python does. Before, it
+  stayed offline until the network changed.
+- **A gateway that never answers is retried about every 10 s.** Each dial now gives up after 5 s,
+  as Python's do, and the next one starts 5 s later. Before, each dial waited out the system's
+  connection timeout.
+- **A message sent while a delivery pass runs goes out when that pass ends.** Before, it waited
+  up to 4 s for the next pass. LXMFSwift 1.12.0 fixes this.
+- **An integer past `Int.max` no longer stops the app.** An announce, an RRC packet, a call
+  signalling packet or a resource advertisement carrying one ended the app. Each package now skips
+  or refuses it.
+- **A received resource stops at 64 MiB decompressed.** A few kilobytes on the wire could hold
+  hundreds of megabytes of memory.
+- **A TCP connection recovers after a lost frame boundary.** It dropped every later packet until
+  it reconnected.
+
+### Changed—under the hood
+
+- **Packages:** ReticulumSwift 1.27.0, LXMFSwift 1.12.0, LXSTSwift 1.5.2, NomadNetSwift 1.5.1.
 
 ## [0.7.2]—sending never waits for a stamp, and quiet links stay open
 
