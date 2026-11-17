@@ -3,6 +3,13 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [Unreleased]
+
+### Changed
+
+- RetiOS requires ReticulumSwift 1.28.0, which matches RNS 1.6.0, and LXMFSwift 1.13.0, which
+  matches LXMF 1.3.0.
+
 ## [0.7.3]—sent messages keep their ID, and a hostile packet can't stop the app
 
 ### Fixed
