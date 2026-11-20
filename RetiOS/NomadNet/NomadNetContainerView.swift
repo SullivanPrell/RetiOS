@@ -187,19 +187,21 @@ private struct NomadNodeRow: View {
   let onToggleFavorite: () -> Void
 
   var body: some View {
-    HStack(spacing: 12) {
-      Button(action: onToggleFavorite) {
-        Image(systemName: node.isFavorite ? "star.fill" : "star")
-          .foregroundStyle(node.isFavorite ? Color.rnsWarning : Color.rnsTextMuted)
-      }
-      .buttonStyle(.plain)
-      .accessibilityLabel(node.isFavorite ? "Remove from favorites" : "Add to favorites")
+    RNSAdaptiveRow(spacing: 12) {
+      HStack(spacing: 12) {
+        Button(action: onToggleFavorite) {
+          Image(systemName: node.isFavorite ? "star.fill" : "star")
+            .foregroundStyle(node.isFavorite ? Color.rnsWarning : Color.rnsTextMuted)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(node.isFavorite ? "Remove from favorites" : "Add to favorites")
 
-      // Shared identity block—same as the LXMF/LXST peer rows.
-      PeerIdentityView(
-        name: node.displayName ?? "Unknown Node",
-        hash: node.destinationHash,
-        lastSeen: node.lastSeen)
+        // Shared identity block—same as the LXMF/LXST peer rows.
+        PeerIdentityView(
+          name: node.displayName ?? "Unknown Node",
+          hash: node.destinationHash,
+          lastSeen: node.lastSeen)
+      }
       Spacer()
       Button("Browse") { onBrowse(node.destinationHash) }
         .buttonStyle(.bordered)

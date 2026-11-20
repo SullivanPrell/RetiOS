@@ -188,21 +188,9 @@ struct RNSLogoView: View {
   }
 }
 
-// MARK: - Convenience modifier: Reticulum accent tint
+// MARK: - Screen modifiers
 
 extension View {
-  /// Applies the Reticulum brand accent to this view tree.
-  ///
-  /// The app no longer forces an appearance—`UIUserInterfaceStyle` was
-  /// removed from Info.plist so RetiOS follows the user's system Light/Dark
-  /// setting (the HIG-native behavior). `preferredColorScheme` is deliberately
-  /// not used, so accessibility overrides (Smart Invert, Increase Contrast)
-  /// are respected; all colors resolve through system semantic tokens.
-  func rnsTheme() -> some View {
-    self
-      .tint(Color.accentColor)
-  }
-
   /// Lets `List` / `Form` use their native (grouped) system background instead
   /// of a custom fill—the HIG-native look.
   ///
@@ -1104,6 +1092,25 @@ struct RNSBadge: View {
 /// had diverged on the name font (`.headline` vs `.body.weight(.medium)`). When
 /// `name` is nil the truncated hash becomes the primary label (no duplicate
 /// hash line).
+/// A list row's horizontal stack that turns vertical at accessibility text sizes.
+///
+/// Beside a one-line title, a trailing date or button squeezed the title to a single
+/// character and wrapped mid-word ("Bro" / "wse"). HIG Typography asks for a stacked
+/// layout when text is that large.
+struct RNSAdaptiveRow<Content: View>: View {
+  var spacing: CGFloat? = nil
+  @ViewBuilder var content: Content
+  @Environment(\.dynamicTypeSize) private var typeSize
+
+  var body: some View {
+    let layout =
+      typeSize.isAccessibilitySize
+      ? AnyLayout(VStackLayout(alignment: .leading, spacing: spacing))
+      : AnyLayout(HStackLayout(spacing: spacing))
+    layout { content }
+  }
+}
+
 struct PeerIdentityView: View {
   let name: String?
   let hash: String

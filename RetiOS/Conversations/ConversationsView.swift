@@ -126,47 +126,19 @@ private enum MessagesSection: Hashable { case conversations, contacts, peers }
 /// re-rendering rows that didn't change, and it keeps `@Model` references out of
 /// the row views (reading a model property inside a row body would re-subscribe
 /// that row to the object).
-private struct ConversationSummary: Identifiable, Equatable {
+struct ConversationSummary: Identifiable, Equatable, Sendable {
   let peerHash: String
   let preview: String
   let timestamp: Date
   let unread: Int
   var id: String { peerHash }
-}
 
-/// Deduplicated list of conversations (latest message per peer), sorted newest-first.
-///
-/// Performance note: this view queries ALL messages once and deduplicates in Swift,
-/// rather than using per-row @Query (which would spawn N live database subscriptions
-/// for N conversations—causing mass re-renders on every announce flush).
-///
-/// It deliberately does **not** query `PeerEntity`—that lives one level down in
-/// `ConversationList`, so the name lookup and the message scan sit in separate
-/// views with separate inputs.
-///
-/// Be aware of what this did **not** achieve: `Self._printChanges()` still
-/// attributes a re-render of *this* view to `QueryController<PeerEntity>` under
-/// announce traffic, even though it declares no such query. `@Query`
-/// invalidation is evidently broader than per-view, and SwiftData publishes no
-/// documentation of its scope, so the mechanism is unexplained. The split was
-/// kept because value-typed `Equatable` summary rows are worth having on their
-/// own—not because it stops the grouping below from re-running.
-///
-/// Measured cost of that spurious re-run today: below the noise floor (p95 main-
-/// thread delay stays at 0.1 ms under a 40-peer announce storm). It is a
-/// scalability concern for very large message tables, not a current lag source.
-private struct ConversationListContent: View {
-  @Query(sort: \MessageEntity.timestamp, order: .reverse) private var messages: [MessageEntity]
-
-  var body: some View {
-    ConversationList(summaries: summarize())
-  }
-
-  /// One entry per peer hash: latest message, unread count.
+  /// One entry per conversation: its latest message and unread count, newest first.
   ///
-  /// O(messages), run
-  /// only when the message table itself changes.
-  private func summarize() -> [ConversationSummary] {
+  /// Reads every message, so call it off the main thread.
+  static func load(from container: ModelContainer) throws -> [ConversationSummary] {
+    let messages = try ModelContext(container).fetch(
+      FetchDescriptor<MessageEntity>(sortBy: [SortDescriptor(\.timestamp, order: .reverse)]))
     var latest: [String: MessageEntity] = [:]
     var unread: [String: Int] = [:]
     for msg in messages {
@@ -184,6 +156,57 @@ private struct ConversationListContent: View {
           unread: unread[msg.conversationHash] ?? 0
         )
       }
+  }
+
+  /// Whether a `ModelContext.didSave` notification inserted, updated or deleted a message.
+  static func touchesMessages(_ note: Notification) -> Bool {
+    let keys: [ModelContext.NotificationKey] = [
+      .insertedIdentifiers, .updatedIdentifiers, .deletedIdentifiers,
+    ]
+    return keys.contains { key in
+      (note.userInfo?[key.rawValue] as? [PersistentIdentifier])?
+        .contains { $0.entityName == String(describing: MessageEntity.self) } ?? false
+    }
+  }
+}
+
+/// Deduplicated list of conversations (latest message per peer), sorted newest-first.
+///
+/// Loads the summaries off the main thread, and again only after a save that touches a
+/// message.
+///
+/// An `@Query` over every message re-ran its fetch on every save in the app, including the
+/// background peer save each announce makes. With 20,000 stored messages and one peer save a
+/// second, that held the main thread for about 2.7 s of every 10 s while this tab sat behind
+/// whatever screen was open.
+private struct ConversationListContent: View {
+  @Environment(\.modelContext) private var context
+  /// `nil` until the first load, so the empty state doesn't flash at launch.
+  @State private var summaries: [ConversationSummary]?
+
+  var body: some View {
+    Group {
+      if let summaries {
+        ConversationList(summaries: summaries)
+      } else {
+        ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+      }
+    }
+    .task {
+      await reload()
+      for await note in NotificationCenter.default.notifications(named: ModelContext.didSave)
+      where ConversationSummary.touchesMessages(note) {
+        await reload()
+      }
+    }
+  }
+
+  private func reload() async {
+    let container = context.container
+    let loaded = await Task.detached(priority: .userInitiated) {
+      try? ConversationSummary.load(from: container)
+    }.value
+    if let loaded { summaries = loaded }
   }
 }
 
@@ -322,7 +345,7 @@ private struct ConversationRow: View, Equatable {
   var body: some View {
     HStack(spacing: 10) {
       VStack(alignment: .leading, spacing: 3) {
-        HStack {
+        RNSAdaptiveRow {
           Text(label)
             .font(summary.unread > 0 ? .headline.weight(.bold) : .headline)
           Spacer()

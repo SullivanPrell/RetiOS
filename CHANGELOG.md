@@ -10,6 +10,17 @@ and `MARKETING_VERSION` in `project.yml`.
 - RetiOS requires ReticulumSwift 1.28.0, which matches RNS 1.6.0, and LXMFSwift 1.13.0, which
   matches LXMF 1.3.0.
 
+### Fixed
+
+- **Typing no longer stalls when many messages are stored.** The Messages list re-read every
+  stored message on each save the app made, including the peer save each announce makes. With
+  20,000 messages and one announce a second, that held the main thread for about 2.7 s of every
+  10 s. The list now loads off the main thread, and only after a save that changes a message.
+- **List rows stay readable at the largest text sizes.** A row's date or Browse button moves to
+  its own line at accessibility text sizes. Before, it squeezed the name to one character and
+  wrapped mid-word.
+- **Delete swipe actions are red.** An app-wide tint had turned them the accent blue.
+
 ## [0.7.3]—sent messages keep their ID, and a hostile packet can't stop the app
 
 ### Fixed
