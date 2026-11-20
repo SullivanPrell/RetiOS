@@ -17,20 +17,8 @@ import SwiftUI
 // it can be embedded in NomadNetContainerView without nesting stacks.
 struct NomadNetBrowserContent: View {
   @Environment(NomadNetController.self) private var nomadNet
-  @Environment(\.modelContext) private var context
   @State private var urlInput = ""
   @FocusState private var urlBarFocused: Bool
-
-  // Every starred node, not "the node currently being browsed": a @Query's
-  // predicate is fixed at init, and the browsed hash changes as the user
-  // navigates, so a per-node query would go stale the moment they follow a
-  // link. The favorites set is small (user-curated) and this query is already
-  // the one the Favorites list uses, so scanning it for the current hash is
-  // cheap. It also keeps the star reactive in both directions: SwiftData
-  // republishes this array when isFavorite flips, and `currentURL` is
-  // @Observable, so navigating re-evaluates `isCurrentFavorite` too.
-  @Query(filter: #Predicate<NomadNodeEntity> { $0.isFavorite == true })
-  private var favorites: [NomadNodeEntity]
 
   var body: some View {
     VStack(spacing: 0) {
@@ -106,22 +94,9 @@ struct NomadNetBrowserContent: View {
         // colors as the star in NomadNodeRow (Peers/Favorites lists) so
         // both affordances read as one control. Same condition as the
         // identify button: with no page loaded there is nothing to star.
-        Button(action: toggleFavorite) {
-          Image(systemName: isCurrentFavorite ? "star.fill" : "star")
-            .foregroundStyle(isCurrentFavorite ? Color.rnsWarning : Color.rnsTextMuted)
+        if let hash = currentNodeHash {
+          FavoriteStarButton(hash: hash)
         }
-        .buttonStyle(.plain)
-        .frame(minWidth: 44, minHeight: 44)
-        .contentShape(Rectangle())
-        .accessibilityLabel(
-          isCurrentFavorite
-            ? "Remove this node from favorites"
-            : "Add this node to favorites"
-        )
-        .help(
-          isCurrentFavorite
-            ? "Favorited — tap to remove from favorites"
-            : "Add this node to favorites")
       }
 
       if nomadNet.isLoading {
@@ -173,38 +148,6 @@ struct NomadNetBrowserContent: View {
   /// this one conversion.
   private var currentNodeHash: String? {
     nomadNet.currentURL?.destinationHash.hexString
-  }
-
-  private var isCurrentFavorite: Bool {
-    guard let hash = currentNodeHash else { return false }
-    return favorites.contains { $0.destinationHash == hash }
-  }
-
-  private func toggleFavorite() {
-    guard let hash = currentNodeHash else { return }
-
-    if let starred = favorites.first(where: { $0.destinationHash == hash }) {
-      starred.isFavorite = false
-    } else {
-      // A hash typed by hand may have no NomadNodeEntity yet—the browser
-      // never requires an announce, only the announce handler creates rows.
-      // destinationHash is @Attribute(.unique), so fetch before inserting:
-      // a blind insert of an existing hash would collide with the row the
-      // announce handler may already have written from its background
-      // context. displayName stays nil (the URL bar has no name to offer);
-      // the next announce fills it in, and `label` shows the short hash
-      // meanwhile.
-      var descriptor = FetchDescriptor<NomadNodeEntity>(
-        predicate: #Predicate { $0.destinationHash == hash }
-      )
-      descriptor.fetchLimit = 1
-      if let existing = try? context.fetch(descriptor).first {
-        existing.isFavorite = true
-      } else {
-        context.insert(NomadNodeEntity(destinationHash: hash, isFavorite: true))
-      }
-    }
-    try? context.save()
   }
 
   // MARK: - Page content
@@ -335,6 +278,71 @@ struct NomadNetBrowserContent: View {
         nomadNet.navigate(to: target + suffix, fields: fieldValues)
       }
     }
+  }
+}
+
+/// The URL bar's star for the node being browsed.
+///
+/// Its own view, so a save that republishes the query re-renders only the star, not the page.
+/// The query reads one row through the unique `destinationHash` index: a query over every
+/// favorite was a table scan, rerun on the main thread after each background announce save.
+struct FavoriteStarButton: View {
+  let hash: String
+  @Environment(\.modelContext) private var context
+  @Query private var starred: [NomadNodeEntity]
+
+  init(hash: String) {
+    self.hash = hash
+    _starred = Query(Self.descriptor(hash: hash))
+  }
+
+  static func descriptor(hash: String) -> FetchDescriptor<NomadNodeEntity> {
+    FetchDescriptor(predicate: #Predicate { $0.destinationHash == hash && $0.isFavorite == true })
+  }
+
+  var body: some View {
+    let isFavorite = !starred.isEmpty
+    Button(action: toggle) {
+      Image(systemName: isFavorite ? "star.fill" : "star")
+        .foregroundStyle(isFavorite ? Color.rnsWarning : Color.rnsTextMuted)
+    }
+    .buttonStyle(.plain)
+    .frame(minWidth: 44, minHeight: 44)
+    .contentShape(Rectangle())
+    .accessibilityLabel(
+      isFavorite
+        ? "Remove this node from favorites"
+        : "Add this node to favorites"
+    )
+    .help(
+      isFavorite
+        ? "Favorited — tap to remove from favorites"
+        : "Add this node to favorites")
+  }
+
+  private func toggle() {
+    if let node = starred.first {
+      node.isFavorite = false
+    } else {
+      // A hash typed by hand may have no NomadNodeEntity yet—the browser
+      // never requires an announce, only the announce handler creates rows.
+      // destinationHash is @Attribute(.unique), so fetch before inserting:
+      // a blind insert of an existing hash would collide with the row the
+      // announce handler may already have written from its background
+      // context. displayName stays nil (the URL bar has no name to offer);
+      // the next announce fills it in, and `label` shows the short hash
+      // meanwhile.
+      var descriptor = FetchDescriptor<NomadNodeEntity>(
+        predicate: #Predicate { $0.destinationHash == hash }
+      )
+      descriptor.fetchLimit = 1
+      if let existing = try? context.fetch(descriptor).first {
+        existing.isFavorite = true
+      } else {
+        context.insert(NomadNodeEntity(destinationHash: hash, isFavorite: true))
+      }
+    }
+    try? context.save()
   }
 }
 
