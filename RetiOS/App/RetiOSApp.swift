@@ -111,12 +111,10 @@ struct RetiOSApp: App {
       shared
       .environment(pageStore)
       .modelContainer(container)
-      .rnsTheme()
     #else
     return
       shared
       .modelContainer(container)
-      .rnsTheme()
     #endif
   }
 

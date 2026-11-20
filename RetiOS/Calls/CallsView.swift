@@ -327,27 +327,29 @@ private struct CallRecordRow: View {
   let record: CallRecord
 
   var body: some View {
-    HStack(spacing: 12) {
-      Image(systemName: directionIcon)
-        .foregroundStyle(outcomeColor)
-        .frame(width: 28)
+    RNSAdaptiveRow(spacing: 12) {
+      HStack(spacing: 12) {
+        Image(systemName: directionIcon)
+          .foregroundStyle(outcomeColor)
+          .frame(width: 28)
 
-      VStack(alignment: .leading, spacing: 3) {
-        Text(record.peerName ?? (record.peerHash.isEmpty ? "Unknown" : record.peerHash))
-          .font(.body.weight(.medium))
-          .lineLimit(1)
-          .truncationMode(.middle)
-        HStack(spacing: 6) {
-          Text(outcomeLabel)
-            .font(.caption)
-            .foregroundStyle(outcomeColor)
-          if let dur = record.duration {
-            Text("·")
+        VStack(alignment: .leading, spacing: 3) {
+          Text(record.peerName ?? (record.peerHash.isEmpty ? "Unknown" : record.peerHash))
+            .font(.body.weight(.medium))
+            .lineLimit(1)
+            .truncationMode(.middle)
+          HStack(spacing: 6) {
+            Text(outcomeLabel)
               .font(.caption)
-              .foregroundStyle(.tertiary)
-            Text(durationString(dur))
-              .font(.caption)
-              .foregroundStyle(.secondary)
+              .foregroundStyle(outcomeColor)
+            if let dur = record.duration {
+              Text("·")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+              Text(durationString(dur))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
           }
         }
       }

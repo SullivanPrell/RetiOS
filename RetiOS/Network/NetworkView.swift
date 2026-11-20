@@ -136,7 +136,7 @@ private struct PathRow: View {
   let interfaceName: String
 
   var body: some View {
-    HStack(spacing: 12) {
+    RNSAdaptiveRow(spacing: 12) {
       VStack(alignment: .leading, spacing: 2) {
         Text(hash.truncatedHash)
           .font(.caption.monospaced())

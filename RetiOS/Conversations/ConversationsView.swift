@@ -345,7 +345,7 @@ private struct ConversationRow: View, Equatable {
   var body: some View {
     HStack(spacing: 10) {
       VStack(alignment: .leading, spacing: 3) {
-        HStack {
+        RNSAdaptiveRow {
           Text(label)
             .font(summary.unread > 0 ? .headline.weight(.bold) : .headline)
           Spacer()
