@@ -620,6 +620,8 @@ struct AddContactSheet: View {
           TextField("Nickname (optional)", text: $nameInput)
         }
       }
+      // macOS's automatic style is `.columns`, and a sheet doesn't inherit one set higher up.
+      .formStyle(.grouped)
       .rnsScreenBackground()
       .navigationTitle("Add Contact")
       .rnsInlineNavigationTitle()
