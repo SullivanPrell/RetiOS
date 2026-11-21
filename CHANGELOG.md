@@ -7,14 +7,24 @@ and `MARKETING_VERSION` in `project.yml`.
 
 ### Added
 
+- **Stamps & Gravity settings.** Settings ▸ Network ▸ Stamps & Gravity sets what a Python
+  config file sets in `[stamps]`: enforcement, stamping every link request, the costs required of
+  announces, path requests and link requests, the values of this device's own stamps, and the
+  stamp timeouts. It also sets `default_gravity` and the messaging address's stamp value. Changes
+  take effect the next time Reticulum starts.
+- **Per-interface gravity and stamp costs.** Adding a TCP gateway or Yggdrasil peer takes its
+  `gravity`, `destination_cost` and `pr_cost`. Saved interfaces from earlier versions keep the
+  defaults.
+- RetiOS wants NomadNet node and RRC hub announces when it starts, as NomadNet does.
 - **Each interface opens to its `rnstatus` details.** Tap an interface to see the block Python's
   `rnstatus -A` prints for it: status and gravity, mode, rate, IFAC network and size, announce
   rates, traffic, and clients or peers. It refreshes every 2 s and never shows an IFAC passphrase.
 
 ### Changed
 
-- RetiOS requires ReticulumSwift 1.28.0, which matches RNS 1.6.0, and LXMFSwift 1.13.0, which
-  matches LXMF 1.3.0.
+- RetiOS requires ReticulumSwift 1.29.0, LXMFSwift 1.14.0, NomadNetSwift 1.5.2 and LXSTSwift
+  1.5.3, which match RNS 1.6.1, LXMF 1.3.1, NomadNet 1.5.1 and LXST 0.6.1. RNS 1.6.1 stamps
+  announces and path requests by default, so they leave once a stamp is generated.
 
 ### Fixed
 

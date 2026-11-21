@@ -140,6 +140,10 @@ struct SettingsView: View {
         Label("RNS Tools", systemImage: "wrench.and.screwdriver.fill")
       }
 
+      NavigationLink(destination: StampSettingsView()) {
+        Label("Stamps & Gravity", systemImage: "seal")
+      }
+
       NavigationLink(destination: PropagationNodeView()) {
         LabeledContent("Propagation node") {
           if let hex = stack.propagationNodeHash {

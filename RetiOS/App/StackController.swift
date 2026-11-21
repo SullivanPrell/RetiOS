@@ -57,9 +57,16 @@ final class StackController {
     var networkName: String?
     var passphrase: String?
 
+    /// The block's `gravity`, `destination_cost` and `pr_cost` (`Reticulum.py:1071-1087`).
+    /// `nil` leaves the library default: `default_gravity`, and no per-interface cost.
+    var gravity: Int?
+    var destinationCost: Double?
+    var prCost: Double?
+
     init(
       name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp,
-      networkName: String? = nil, passphrase: String? = nil
+      networkName: String? = nil, passphrase: String? = nil,
+      gravity: Int? = nil, destinationCost: Double? = nil, prCost: Double? = nil
     ) {
       self.name = name
       self.host = host
@@ -67,10 +74,13 @@ final class StackController {
       self.kind = kind
       self.networkName = networkName
       self.passphrase = passphrase
+      self.gravity = gravity
+      self.destinationCost = destinationCost
+      self.prCost = prCost
     }
 
     enum CodingKeys: String, CodingKey {
-      case name, host, port, kind, networkName, passphrase
+      case name, host, port, kind, networkName, passphrase, gravity, destinationCost, prCost
     }
     init(from decoder: Decoder) throws {
       let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -81,14 +91,20 @@ final class StackController {
       // Absent in interfaces saved before this release—decoded as nil, which is "no IFAC".
       networkName = try c.decodeIfPresent(String.self, forKey: .networkName)
       passphrase = try c.decodeIfPresent(String.self, forKey: .passphrase)
+      gravity = try c.decodeIfPresent(Int.self, forKey: .gravity)
+      destinationCost = try c.decodeIfPresent(Double.self, forKey: .destinationCost)
+      prCost = try c.decodeIfPresent(Double.self, forKey: .prCost)
     }
 
-    /// The two keys as a config block, so IFAC is installed through the same entry point
+    /// The saved keys as a config block, so they're applied through the same entry point
     /// `Reticulum.synthesizeInterfaces` uses rather than by a second derivation here.
-    var ifacConfigBlock: ReticulumConfig.InterfaceConfig {
+    var configBlock: ReticulumConfig.InterfaceConfig {
       var parameters: [String: String] = [:]
       if let networkName, !networkName.isEmpty { parameters["network_name"] = networkName }
       if let passphrase, !passphrase.isEmpty { parameters["passphrase"] = passphrase }
+      if let gravity { parameters["gravity"] = String(gravity) }
+      if let destinationCost { parameters["destination_cost"] = String(destinationCost) }
+      if let prCost { parameters["pr_cost"] = String(prCost) }
       return ReticulumConfig.InterfaceConfig(
         name: name,
         type: kind == .backbone
@@ -177,6 +193,74 @@ final class StackController {
   private static let savedI2PConfigKey = "savedI2PConfig"
   private static let savedYggdrasilConfigKey = "savedYggdrasilConfig"
   private static let propagationNodeKey = "propagationNodeHash"
+  nonisolated private static let networkSettingsKey = "networkSettings"
+
+  // MARK: - Network settings
+
+  /// What a Python config file sets in `[reticulum]` (`default_gravity`) and `[stamps]`, and
+  /// the LXMF delivery `stamp_value` (`NomadNetworkApp.py:874-877`).
+  ///
+  /// `nil` and `false` leave the library default. Applied when the stack starts.
+  struct NetworkSettings: Codable, Equatable {
+    var defaultGravity: Int?
+    var enforceStamps = false
+    var alwaysStampLRs = false
+    var destinationCost: Double?
+    var destinationValue: Double?
+    var prCost: Double?
+    var prValue: Double?
+    var lrCost: Double?
+    var lrStampTimeout: Double?
+    var prStampTimeout: Double?
+    var deliveryStampValue: Double?
+
+    /// Applies the settings to `stack` before any interface or destination exists.
+    ///
+    /// As `Reticulum.py:535-578` reads `[stamps]`: the switches only turn on, costs clamp to
+    /// `STAMP_COST_CAP` and `lr_cost` to `LINK_COST_CAP`, and timeouts are at least 20 ms.
+    func apply(to stack: Reticulum) {
+      if let defaultGravity { Reticulum.storedDefaultGravity = defaultGravity }
+      let cap = Double(Transport.stampCostCap)
+      func clamp(_ v: Double?, _ upper: Double) -> Double? { v.map { max(0, min($0, upper)) } }
+      var stamps = stack.transport.stamps
+      if enforceStamps {
+        stamps.enforced = true
+        stamps.lrEnforced = true
+      }
+      if alwaysStampLRs { stamps.alwaysStampLRs = true }
+      if let v = clamp(destinationCost, cap) { stamps.destinationCost = v }
+      if let v = clamp(destinationValue, cap) { stamps.destinationValue = v }
+      if let v = clamp(prCost, cap) { stamps.prCost = v }
+      if let v = clamp(prValue, cap) { stamps.prValue = v }
+      if let v = clamp(lrCost, Double(Transport.linkCostCap)) { stamps.lrCost = v }
+      if let v = lrStampTimeout { stamps.linkStampTimeout = max(0.020, v) }
+      if let v = prStampTimeout { stamps.prStampTimeout = max(0.020, v) }
+      stack.transport.stamps = stamps
+      // RetiOS keeps a node directory and joins RRC hubs, so it wants both types as
+      // NomadNet's host app does at start (`NomadNetworkApp.py:109-111`).
+      for type in ["nomadnetwork.node", "rrc.hub"] { _ = stack.wantsDestinationType(type) }
+    }
+  }
+
+  /// Saved network settings, applied at the next stack start.
+  var networkSettings: NetworkSettings = StackController.loadNetworkSettings(from: .standard) {
+    didSet { Self.persistNetworkSettings(networkSettings, to: defaults) }
+  }
+
+  nonisolated static func loadNetworkSettings(from defaults: UserDefaults) -> NetworkSettings {
+    guard let data = defaults.data(forKey: networkSettingsKey),
+      let settings = try? JSONDecoder().decode(NetworkSettings.self, from: data)
+    else { return NetworkSettings() }
+    return settings
+  }
+
+  nonisolated static func persistNetworkSettings(
+    _ settings: NetworkSettings, to defaults: UserDefaults
+  ) {
+    if let data = try? JSONEncoder().encode(settings) {
+      defaults.set(data, forKey: networkSettingsKey)
+    }
+  }
 
   // MARK: - Stack state
 
@@ -304,6 +388,7 @@ final class StackController {
     let stack = Reticulum(configuration: .init(storagePath: storage))
     do {
       try stack.start()
+      networkSettings.apply(to: stack)
 
       // Acquire the identity up front—before registering any interfaces
       // or starting the Yggdrasil tunnel. A failure here (for example, a corrupt
@@ -357,17 +442,7 @@ final class StackController {
         #endif
         var restored: [any Interface] = []
         for saved in savedInterfaces {
-          let iface: any Interface
-          switch saved.kind {
-          case .tcp, .yggdrasil:
-            iface = TCPClientInterface(name: saved.name, host: saved.host, port: saved.port)
-          case .backbone:
-            iface = BackboneInterface(name: saved.name, host: saved.host, port: saved.port)
-          }
-          // Before register/start, matching `Reticulum.py:975`: the IFAC key has to be
-          // installed before the first frame moves, or this interface's opening announce
-          // goes out unprotected and the peer drops it (`bugs/015`).
-          Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
+          let iface = Self.makeInterface(for: saved)
           stack.transport.register(interface: iface)
           restored.append(iface)
           Reticulum.log("StackController: restored saved interface '\(saved.name)'", level: .notice)
@@ -446,7 +521,7 @@ final class StackController {
       let nameForAnnounce = nodeDisplayName.isEmpty ? nil : nodeDisplayName
       if let delivery = try? router.register(
         identity: id, transport: stack.transport,
-        displayName: nameForAnnounce)
+        displayName: nameForAnnounce, stampValue: networkSettings.deliveryStampValue)
       {
         lxmfDeliveryHash = delivery.hash
         if lxmfAnnounceEnabled, !offline {
@@ -525,15 +600,36 @@ final class StackController {
     name: String, host: String, port: UInt16, kind: SavedInterfaceKind = .tcp,
     networkName: String? = nil, passphrase: String? = nil
   ) {
-    // Single assignment avoids two separate objectWillChange notifications.
-    var updated = savedInterfaces
-    updated.removeAll { $0.name == name }
-    updated.append(
+    save(
       SavedInterface(
         name: name, host: host, port: port, kind: kind,
         networkName: networkName, passphrase: passphrase))
+  }
+
+  private func save(_ saved: SavedInterface) {
+    // Single assignment avoids two separate objectWillChange notifications.
+    var updated = savedInterfaces
+    updated.removeAll { $0.name == saved.name }
+    updated.append(saved)
     savedInterfaces = updated
     persistSavedInterfaces()
+  }
+
+  /// Builds a saved interface with its whole config block applied, before it's registered
+  /// or started.
+  ///
+  /// Before the first frame, matching `Reticulum.py:975`: an IFAC key installed later lets this
+  /// interface's opening announce go out unprotected, and the peer drops it (`bugs/015`).
+  nonisolated static func makeInterface(for saved: SavedInterface) -> any Interface {
+    let iface: any Interface
+    switch saved.kind {
+    case .tcp, .yggdrasil:
+      iface = TCPClientInterface(name: saved.name, host: saved.host, port: saved.port)
+    case .backbone:
+      iface = BackboneInterface(name: saved.name, host: saved.host, port: saved.port)
+    }
+    Reticulum.applyInterfaceConfiguration(to: iface, from: saved.configBlock)
+    return iface
   }
 
   /// Register and start a client interface of the given kind immediately,
@@ -543,7 +639,8 @@ final class StackController {
   /// manual "Add TCP Gateway" sheet and the public-directory quick-add.
   func addAndSaveInterface(
     name: String, host: String, port: UInt16, kind: SavedInterfaceKind,
-    networkName: String? = nil, passphrase: String? = nil
+    networkName: String? = nil, passphrase: String? = nil,
+    gravity: Int? = nil, destinationCost: Double? = nil, prCost: Double? = nil
   ) throws {
     guard let transport else {
       throw StackError.notRunning
@@ -557,23 +654,14 @@ final class StackController {
     }
     // Strip square brackets from IPv6 literals (for example, "[2001:db8::1]" → "2001:db8::1").
     let normalizedHost = Self.normalizeHost(host)
-    let iface: any Interface
-    switch kind {
-    case .tcp, .yggdrasil:
-      iface = TCPClientInterface(name: name, host: normalizedHost, port: port)
-    case .backbone:
-      iface = BackboneInterface(name: name, host: normalizedHost, port: port)
-    }
-    // Before register/start—see the restore path above and `bugs/015`.
     let saved = SavedInterface(
       name: name, host: normalizedHost, port: port, kind: kind,
-      networkName: networkName, passphrase: passphrase)
-    Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
+      networkName: networkName, passphrase: passphrase,
+      gravity: gravity, destinationCost: destinationCost, prCost: prCost)
+    let iface = Self.makeInterface(for: saved)
     transport.register(interface: iface)
     interfacesRevision &+= 1
-    saveInterface(
-      name: name, host: normalizedHost, port: port, kind: kind,
-      networkName: networkName, passphrase: passphrase)
+    save(saved)
     // `start()` never throws for these kinds and waits for the initial dial.
     DispatchQueue.global(qos: .userInitiated).async { try? iface.start() }
   }

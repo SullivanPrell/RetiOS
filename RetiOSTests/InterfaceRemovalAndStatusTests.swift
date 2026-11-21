@@ -56,7 +56,7 @@ final class InterfaceRemovalAndStatusTests: XCTestCase {
     iface.gravity = 3
     let saved = StackController.SavedInterface(
       name: "gw", host: "127.0.0.1", port: 1, networkName: "testnet", passphrase: "hunter2")
-    Reticulum.applyIfacConfiguration(to: iface, from: saved.ifacConfigBlock)
+    Reticulum.applyIfacConfiguration(to: iface, from: saved.configBlock)
     transport.register(interface: iface)
 
     let block = try XCTUnwrap(transport.rnstatusBlock(named: "gw"))
