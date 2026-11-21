@@ -3,7 +3,7 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
-## [Unreleased]
+## [0.8.0]—stamp and gravity settings, for RNS 1.6.1
 
 ### Added
 
@@ -432,7 +432,8 @@ stack, after an Apple HIG sweep.
 ## Known limitations
 
 - I2P inbound (`connectable`) listening is not yet implemented (outbound works).
-- Map tab is an early version (offline regions and mesh position sharing pending).
+- An interface's detail screen shows a different IFAC signature on each 2 s refresh,
+  because ReticulumSwift signs it again each time. The IFAC key itself doesn't change.
 - Micron page authoring (NomadNet ▸ Pages) is iOS/iPadOS only.
 - On *signed* device builds, AutoInterface's link-local multicast discovery is
   unavailable: the multicast entitlement is deliberately not requested so builds
