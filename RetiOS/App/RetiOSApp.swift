@@ -78,6 +78,10 @@ struct RetiOSApp: App {
   // can observe navigateTo / openConversationHash reactively.
   @State private var notifs = NotificationManager.shared
   @Environment(\.scenePhase) private var scenePhase
+  // The window's `.task` runs again whenever the window is recreated (a Mac window
+  // reopened from the Dock, an iOS scene the system discarded); the controllers'
+  // `setup` must run once, or each rerun registers a second set of destinations.
+  @State private var didLaunch = false
 
   private let container = PersistenceController.makeContainer()
 
@@ -122,6 +126,8 @@ struct RetiOSApp: App {
     WindowGroup {
       appEnvironment(RootView())
         .task {
+          guard !didLaunch else { return }
+          didLaunch = true
           #if os(macOS)
           // Before anything else: give the delegate the controller it
           // has to stop at Quit. Quitting earlier than this is safe—nothing
@@ -183,10 +189,20 @@ struct RetiOSApp: App {
         // leaving RRC hubs in .disconnected/.failed when the user
         // comes back. Reconnect them the moment the scene is active.
         .onChange(of: scenePhase) { _, phase in
-          guard phase == .active, !StackController.isOfflineUITestRun else { return }
+          guard !StackController.isOfflineUITestRun else { return }
+          #if os(iOS)
+          if phase == .background { StackController.scheduleBackgroundRefresh() }
+          #endif
+          guard phase == .active else { return }
           nomadNet.reconnectHubs()
         }
     }
+    #if os(iOS)
+    .backgroundTask(.appRefresh(StackController.backgroundRefreshTaskID)) {
+      [stack, notifs, container] in
+      await stack.refreshInBackground(container: container, notificationManager: notifs)
+    }
+    #endif
     #if os(macOS)
     // Native Mac window sizing—a sensible default, and a floor so the
     // three-column split view can't be crushed into uselessness.
@@ -266,8 +282,8 @@ struct RetiOSApp: App {
 // MARK: - macOS application delegate
 
 #if os(macOS)
-/// Exists for exactly one reason: to stop the Reticulum stack before the
-/// process exits.
+/// Keeps the Reticulum stack running without a window, and stops it before
+/// the process exits.
 ///
 /// `-[NSApplication terminate:]` ends in `exit()`, which runs every static
 /// destructor in the image. The embedded i2pd keeps its router (netDb,
@@ -294,6 +310,20 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
   /// path table), but "bounded" is not "quick" on a cold disk, and no amount
   /// of it justifies an app that won't quit.
   private static let teardownDeadline: DispatchTimeInterval = .seconds(8)
+
+  /// Held for the process lifetime.
+  ///
+  /// App Nap would otherwise throttle the stack's timers (announces,
+  /// keepalives, path expiry) whenever no window is visible.
+  private var activity: NSObjectProtocol?
+
+  func applicationDidFinishLaunching(_ notification: Notification) {
+    activity = ProcessInfo.processInfo.beginActivity(
+      options: .userInitiatedAllowingIdleSystemSleep, reason: "Running the Reticulum transport")
+  }
+
+  /// Closing the window leaves the stack running; the app stops only when the user quits it.
+  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
     guard let work = stack?.beginTearDown() else { return .terminateNow }
