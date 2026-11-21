@@ -117,10 +117,11 @@ macOS App Groups differ from iOS:
   `group.dev.sprell.retios`).
 - The Mac app + extension must be sandboxed (`com.apple.security.app-sandbox`).
 
-Adjust `RetiOS/RetiOS.entitlements` and `YggdrasilTunnel/YggdrasilTunnel.entitlements`
-for a macOS build accordingly (for example, via per-SDK `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`
-entries pointing at macOS-specific entitlements files). The Packet Tunnel Provider
-itself works on macOS as an app extension, as in the reference app.
+The Mac app signs with `RetiOS/RetiOS-macOS.entitlements`, through
+`CODE_SIGN_ENTITLEMENTS[sdk=macosx*]` in `project.yml`, which is sandboxed and carries the
+prefixed group. `YggdrasilTunnel/YggdrasilTunnel.entitlements` is sandboxed but still carries
+the bare group id on both platforms. The Packet Tunnel Provider itself works on macOS as an app
+extension, as in the reference app.
 
 ## Using it
 

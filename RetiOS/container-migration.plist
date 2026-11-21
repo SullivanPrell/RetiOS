@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- macOS reads this once, when the sandboxed Mac app first launches and its
+	     container is created, and copies each path from the home folder into the
+	     container. Everything the app wrote before it was sandboxed must be here:
+	     the sandbox cannot reach anything left behind, so a missing stack entry
+	     means a new identity and a new address. iOS ignores this file.
+	     Pinned by RetiOSTests/ContainerMigrationManifestTests. -->
+	<key>Move</key>
+	<array>
+		<string>${ApplicationSupport}/${BundleId}</string>
+		<string>${Documents}/reticulum</string>
+		<string>${ApplicationSupport}/default.store</string>
+		<string>${ApplicationSupport}/default.store-shm</string>
+		<string>${ApplicationSupport}/default.store-wal</string>
+		<string>${ApplicationSupport}/.default_SUPPORT</string>
+		<string>${Documents}/nomadnet</string>
+		<string>${Library}/Preferences/${BundleId}.plist</string>
+	</array>
+</dict>
+</plist>

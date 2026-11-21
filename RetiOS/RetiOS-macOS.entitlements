@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The Mac twin of RetiOS.entitlements: the Mac App Store requires the
+	     App Sandbox. Sandboxing moves the app's storage into its container;
+	     container-migration.plist carries existing data across. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- TCP/UDP/Backbone/AutoInterface dial out, the shared-instance probe of
+	     127.0.0.1:37428, and the listening server and LAN interfaces. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<!-- RNode over BLE, and the BLE mesh. -->
+	<key>com.apple.security.device.bluetooth</key>
+	<true/>
+	<!-- LXST voice calls. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<!-- Pages: import files, and pick a pages folder that is remembered by a
+	     security-scoped bookmark. -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<key>com.apple.security.files.bookmarks.app-scope</key>
+	<true/>
+
+	<!-- Same Yggdrasil tunnel entitlements as iOS; see RetiOS.entitlements. -->
+	<key>com.apple.developer.networking.networkextension</key>
+	<array>
+		<string>packet-tunnel-provider</string>
+	</array>
+	<key>com.apple.developer.networking.vpn.api</key>
+	<array>
+		<string>allow-vpn</string>
+	</array>
+	<!-- macOS group ids carry the team prefix; see YGGDRASIL.md. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>$(TeamIdentifierPrefix)group.dev.sprell.retios</string>
+	</array>
+</dict>
+</plist>
