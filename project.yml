@@ -114,9 +114,15 @@ targets:
         NSBonjourServices:
           - "_rnsd._tcp"
           - "_rnsd._udp"
+        # iOS runs no App Store app as a daemon. `bluetooth-*` keep the stack awake while
+        # an RNode or the BLE mesh is connected; `fetch` lets `.backgroundTask(.appRefresh)`
+        # wake it to collect messages from the propagation node.
         UIBackgroundModes:
           - bluetooth-central
           - bluetooth-peripheral
+          - fetch
+        BGTaskSchedulerPermittedIdentifiers:
+          - dev.sprell.retios.refresh
         UILaunchScreen: {}
     settings:
       base:
