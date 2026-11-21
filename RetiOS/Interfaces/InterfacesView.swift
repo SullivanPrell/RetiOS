@@ -470,6 +470,7 @@ struct AddInterfaceSheet: View {
         Section {
           LabeledContent("Gravity") {
             TextField("Gravity", value: $gravity, format: .number, prompt: Text("default"))
+              .labelsHidden()
               .multilineTextAlignment(.trailing)
               #if os(iOS)
             .keyboardType(.numberPad)
@@ -479,6 +480,7 @@ struct AddInterfaceSheet: View {
             TextField(
               "Announce cost", value: $destinationCost, format: .number, prompt: Text("default")
             )
+            .labelsHidden()
             .multilineTextAlignment(.trailing)
             #if os(iOS)
             .keyboardType(.decimalPad)
@@ -488,6 +490,7 @@ struct AddInterfaceSheet: View {
             TextField(
               "Path request cost", value: $prCost, format: .number, prompt: Text("default")
             )
+            .labelsHidden()
             .multilineTextAlignment(.trailing)
             #if os(iOS)
             .keyboardType(.decimalPad)
@@ -508,6 +511,8 @@ struct AddInterfaceSheet: View {
           }
         }
       }
+      // macOS's automatic style is `.columns`, and a sheet doesn't inherit one set higher up.
+      .formStyle(.grouped)
       .rnsScreenBackground()
       .scrollDismissesKeyboard(.interactively)
       .navigationTitle(mode.title)
@@ -589,6 +594,8 @@ struct I2PConfigSheet: View {
           }
         }
       }
+      // macOS's automatic style is `.columns`, and a sheet doesn't inherit one set higher up.
+      .formStyle(.grouped)
       .rnsScreenBackground()
       .scrollDismissesKeyboard(.interactively)
       .navigationTitle("I2P Network")
@@ -721,6 +728,8 @@ struct YggdrasilNodeSheet: View {
           }
         }
       }
+      // macOS's automatic style is `.columns`, and a sheet doesn't inherit one set higher up.
+      .formStyle(.grouped)
       .rnsScreenBackground()
       .scrollDismissesKeyboard(.interactively)
       .navigationTitle("Yggdrasil Node")

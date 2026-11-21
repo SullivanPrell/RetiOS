@@ -37,7 +37,7 @@ struct BLEMeshView: View {
   @Environment(BLEMeshController.self) private var controller
 
   var body: some View {
-    List {
+    rnsSettingsContainer {
       statusSection
       if controller.state.isOnline {
         meshSection
@@ -72,6 +72,7 @@ struct BLEMeshView: View {
         Spacer()
         Toggle("", isOn: meshEnabledBinding)
           .labelsHidden()
+          .toggleStyle(.switch)
           .disabled(controller.state == .starting)
           .accessibilityLabel("BLE Mesh")
       }

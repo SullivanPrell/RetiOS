@@ -34,7 +34,7 @@ struct RNodeView: View {
   }
 
   var body: some View {
-    List {
+    rnsSettingsContainer {
       connectionSection
       if scanner.state.isOnline {
         radioSection
@@ -153,7 +153,8 @@ struct RNodeView: View {
     Section {
       LabeledContent("Frequency") {
         HStack(spacing: 4) {
-          TextField("Required", text: $frequencyMHz)
+          TextField("Frequency", text: $frequencyMHz, prompt: Text("Required"))
+            .labelsHidden()
             .multilineTextAlignment(.trailing)
             #if os(iOS)
           .keyboardType(.decimalPad)

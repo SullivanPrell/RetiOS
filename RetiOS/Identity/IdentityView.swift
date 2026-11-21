@@ -34,6 +34,8 @@ struct IdentityView: View {
       chatNicknameSection
       thisNodeSection
     }
+    // macOS's automatic `Form` style is `.columns`.
+    .formStyle(.grouped)
     .rnsScreenBackground()
     .navigationTitle("Identity")
     .rnsInlineNavigationTitle()
