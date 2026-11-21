@@ -193,7 +193,7 @@ final class StackController {
   private static let savedI2PConfigKey = "savedI2PConfig"
   private static let savedYggdrasilConfigKey = "savedYggdrasilConfig"
   private static let propagationNodeKey = "propagationNodeHash"
-  private static let networkSettingsKey = "networkSettings"
+  nonisolated private static let networkSettingsKey = "networkSettings"
 
   // MARK: - Network settings
 
