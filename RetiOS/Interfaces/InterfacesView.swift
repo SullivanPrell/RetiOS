@@ -402,6 +402,9 @@ struct AddInterfaceSheet: View {
   @State private var name: String
   @State private var networkName = ""
   @State private var passphrase = ""
+  @State private var gravity: Int?
+  @State private var destinationCost: Double?
+  @State private var prCost: Double?
   @State private var errorMessage: String?
   @FocusState private var portFocused: Bool
 
@@ -463,6 +466,41 @@ struct AddInterfaceSheet: View {
               + "the public network.")
         }
 
+        // The block's `gravity`, `destination_cost` and `pr_cost` (`Reticulum.py:1071-1087`).
+        Section {
+          LabeledContent("Gravity") {
+            TextField("Gravity", value: $gravity, format: .number, prompt: Text("default"))
+              .multilineTextAlignment(.trailing)
+              #if os(iOS)
+            .keyboardType(.numberPad)
+              #endif
+          }
+          LabeledContent("Announce cost") {
+            TextField(
+              "Announce cost", value: $destinationCost, format: .number, prompt: Text("default")
+            )
+            .multilineTextAlignment(.trailing)
+            #if os(iOS)
+            .keyboardType(.decimalPad)
+            #endif
+          }
+          LabeledContent("Path request cost") {
+            TextField(
+              "Path request cost", value: $prCost, format: .number, prompt: Text("default")
+            )
+            .multilineTextAlignment(.trailing)
+            #if os(iOS)
+            .keyboardType(.decimalPad)
+            #endif
+          }
+        } header: {
+          Text("Gravity and Stamps")
+        } footer: {
+          Text(
+            "Costs this interface requires of announces and path requests it receives, capped "
+              + "at 100. Leave blank for the defaults set in Stamps & Gravity.")
+        }
+
         if let err = errorMessage {
           Section {
             Label(err, systemImage: "exclamationmark.triangle")
@@ -508,7 +546,8 @@ struct AddInterfaceSheet: View {
       try stack.addAndSaveInterface(
         name: trimName, host: host, port: portNum, kind: mode.savedKind,
         networkName: trimNetwork.isEmpty ? nil : trimNetwork,
-        passphrase: trimPassphrase.isEmpty ? nil : trimPassphrase)
+        passphrase: trimPassphrase.isEmpty ? nil : trimPassphrase,
+        gravity: gravity, destinationCost: destinationCost, prCost: prCost)
       dismiss()
     } catch {
       errorMessage = error.localizedDescription
