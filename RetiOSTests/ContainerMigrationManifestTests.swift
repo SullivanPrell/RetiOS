@@ -12,10 +12,11 @@ import XCTest
 
 @testable import RetiOS
 
-/// The Mac app runs in the App Sandbox. On its first sandboxed
-/// launch macOS copies what `container-migration.plist` lists into the
-/// container; anything left off stays outside, where the app can no longer read
-/// it, and the user starts over with a new address.
+/// Pins what the sandboxed Mac app carries over from its unsandboxed builds.
+///
+/// On the first sandboxed launch macOS moves what `container-migration.plist`
+/// lists into the container. Anything left off stays outside, where the app can
+/// no longer read it, and the user starts over with a new address.
 final class ContainerMigrationManifestTests: XCTestCase {
   func testListsEverythingTheUnsandboxedMacAppWrote() throws {
     let url = try XCTUnwrap(
