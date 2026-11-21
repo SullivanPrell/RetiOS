@@ -3,6 +3,15 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [Unreleased]
+
+### Fixed
+
+- **Mac forms group their rows and label each field once.** The New Call, New Message, Add Contact,
+  Join Channel, Add Interface, I2P and Yggdrasil sheets and the Identity screen laid their rows
+  out in columns, and number fields showed their label twice. The BLE Mesh and RNode screens now
+  match the other settings screens, and the BLE Mesh control is a switch. iOS looks the same.
+
 ## [0.8.0]—stamp and gravity settings, for RNS 1.6.1
 
 ### Added

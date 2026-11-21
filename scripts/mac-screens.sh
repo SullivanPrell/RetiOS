@@ -95,7 +95,7 @@ for screen in "${SCREENS[@]}"; do
   tab="${screen%%:*}"
   section="${screen#*:}"
   [ "$section" = "$screen" ] && section=""   # no ":" present
-  "$BIN" -hasCompletedOnboarding YES -stackOffline YES -seedDemoData YES \
+  "$BIN" -ApplePersistenceIgnoreState YES -hasCompletedOnboarding YES -stackOffline YES -seedDemoData YES \
     -startTab "$tab" ${section:+-startSection "$section"} >/dev/null 2>&1 &
   pid=$!
 

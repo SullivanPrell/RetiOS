@@ -58,6 +58,7 @@ struct StampSettingsView: View {
             "Default gravity", value: $stack.networkSettings.defaultGravity, format: .number,
             prompt: Text("0")
           )
+          .labelsHidden()
           .multilineTextAlignment(.trailing)
           #if os(iOS)
           .keyboardType(.numberPad)
@@ -81,6 +82,7 @@ struct StampSettingsView: View {
   {
     LabeledContent(label) {
       TextField(label, value: value, format: .number, prompt: Text(placeholder))
+        .labelsHidden()
         .multilineTextAlignment(.trailing)
         #if os(iOS)
       .keyboardType(.decimalPad)

@@ -109,6 +109,8 @@ struct ComposeView: View {
           }
         }
       }
+      // macOS's automatic style is `.columns`, and a sheet doesn't inherit one set higher up.
+      .formStyle(.grouped)
       .navigationTitle("New Message")
       .rnsInlineNavigationTitle()
       .toolbar {

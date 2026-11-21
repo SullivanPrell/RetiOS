@@ -754,6 +754,8 @@ struct NewCallSheet: View {
             .foregroundStyle(.secondary)
         }
       }
+      // macOS's automatic style is `.columns`, and a sheet doesn't inherit one set higher up.
+      .formStyle(.grouped)
       .rnsScreenBackground()
       .navigationTitle("New Call")
       .rnsInlineNavigationTitle()
