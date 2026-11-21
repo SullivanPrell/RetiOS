@@ -170,6 +170,9 @@ final class StackController {
   /// reads this counter alongside `transport.interfaces`.
   private(set) var interfacesRevision: Int = 0
 
+  /// Where the saved interface and I2P lists persist; tests substitute a suite.
+  var defaults: UserDefaults = .standard
+
   private static let savedInterfacesKey = "savedTCPInterfaces"
   private static let savedI2PConfigKey = "savedI2PConfig"
   private static let savedYggdrasilConfigKey = "savedYggdrasilConfig"
@@ -602,7 +605,7 @@ final class StackController {
     let changed = config != savedI2PConfig
     savedI2PConfig = config
     if let data = try? JSONEncoder().encode(config) {
-      UserDefaults.standard.set(data, forKey: Self.savedI2PConfigKey)
+      defaults.set(data, forKey: Self.savedI2PConfigKey)
     }
     // Only nag when the edit really is stranded. Before bring-up there is
     // nothing to reconcile—`bringUp()` reads the saved config on its way
@@ -620,7 +623,7 @@ final class StackController {
   func removeI2PConfig() {
     let ifaceName = savedI2PConfig?.name ?? "I2P"
     savedI2PConfig = nil
-    UserDefaults.standard.removeObject(forKey: Self.savedI2PConfigKey)
+    defaults.removeObject(forKey: Self.savedI2PConfigKey)
     i2pRestartRequired = false
 
     // Deliberately not `deregisterLiveInterface(named:)`, which stops the
@@ -638,7 +641,7 @@ final class StackController {
   }
 
   private func loadSavedI2PConfig() {
-    guard let data = UserDefaults.standard.data(forKey: Self.savedI2PConfigKey),
+    guard let data = defaults.data(forKey: Self.savedI2PConfigKey),
       let config = try? JSONDecoder().decode(SavedI2PConfig.self, from: data)
     else { return }
     savedI2PConfig = config
@@ -731,6 +734,8 @@ final class StackController {
   /// Remove a user-added interface: fully tears it down for the current session
   /// and removes it from persistence so it is not restored next launch.
   func removeInterface(named name: String) {
+    // The I2P row has its own saved record, and an i2pd shutdown too slow for the main thread.
+    if name == savedI2PConfig?.name { return removeI2PConfig() }
     savedInterfaces.removeAll { $0.name == name }
     persistSavedInterfaces()
     IfacPassphraseStore.write(nil, for: name)
@@ -781,7 +786,7 @@ final class StackController {
   }
 
   private func loadSavedInterfaces() {
-    if let saved = Self.loadSavedInterfaces(from: .standard) { savedInterfaces = saved }
+    if let saved = Self.loadSavedInterfaces(from: defaults) { savedInterfaces = saved }
   }
 
   /// Decodes the saved list and fills each passphrase from the Keychain.
@@ -823,7 +828,7 @@ final class StackController {
   #endif
 
   private func persistSavedInterfaces() {
-    Self.persist(savedInterfaces, to: .standard)
+    Self.persist(savedInterfaces, to: defaults)
   }
 
   /// Writes the list with each passphrase in the Keychain.

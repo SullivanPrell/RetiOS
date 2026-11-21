@@ -84,28 +84,32 @@ struct InterfacesView: View {
           let isSaved =
             stack.savedInterfaces.contains(where: { $0.name == iface.name })
             || stack.savedI2PConfig?.name == iface.name
-          InterfaceRow(interface: iface)
-            // allowsFullSwipe:false so a full swipe can't silently
-            // tear down an interface; the revealed button (and the
-            // context menu) require a deliberate tap.
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-              if isSaved {
-                Button(role: .destructive) {
-                  stack.removeInterface(named: iface.name)
-                } label: {
-                  Label("Remove", systemImage: "trash")
-                }
+          NavigationLink {
+            InterfaceDetailView(name: iface.name)
+          } label: {
+            InterfaceRow(interface: iface)
+          }
+          // allowsFullSwipe:false so a full swipe can't silently
+          // tear down an interface; the revealed button (and the
+          // context menu) require a deliberate tap.
+          .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if isSaved {
+              Button(role: .destructive) {
+                stack.removeInterface(named: iface.name)
+              } label: {
+                Label("Remove", systemImage: "trash")
               }
             }
-            .contextMenu {
-              if isSaved {
-                Button(role: .destructive) {
-                  stack.removeInterface(named: iface.name)
-                } label: {
-                  Label("Remove Interface", systemImage: "trash")
-                }
+          }
+          .contextMenu {
+            if isSaved {
+              Button(role: .destructive) {
+                stack.removeInterface(named: iface.name)
+              } label: {
+                Label("Remove Interface", systemImage: "trash")
               }
             }
+          }
         }
       } else {
         HStack {
@@ -270,12 +274,14 @@ private struct InterfaceRow: View {
 
       Spacer()
 
-      // Reflect the interface's real online state instead of a hardcoded
-      // green dot—a down/failed interface must not read as "active".
-      Circle()
-        .fill(interface.isOnline ? Color.rnsSuccess : Color.rnsTextMuted)
-        .frame(width: 8, height: 8)
-        .accessibilityLabel(interface.isOnline ? "Online" : "Offline")
+      // `Interface.isOnline` is the `status` `rnstatus` prints as Up or Down. `Transport` isn't
+      // observable, so the dot re-reads it on a timer rather than when it changes.
+      TimelineView(.periodic(from: .now, by: 2)) { _ in
+        Circle()
+          .fill(interface.isOnline ? Color.rnsSuccess : Color.rnsTextMuted)
+          .frame(width: 8, height: 8)
+          .accessibilityLabel(interface.isOnline ? "Up" : "Down")
+      }
     }
     .padding(.vertical, 2)
   }
@@ -305,6 +311,31 @@ private struct InterfaceRow: View {
     case is BLEMeshInterface: return "Bluetooth mesh"
     default: return "Interface"
     }
+  }
+}
+
+// MARK: - Interface detail
+
+/// The interface's `rnstatus -A` block, refreshed every two seconds.
+private struct InterfaceDetailView: View {
+  @Environment(StackController.self) private var stack
+  let name: String
+
+  var body: some View {
+    TimelineView(.periodic(from: .now, by: 2)) { _ in
+      ScrollView([.vertical, .horizontal]) {
+        Text(
+          stack.transport?.rnstatusBlock(named: name) ?? "This interface is no longer registered."
+        )
+        .font(.footnote.monospaced())
+        .textSelection(.enabled)
+        .padding()
+      }
+      .defaultScrollAnchor(.topLeading)
+    }
+    .rnsScreenBackground()
+    .navigationTitle(name)
+    .rnsInlineNavigationTitle()
   }
 }
 

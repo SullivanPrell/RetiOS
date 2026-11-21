@@ -5,6 +5,12 @@ and `MARKETING_VERSION` in `project.yml`.
 
 ## [Unreleased]
 
+### Added
+
+- **Each interface opens to its `rnstatus` details.** Tap an interface to see the block Python's
+  `rnstatus -A` prints for it: status and gravity, mode, rate, IFAC network and size, announce
+  rates, traffic, and clients or peers. It refreshes every 2 s and never shows an IFAC passphrase.
+
 ### Changed
 
 - RetiOS requires ReticulumSwift 1.28.0, which matches RNS 1.6.0, and LXMFSwift 1.13.0, which
@@ -20,6 +26,13 @@ and `MARKETING_VERSION` in `project.yml`.
   its own line at accessibility text sizes. Before, it squeezed the name to one character and
   wrapped mid-word.
 - **Delete swipe actions are red.** An app-wide tint had turned them the accent blue.
+- **Removing the I2P interface removes it for good.** Remove cleared only the TCP gateway list, so
+  the saved I2P settings brought the interface back at the next launch, and stopping i2pd on the
+  main thread froze the screen. Remove now deletes the saved I2P settings and stops i2pd in the
+  background.
+- **Interface status dots follow the interface.** The list redrew only when an interface was
+  added or removed, so a gateway that dropped kept its green dot. Each dot now rereads the
+  interface's state every 2 s.
 
 ## [0.7.3]—sent messages keep their ID, and a hostile packet can't stop the app
 
