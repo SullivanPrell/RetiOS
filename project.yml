@@ -146,6 +146,9 @@ targets:
         # with the Network Extensions + App Groups capabilities; harmless (unused)
         # when the Yggdrasil node is left disabled. See YGGDRASIL.md.
         CODE_SIGN_ENTITLEMENTS: RetiOS/RetiOS.entitlements
+        # The Mac build is sandboxed, as the Mac App Store requires; its twin adds
+        # the sandbox and the device and file entitlements the Mac needs.
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": RetiOS/RetiOS-macOS.entitlements
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1,2"
         # Now that `macOS` is a first-class destination with its own native

@@ -3,6 +3,15 @@
 All notable changes to RetiOS are documented here. Versions match the git tags
 and `MARKETING_VERSION` in `project.yml`.
 
+## [Unreleased]
+
+### Changed
+
+- **The Mac app runs in the App Sandbox**, as the Mac App Store requires. On its first sandboxed
+  launch macOS copies the Reticulum storage and identity, the message store, NomadNet pages and
+  RRC hubs, and settings into the app's container, so the address and history carry over. A pages
+  folder picked outside the container may have to be picked again.
+
 ## [0.8.0]—stamp and gravity settings, for RNS 1.6.1
 
 ### Added
