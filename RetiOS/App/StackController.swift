@@ -16,6 +16,10 @@ import ReticulumSwift
 import Security
 import SwiftData
 
+#if os(iOS)
+import BackgroundTasks
+#endif
+
 /// Owns the Reticulum stack, LXMF router, and lifecycle for the app.
 ///
 /// Platform strategy:
@@ -1117,6 +1121,50 @@ final class StackController {
       // poll may already be in the slot, so this task must not touch it.
     }
   }
+
+  /// Wait while the sync poll runs, for at most `budget` seconds.
+  ///
+  /// Giving up leaves the sync running; it resumes with the app.
+  func waitForSyncPoll(budget: TimeInterval) async {
+    let deadline = Date().addingTimeInterval(budget)
+    while isSyncPolling, Date() < deadline, !Task.isCancelled {
+      try? await Task.sleep(nanoseconds: 250_000_000)
+    }
+  }
+
+  #if os(iOS)
+  // MARK: - Background refresh
+
+  /// The `BGTaskSchedulerPermittedIdentifiers` entry in `project.yml`.
+  static let backgroundRefreshTaskID = "dev.sprell.retios.refresh"
+
+  /// Ask iOS for the next background refresh. iOS picks the actual time.
+  static func scheduleBackgroundRefresh() {
+    let request = BGAppRefreshTaskRequest(identifier: backgroundRefreshTaskID)
+    request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+    do {
+      try BGTaskScheduler.shared.submit(request)
+    } catch {
+      Reticulum.log("StackController: background refresh not scheduled: \(error)", level: .warning)
+    }
+  }
+
+  /// One background wake: start the stack if this is a cold background launch, then collect
+  /// messages waiting at the propagation node.
+  ///
+  /// iOS lets no App Store app run a daemon continuously; while
+  /// RetiOS is suspended, the propagation node holds its mail, and this wake collects it.
+  func refreshInBackground(container: ModelContainer, notificationManager: NotificationManager)
+    async
+  {
+    guard !Self.isOfflineUITestRun else { return }
+    Self.scheduleBackgroundRefresh()
+    await bringUp(modelContext: container.mainContext, notificationManager: notificationManager)
+    syncFromPropagationNode()
+    // iOS allows about 30 s per refresh.
+    await waitForSyncPoll(budget: 25)
+  }
+  #endif
 
   enum SendError: Error, LocalizedError {
     case unknownPeer

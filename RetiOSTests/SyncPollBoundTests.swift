@@ -67,6 +67,33 @@ final class SyncPollBoundTests: XCTestCase {
     XCTAssertFalse(controller.isSyncPolling)
   }
 
+  /// A background refresh has about 30 s before iOS suspends the app, so its wait for the
+  /// sync must give up on its own budget, well inside the 300 s poll bound.
+  func testABackgroundWaitGivesUpOnItsBudgetWhileThePollRuns() async {
+    let controller = StackController()
+    controller.startSyncPolling(router: stuckRouter(), timeout: 10)
+
+    let started = Date()
+    await controller.waitForSyncPoll(budget: 0.3)
+
+    XCTAssertLessThan(Date().timeIntervalSince(started), 1.5)
+    XCTAssertTrue(controller.isSyncPolling, "the wait gives up; the sync itself keeps going")
+    controller.cancelPropagationSync()
+  }
+
+  func testABackgroundWaitReturnsAsSoonAsTheSyncEnds() async {
+    let controller = StackController()
+    let router = stuckRouter()
+    controller.startSyncPolling(router: router, timeout: 10)
+    router.propagationTransferState = .done
+
+    let started = Date()
+    await controller.waitForSyncPoll(budget: 10)
+
+    XCTAssertLessThan(Date().timeIntervalSince(started), 2)
+    XCTAssertFalse(controller.isSyncPolling)
+  }
+
   func testTheBoundOutlivesTheLibrarysOwnStallNet() {
     XCTAssertGreaterThan(
       StackController.syncPollTimeout,

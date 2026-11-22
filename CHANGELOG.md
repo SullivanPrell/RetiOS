@@ -5,7 +5,20 @@ and `MARKETING_VERSION` in `project.yml`.
 
 ## [Unreleased]
 
+### Added
+
+- **Messages arrive while the app is in the background.** iOS runs no App Store app
+  continuously, so RetiOS asks iOS for background refreshes. Each one starts Reticulum if needed
+  and collects mail from the propagation node, within the roughly 30 s iOS allows. iOS decides how
+  often the app wakes. Without a propagation node, messages still arrive only while the app is
+  open or an RNode or the BLE mesh keeps it awake.
+- **The Mac app keeps Reticulum running with no window open.** Closing the window no longer
+  stops the stack, and App Nap no longer slows its timers. Quit the app to stop it.
+
 ### Fixed
+
+- Reopening the Mac window, or iOS rebuilding the scene, no longer sets up calls, NomadNet,
+  BLE mesh and RNode a second time.
 
 - **Mac forms group their rows and label each field once.** The New Call, New Message, Add Contact,
   Join Channel, Add Interface, I2P and Yggdrasil sheets and the Identity screen laid their rows
