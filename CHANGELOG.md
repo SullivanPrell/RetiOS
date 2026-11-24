@@ -15,6 +15,11 @@ and `MARKETING_VERSION` in `project.yml`.
 - **The Mac app keeps Reticulum running with no window open.** Closing the window no longer
   stops the stack, and App Nap no longer slows its timers. Quit the app to stop it.
 
+### Changed
+
+- RetiOS builds on LXMFSwift 1.15.0. As with Python LXMF, an incoming message over 1000 KB is
+  refused.
+
 ### Fixed
 
 - Reopening the Mac window, or iOS rebuilding the scene, no longer sets up calls, NomadNet,

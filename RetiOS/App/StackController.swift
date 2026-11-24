@@ -537,7 +537,7 @@ final class StackController {
       if let savedHex = UserDefaults.standard.string(forKey: Self.propagationNodeKey),
         let data = Data(hexString: savedHex)
       {
-        router.outboundPropagationNode = data
+        router.setOutboundPropagationNode(data)
         propagationNodeHash = savedHex
       }
 
@@ -1023,11 +1023,11 @@ final class StackController {
     if let hex, !hex.isEmpty {
       let clean = String(hex.filter { $0.isHexDigit }.prefix(32))
       guard clean.count == 32, let data = Data(hexString: clean) else { return }
-      router.outboundPropagationNode = data
+      router.setOutboundPropagationNode(data)
       propagationNodeHash = clean
       UserDefaults.standard.set(clean, forKey: Self.propagationNodeKey)
     } else {
-      router.outboundPropagationNode = nil
+      router.setOutboundPropagationNode(nil)
       propagationNodeHash = nil
       UserDefaults.standard.removeObject(forKey: Self.propagationNodeKey)
     }
