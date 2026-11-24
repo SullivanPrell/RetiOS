@@ -25,7 +25,7 @@ packages:
     from: 1.29.0
   LXMFSwift:
     url: https://github.com/SullivanPrell/LXMFSwift.git
-    from: 1.14.0
+    from: 1.15.0
   LXSTSwift:
     url: https://github.com/SullivanPrell/LXSTSwift.git
     from: 1.5.3

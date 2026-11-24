@@ -56,7 +56,7 @@ final class SyncPollBoundTests: XCTestCase {
     let router = stuckRouter()
 
     controller.startSyncPolling(router: router, timeout: 10)
-    router.propagationTransferState = .done
+    router.acknowledgeSyncCompletion(failureState: .done)
 
     try await Task.sleep(nanoseconds: 1_100_000_000)
 
@@ -85,7 +85,7 @@ final class SyncPollBoundTests: XCTestCase {
     let controller = StackController()
     let router = stuckRouter()
     controller.startSyncPolling(router: router, timeout: 10)
-    router.propagationTransferState = .done
+    router.acknowledgeSyncCompletion(failureState: .done)
 
     let started = Date()
     await controller.waitForSyncPoll(budget: 10)

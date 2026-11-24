@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SullivanPrell/LXMFSwift.git",
       "state" : {
-        "revision" : "08e821ed3270fcfff048495bcf7f52786ce85064",
-        "version" : "1.14.0"
+        "revision" : "eb19fbecfb36f8ab7bd204695648855632cd76b3",
+        "version" : "1.15.0"
       }
     },
     {
