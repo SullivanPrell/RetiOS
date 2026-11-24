@@ -18,8 +18,7 @@ and `MARKETING_VERSION` in `project.yml`.
 ### Changed
 
 - RetiOS builds on LXMFSwift 1.15.0. As with Python LXMF, an incoming message over 1000 KB is
-  refused, and a propagation node only serves a client on its allow list when it requires
-  authentication.
+  refused.
 
 ### Fixed
 
