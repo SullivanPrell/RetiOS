@@ -360,11 +360,14 @@ final class CallsController {
     NotificationManager.shared.cancelCallNotification(callerHash: callerHash.hexString)
     pendingRecord?.outcome = .rejected
     // Telephone sends STATUS_REJECTED to the caller for a ringing incoming call.
-    telephone?.hangup()
+    hangUp()
     // handleTerminated/handleEnded finalizes, but reflect immediately too.
   }
 
   // MARK: - Shared call controls
+
+  /// Test-only: put the screen in `state` without a call on the line.
+  func setCallStateForTesting(_ state: CallState) { callState = state }
 
   func endCall() {
     // Covers cancelling an outbound call, hanging up an active call, and
@@ -374,7 +377,19 @@ final class CallsController {
       callState = .idle
       return
     }
-    telephone?.hangup()
+    hangUp()
+  }
+
+  /// Hangs up the call, or resets the screen when `Telephone` holds none.
+  ///
+  /// `Telephone.hangup()` reports nothing without a call (Python `Telephony.py:502`), for example
+  /// before `call` has run or after it failed to open a link.
+  private func hangUp() {
+    guard let telephone, telephone.activeCall != nil else {
+      handleEnded()
+      return
+    }
+    telephone.hangup()
   }
 
   func toggleMute() {

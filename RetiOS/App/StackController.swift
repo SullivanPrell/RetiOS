@@ -389,8 +389,17 @@ final class StackController {
     // before any resource activity; idempotent across bring-up retries.
     Resource.compressor = BZip2Compressor()
 
+    let offline = StackController.isOfflineUITestRun
+    #if os(macOS)
+    let useDaemon = offline ? false : await StackController.probeLocalDaemon()
+    #else
+    let useDaemon = false
+    #endif
+
     let stack = Reticulum(configuration: .init(storagePath: storage))
+    var clientInterface: LocalInterface?
     do {
+      if useDaemon { clientInterface = try StackController.attachToSharedInstance(stack) }
       try stack.start()
       networkSettings.apply(to: stack)
 
@@ -401,25 +410,16 @@ final class StackController {
       // and no handle to stop them, leaving the app wedged at "Starting…".
       let id = try stack.loadOrCreateIdentity()
 
-      let offline = StackController.isOfflineUITestRun
       if offline {
         Reticulum.log(
           "StackController: offline UI-test run — no interfaces will be registered",
           level: .notice)
       }
 
-      #if os(macOS)
-      let useDaemon = offline ? false : await StackController.probeLocalDaemon()
-      #else
-      let useDaemon = false
-      #endif
-
       if offline {
         isClientMode = false
-      } else if useDaemon {
-        let localIf = LocalInterface()
+      } else if let localIf = clientInterface {
         stack.transport.register(interface: localIf)
-        try localIf.start()
         isClientMode = true
         Reticulum.log(
           "StackController: connected to existing rnsd via LocalInterface", level: .notice)
@@ -593,8 +593,23 @@ final class StackController {
       self.isRunning = false
       // Stop anything that started before the failure so interfaces and
       // the RNS instance don't leak, and a later retry can start clean.
+      clientInterface?.stop()
       stack.stop()
     }
+  }
+
+  /// Connects to a shared instance and takes the client role before `stack.start()`.
+  ///
+  /// Python decides the role in `__start_local_interface` (`Reticulum.py:399-458`) before
+  /// `Transport.start` (`:353`), and `InstanceConnection.attach` does the same, so `start()`
+  /// disables transport and skips the table restores. Register the interface after `start()`.
+  nonisolated static func attachToSharedInstance(_ stack: Reticulum, port: UInt16 = 37428) throws
+    -> LocalInterface
+  {
+    let localInterface = LocalInterface(port: port)
+    try localInterface.start()
+    stack.transport.isConnectedToSharedInstance = true
+    return localInterface
   }
 
   // MARK: - Interface persistence

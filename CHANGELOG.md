@@ -19,13 +19,16 @@ and `MARKETING_VERSION` in `project.yml`.
 
 - RetiOS builds on LXMFSwift 1.15.0. As with Python LXMF, an incoming message over 1000 KB is
   refused.
+- RetiOS builds on LXSTSwift 1.6.0. A caller hears ringback and the busy tone. An unanswered call
+  ends after the ring or wait time instead of ringing on.
 
 ### Fixed
 
 - A stored hash with a stray character no longer decodes as a different hash. `Data(hexString:)`
   skipped every non-hex character, so `ab-cd` read as `abcd`. It now uses ReticulumSwift's
   strict `RNIDEncoding.hexDecode`. The input fields still filter keystrokes as before.
-
+- **End and Decline leave a call that never started.** The screen stayed on Calling or Incoming
+  when you pressed either before RetiOS placed the call or after the call failed to open a link.
 - Reopening the Mac window, or iOS rebuilding the scene, no longer sets up calls, NomadNet,
   BLE mesh and RNode a second time.
 

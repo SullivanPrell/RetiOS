@@ -61,6 +61,20 @@ final class CallsControllerTests: XCTestCase {
     XCTAssertNil(CallsController.peerName(for: Identity(), in: container.mainContext))
   }
 
+  /// LXSTSwift 1.6.0's `hangup()` reports nothing when no call exists, as Python's does, so
+  /// ending a call `Telephone` never placed must reset the screen itself.
+  @MainActor
+  func testEndingACallThatWasNeverPlacedReturnsToIdle() {
+    let controller = CallsController()
+    controller.setCallStateForTesting(.calling(Data([0xAB])))
+    controller.endCall()
+    XCTAssertEqual(controller.callState, .idle)
+
+    controller.setCallStateForTesting(.incoming(Data([0xAB])))
+    controller.rejectIncomingCall()
+    XCTAssertEqual(controller.callState, .idle)
+  }
+
   /// Calls ▸ Peers fetches a call peer's delivery row before that destination announces, so
   /// the peer's name lands when the announce does.
   func testCallPeersFetchTheDeliveryHashBeforeItAnnounces() {
