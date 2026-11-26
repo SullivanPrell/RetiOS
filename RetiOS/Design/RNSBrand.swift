@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 //===----------------------------------------------------------------------===//
 
+import ReticulumSwift
 import SwiftUI
 
 #if canImport(UIKit)
@@ -1187,21 +1188,13 @@ enum RNSDate {
 // MARK: - Hex
 
 extension Data {
-  /// Parses hex, skipping any character that isn't a hex digit.
+  /// Parses ASCII hex in either case, as Python's `bytes.fromhex` does without whitespace.
   ///
-  /// Returns `nil` for an odd number of digits. `Data.hexString`, the other
-  /// direction, comes from ReticulumSwift.
+  /// Returns `nil` for anything else, including an odd digit count or a stray character:
+  /// skipping one would turn a typo into a different valid hash. `Data.hexString`, the
+  /// other direction, comes from ReticulumSwift.
   init?<S: StringProtocol>(hexString: S) {
-    let hex = String(hexString.filter { $0.isHexDigit })
-    guard hex.count.isMultiple(of: 2) else { return nil }
-    var data = Data(capacity: hex.count / 2)
-    var index = hex.startIndex
-    while index < hex.endIndex {
-      let next = hex.index(index, offsetBy: 2)
-      guard let byte = UInt8(hex[index..<next], radix: 16) else { return nil }
-      data.append(byte)
-      index = next
-    }
+    guard let data = RNIDEncoding.hexDecode(String(hexString)) else { return nil }
     self = data
   }
 }
