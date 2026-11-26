@@ -83,7 +83,10 @@ struct RetiOSApp: App {
   // `setup` must run once, or each rerun registers a second set of destinations.
   @State private var didLaunch = false
 
-  private let container = PersistenceController.makeContainer()
+  private let store = PersistenceController.makeContainer()
+  private var container: ModelContainer { store.container }
+  /// Set at launch when the on-disk store failed and the app runs on memory.
+  @State private var storeFellBack = false
 
   /// Injects every app-owned model plus the shared container and theme.
   ///
@@ -125,9 +128,19 @@ struct RetiOSApp: App {
   var body: some Scene {
     WindowGroup {
       appEnvironment(RootView())
+        .alert("History Isn't Being Saved", isPresented: $storeFellBack) {
+          Button("OK", role: .cancel) {}
+        } message: {
+          Text(
+            "RetiOS couldn't open its message store, so earlier messages, peers and channels "
+              + "aren't shown, and nothing from this session is kept. Your saved history "
+              + "isn't deleted. Quit and reopen RetiOS to try again, and update it if this "
+              + "keeps happening.")
+        }
         .task {
           guard !didLaunch else { return }
           didLaunch = true
+          storeFellBack = store.fellBack
           #if os(macOS)
           // Before anything else: give the delegate the controller it
           // has to stop at Quit. Quitting earlier than this is safe—nothing
