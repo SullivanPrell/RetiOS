@@ -102,6 +102,12 @@ private struct MicronNodeView: View {
 
     case .anchor:
       EmptyView()
+
+    case .image(let image, _):
+      // shortcut: shows the alt text only; fetch and draw the image when Pages gets image loading.
+      Text(image.altText.isEmpty ? image.url : image.altText)
+        .italic()
+        .foregroundStyle(.secondary)
     }
   }
 
