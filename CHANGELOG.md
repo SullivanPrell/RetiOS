@@ -22,6 +22,12 @@ and `MARKETING_VERSION` in `project.yml`.
 
 ### Fixed
 
+- **RetiOS says so when it can't open its message store.** It fell back to a store in memory and
+  printed one line, so the app's history vanished from view and nothing that session was kept,
+  with nothing on screen. It now shows an alert at launch and logs the error. The store on
+  disk is left alone. The store also opens through a versioned schema, `RetiOSSchemaV1`, and a
+  migration plan, so the next model change can migrate instead of failing.
+
 - Reopening the Mac window, or iOS rebuilding the scene, no longer sets up calls, NomadNet,
   BLE mesh and RNode a second time.
 

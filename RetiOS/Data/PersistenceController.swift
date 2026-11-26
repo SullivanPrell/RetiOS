@@ -8,31 +8,48 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 //===----------------------------------------------------------------------===//
 
+import OSLog
 import SwiftData
 
-enum PersistenceController {
-  static func makeContainer() -> ModelContainer {
-    let schema = Schema([
-      MessageEntity.self,
-      PeerEntity.self,
-      NomadNodeEntity.self,
-      ChannelEntity.self,
+/// The store's first versioned schema, identical to the unversioned one earlier builds wrote.
+enum RetiOSSchemaV1: VersionedSchema {
+  static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
+  static var models: [any PersistentModel.Type] {
+    [
+      MessageEntity.self, PeerEntity.self, NomadNodeEntity.self, ChannelEntity.self,
       ChannelMessageEntity.self,
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    ]
+  }
+}
+
+/// Add a schema version and a stage here before changing any model.
+enum RetiOSMigrationPlan: SchemaMigrationPlan {
+  static var schemas: [any VersionedSchema.Type] { [RetiOSSchemaV1.self] }
+  static var stages: [MigrationStage] { [] }
+}
+
+enum PersistenceController {
+  private static let log = Logger(subsystem: "dev.sprell.retios", category: "Persistence")
+
+  /// The app's store, and whether it fell back to memory because the on-disk store failed.
+  ///
+  /// `url` is the store file; `nil` is the default on-disk store.
+  static func makeContainer(url: URL? = nil) -> (container: ModelContainer, fellBack: Bool) {
+    let schema = Schema(versionedSchema: RetiOSSchemaV1.self)
+    let config =
+      url.map { ModelConfiguration(schema: schema, url: $0) }
+      ?? ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
     do {
-      return try ModelContainer(for: schema, configurations: [config])
+      let container = try ModelContainer(
+        for: schema, migrationPlan: RetiOSMigrationPlan.self, configurations: [config])
+      return (container, false)
     } catch {
-      // A crash-on-launch here (for example, an on-disk store left incompatible by
-      // a schema change) leaves the app permanently unlaunchable with no
-      // recovery. Fall back to an in-memory store so the app still opens;
-      // history won't persist this session, but the user isn't locked out.
-      print(
-        "PersistenceController: on-disk ModelContainer failed (\(error)); falling back to in-memory."
-      )
+      // Crashing here would leave the app unlaunchable, so open an in-memory store and tell
+      // the user. The on-disk store stays untouched for recovery.
+      log.error("On-disk store failed to open, using memory: \(String(describing: error))")
       let memoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
       do {
-        return try ModelContainer(for: schema, configurations: [memoryConfig])
+        return (try ModelContainer(for: schema, configurations: [memoryConfig]), true)
       } catch {
         // In-memory can't realistically fail; if it does the process
         // genuinely cannot run, so crashing is the honest outcome.
