@@ -24,9 +24,9 @@
 	         <true/>
 	     See YGGDRASIL.md ("LAN peer discovery"). -->
 
-	<!-- Shared with the YggdrasilTunnel extension. On macOS the group id must be
-	     prefixed with the team id ($(TeamIdentifierPrefix)group.dev.sprell.retios)
-	     and the app sandboxed — see YGGDRASIL.md. -->
+	<!-- Shared with the YggdrasilTunnel extension. iOS only: the Mac app signs
+	     with RetiOS-macOS.entitlements, which is sandboxed and carries the
+	     team-prefixed group id — see YGGDRASIL.md. -->
 	<key>com.apple.security.application-groups</key>
 	<array>
 		<string>group.dev.sprell.retios</string>

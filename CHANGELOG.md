@@ -5,6 +5,13 @@ and `MARKETING_VERSION` in `project.yml`.
 
 ## [Unreleased]
 
+### Changed
+
+- **The Mac app runs in the App Sandbox**, as the Mac App Store requires. On its first sandboxed
+  launch macOS moves the Reticulum storage and identity, the message store, NomadNet pages and
+  RRC hubs, and settings into the app's container, so the address and history carry over. A pages
+  folder picked outside the container may have to be picked again.
+
 ### Fixed
 
 - **NomadNet pages load again.** RetiOS builds on ReticulumSwift 1.31.1, which grinds a link
