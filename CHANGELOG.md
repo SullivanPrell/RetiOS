@@ -21,7 +21,7 @@ and `MARKETING_VERSION` in `project.yml`.
   refused.
 - RetiOS builds on LXSTSwift 1.6.0. A caller hears ringback and the busy tone. An unanswered call
   ends after the ring or wait time instead of ringing on.
-- RetiOS builds on ReticulumSwift 1.30.0. Receiving a large file or page takes about a quarter
+- RetiOS builds on ReticulumSwift 1.31.0. Receiving a large file or page takes about a quarter
   of the CPU it did, and its memory stays bounded however large it is. A link's traffic stays on
   the interface that opened it.
 - RetiOS builds on LXMFSwift 1.16.0. A message sent through a propagation node shows as sent,
