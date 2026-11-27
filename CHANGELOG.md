@@ -5,6 +5,8 @@ and `MARKETING_VERSION` in `project.yml`.
 
 ## [Unreleased]
 
+## [0.9.0]—background mail, and a Mac app that keeps running
+
 ### Added
 
 - **Messages arrive while the app is in the background.** iOS runs no App Store app
@@ -43,7 +45,6 @@ and `MARKETING_VERSION` in `project.yml`.
   when you pressed either before RetiOS placed the call or after the call failed to open a link.
 - Reopening the Mac window, or iOS rebuilding the scene, no longer sets up calls, NomadNet,
   BLE mesh and RNode a second time.
-
 - **Mac forms group their rows and label each field once.** The New Call, New Message, Add Contact,
   Join Channel, Add Interface, I2P and Yggdrasil sheets and the Identity screen laid their rows
   out in columns, and number fields showed their label twice. The BLE Mesh and RNode screens now
