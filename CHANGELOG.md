@@ -5,6 +5,12 @@ and `MARKETING_VERSION` in `project.yml`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **NomadNet pages load again.** RetiOS builds on ReticulumSwift 1.31.1, which grinds a link
+  request's stamped key on every core. A NomadNet node announces a link cost of 17.8 by default,
+  and on one core the phone often ran out the 15 s limit before the page request went out.
+
 ## [0.9.0]—background mail, and a Mac app that keeps running
 
 ### Added

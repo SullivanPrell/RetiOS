@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SullivanPrell/ReticulumSwift.git",
       "state" : {
-        "revision" : "0526b3e28c5cce72a56cb60a971bcba3370c2f0e",
-        "version" : "1.31.0"
+        "revision" : "6e6c520263b025c2ef6d1a3eaed300850081c085",
+        "version" : "1.31.1"
       }
     },
     {
